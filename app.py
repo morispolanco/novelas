@@ -19,13 +19,13 @@ def call_together_api(messages):
     payload = {
         "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
         "messages": messages,
-        "max_tokens": 2512,
+        "max_tokens": 7500,  # Aumentado para permitir capítulos más largos
         "temperature": 0.7,
         "top_p": 0.7,
         "top_k": 50,
         "repetition_penalty": 1,
         "stop": ["<|eot_id|>"],
-        "stream": False  # Cambiado a False para simplificar la implementación
+        "stream": False  # Mantenido en False para simplificar la implementación
     }
 
     try:
@@ -103,12 +103,13 @@ def generar_capitulo(idea=None):
             st.error("Primero debes generar los elementos de la novela.")
             return
         prompt = (
-            f"Usa los siguientes elementos para escribir el primer capítulo de una novela del género **{st.session_state.genre}**:\n"
+            f"Usa los siguientes elementos para escribir el primer capítulo de una novela del género **{st.session_state.genre}**. "
+            "El capítulo debe ser tres veces más largo de lo habitual, incluir diálogos entre los personajes utilizando la raya (—) y mantener un estilo narrativo coherente y atractivo.\n\n"
             f"**Personajes principales:** {st.session_state.elements.get('personajes', '')}\n"
             f"**Trama:** {st.session_state.elements.get('trama', '')}\n"
             f"**Ambientación:** {st.session_state.elements.get('ambientacion', '')}\n"
             f"**Técnica narrativa:** {st.session_state.elements.get('tecnica_narrativa', '')}\n"
-            "Escribe un capítulo detallado y atractivo."
+            "Escribe un capítulo detallado y atractivo siguiendo las indicaciones anteriores."
         )
     else:
         # Generar capítulos subsecuentes basados en el anterior y la idea del usuario
@@ -117,10 +118,11 @@ def generar_capitulo(idea=None):
             return
         ultimo_capitulo = st.session_state.chapters[-1]
         prompt = (
-            f"Basándote en el siguiente capítulo y la idea proporcionada, escribe el siguiente capítulo de la novela del género **{st.session_state.genre}**:\n\n"
+            f"Basándote en el siguiente capítulo y la idea proporcionada, escribe el siguiente capítulo de la novela del género **{st.session_state.genre}**. "
+            "El capítulo debe ser tres veces más largo de lo habitual, incluir diálogos entre los personajes utilizando la raya (—) y mantener un estilo narrativo coherente y atractivo.\n\n"
             f"**Último Capítulo:**\n{ultimo_capitulo}\n\n"
             f"**Idea para el siguiente capítulo:** {idea}\n\n"
-            "Escribe el siguiente capítulo de manera coherente y creativa."
+            "Escribe el siguiente capítulo de manera coherente y creativa siguiendo las indicaciones anteriores."
         )
     messages = [
         {"role": "system", "content": "Eres un escritor creativo que ayuda a desarrollar novelas."},
