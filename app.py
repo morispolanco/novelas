@@ -8,34 +8,38 @@ st.set_page_config(page_title="Asistente para Escribir Novelas", layout="wide")
 # Título de la aplicación
 st.title("📚 Asistente para Escribir tu Novela Capítulo por Capítulo")
 
-# Función para llamar a la API de Meta Llama a través de Hugging Face
-def call_meta_llama_api(prompt):
-    api_url = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo"
+# Función para llamar a la API de Together con el modelo Meta-Llama-3.1-70B-Instruct-Turbo
+def call_together_api(prompt):
+    api_url = "https://api.together.xyz/v1/chat/completions"
     headers = {
-        "Authorization": f"Bearer {st.secrets['HUGGINGFACE_API_KEY']}",
+        "Authorization": f"Bearer {st.secrets['TOGETHER_API_KEY']}",
         "Content-Type": "application/json"
     }
     payload = {
-        "inputs": prompt,
-        "parameters": {
-            "max_new_tokens": 2000,  # Ajusta según tus necesidades y límites de la API
-            "temperature": 0.7,
-            "top_p": 0.7,
-            "top_k": 50,
-            "repetition_penalty": 1.2,
-            "stop": ["<|eot_id|>"]
-        }
+        "model": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+        "messages": [
+            {"role": "system", "content": "Eres un escritor creativo que ayuda a desarrollar novelas."},
+            {"role": "user", "content": prompt}
+        ],
+        "max_tokens": 3000,  # Ajusta este valor según las limitaciones de la API
+        "temperature": 0.7,
+        "top_p": 0.7,
+        "top_k": 50,
+        "repetition_penalty": 1.2,
+        "stop": ["<|eot_id|>"],
+        "stream": False
     }
 
     try:
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
-        # La respuesta de Hugging Face suele ser una lista de resultados
         data = response.json()
-        if isinstance(data, dict) and "error" in data:
-            st.error(f"Error en la API: {data['error']}")
+        # Verificar si la respuesta contiene errores
+        if 'error' in data:
+            st.error(f"Error en la API: {data['error']['message']}")
             return None
-        return data[0]['generated_text'].strip()
+        # Asumiendo que la respuesta contiene 'choices' con 'message' y 'content'
+        return data['choices'][0]['message']['content'].strip()
     except requests.exceptions.RequestException as e:
         st.error(f"Error en la llamada a la API: {e}")
         return None
@@ -65,15 +69,15 @@ def generar_elementos():
         "4. **Técnica narrativa:** Indica el punto de vista y el estilo narrativo que se utilizará.\n"
     )
     with st.spinner("Generando elementos de la novela..."):
-        resultado = call_meta_llama_api(prompt)
+        resultado = call_together_api(prompt)
     if resultado:
         # Parsear el resultado asumiendo que está en formato Markdown
         try:
             elementos = {}
             # Utilizamos expresiones regulares para extraer las secciones
-            personajes_match = re.search(r"\*\*Personajes principales:\*\*\s*(.*)", resultado, re.DOTALL)
-            trama_match = re.search(r"\*\*Trama:\*\*\s*(.*)", resultado, re.DOTALL)
-            ambientacion_match = re.search(r"\*\*Ambientación:\*\*\s*(.*)", resultado, re.DOTALL)
+            personajes_match = re.search(r"\*\*Personajes principales:\*\*\s*(.*?)(?=\n\*\*Trama:|\Z)", resultado, re.DOTALL)
+            trama_match = re.search(r"\*\*Trama:\*\*\s*(.*?)(?=\n\*\*Ambientación:|\Z)", resultado, re.DOTALL)
+            ambientacion_match = re.search(r"\*\*Ambientación:\*\*\s*(.*?)(?=\n\*\*Técnica narrativa:|\Z)", resultado, re.DOTALL)
             tecnica_match = re.search(r"\*\*Técnica narrativa:\*\*\s*(.*)", resultado, re.DOTALL)
 
             if personajes_match:
@@ -123,7 +127,7 @@ def generar_capitulo(idea=None):
             "Escribe el siguiente capítulo de manera coherente y creativa siguiendo las indicaciones anteriores."
         )
     with st.spinner("Generando capítulo..."):
-        resultado = call_meta_llama_api(prompt)
+        resultado = call_together_api(prompt)
     if resultado:
         st.session_state.chapters.append(resultado)
         st.success("Capítulo generado exitosamente.")
