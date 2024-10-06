@@ -1,6 +1,5 @@
 import streamlit as st
 import requests
-import json
 import re
 
 # Configuración de la página
@@ -134,6 +133,28 @@ def generar_capitulo(idea=None):
         st.session_state.chapters.append(resultado)
         st.success("Capítulo generado exitosamente.")
 
+# Función para editar los elementos de la novela
+def editar_elementos():
+    st.subheader("📑 Editar Elementos de la Novela")
+    with st.expander("Editar Personajes Principales"):
+        elementos_editados = st.text_area("Personajes principales:", value=st.session_state.elements.get('personajes', ''), height=150)
+        st.session_state.elements['personajes'] = elementos_editados.strip()
+
+    with st.expander("Editar Trama"):
+        trama_editada = st.text_area("Trama:", value=st.session_state.elements.get('trama', ''), height=150)
+        st.session_state.elements['trama'] = trama_editada.strip()
+
+    with st.expander("Editar Ambientación"):
+        ambientacion_editada = st.text_area("Ambientación:", value=st.session_state.elements.get('ambientacion', ''), height=150)
+        st.session_state.elements['ambientacion'] = ambientacion_editada.strip()
+
+    with st.expander("Editar Técnica Narrativa"):
+        tecnica_editada = st.text_area("Técnica narrativa:", value=st.session_state.elements.get('tecnica_narrativa', ''), height=150)
+        st.session_state.elements['tecnica_narrativa'] = tecnica_editada.strip()
+
+    if st.button("Guardar Cambios", key="guardar_cambios_btn"):
+        st.success("Elementos actualizados exitosamente.")
+
 # Interfaz de la aplicación
 st.header("📖 Genera tu Novela")
 
@@ -158,6 +179,8 @@ if not st.session_state.chapters:
         st.markdown(f"**Ambientación:** {st.session_state.elements.get('ambientacion', '')}")
         st.markdown(f"**Técnica Narrativa:** {st.session_state.elements.get('tecnica_narrativa', '')}")
         st.markdown("---")
+        # Opción para editar los elementos
+        editar_elementos()
         # Paso 2: Generar el Primer Capítulo
         st.subheader("Paso 2: Generar el Primer Capítulo")
         if st.button("Generar Primer Capítulo", key="generar_primer_capitulo_btn"):
