@@ -110,42 +110,84 @@ def generar_elementos():
             st.error(f"Error al procesar los elementos: {e}")
 
 # Función para generar un capítulo
-def generar_capitulo(idea=None):
-    if not st.session_state.chapters:
-        # Generar el primer capítulo basado en los elementos
-        if not st.session_state.elements:
-            st.error("Primero debes generar los elementos de la novela.")
-            return
-        prompt = (
-            f"Usa los siguientes elementos para escribir el primer capítulo de una novela del género **{st.session_state.genre}** basada en la sinopsis proporcionada y dirigida a la audiencia definida. "
-            "El capítulo debe ser tres veces más largo de lo habitual, incluir diálogos entre los personajes utilizando la raya (—) y mantener un estilo narrativo coherente y atractivo.\n\n"
-            f"**Sinopsis:** {st.session_state.synopsis}\n"
-            f"**Audiencia:** {st.session_state.audience}\n"
-            f"**Personajes principales:** {st.session_state.elements.get('personajes', '')}\n"
-            f"**Trama:** {st.session_state.elements.get('trama', '')}\n"
-            f"**Ambientación:** {st.session_state.elements.get('ambientacion', '')}\n"
-            f"**Técnica narrativa:** {st.session_state.elements.get('tecnica_narrativa', '')}\n\n"
-            "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama."
-        )
+def generar_capitulo(idea=None, index=None):
+    if index is None:
+        # Generar un nuevo capítulo
+        if not st.session_state.chapters:
+            # Generar el primer capítulo basado en los elementos
+            if not st.session_state.elements:
+                st.error("Primero debes generar los elementos de la novela.")
+                return
+            prompt = (
+                f"Usa los siguientes elementos para escribir el primer capítulo de una novela del género **{st.session_state.genre}** basada en la sinopsis proporcionada y dirigida a la audiencia definida. "
+                "El capítulo debe ser tres veces más largo de lo habitual, incluir diálogos entre los personajes utilizando la raya (—) y mantener un estilo narrativo coherente y atractivo.\n\n"
+                f"**Sinopsis:** {st.session_state.synopsis}\n"
+                f"**Audiencia:** {st.session_state.audience}\n"
+                f"**Personajes principales:** {st.session_state.elements.get('personajes', '')}\n"
+                f"**Trama:** {st.session_state.elements.get('trama', '')}\n"
+                f"**Ambientación:** {st.session_state.elements.get('ambientacion', '')}\n"
+                f"**Técnica narrativa:** {st.session_state.elements.get('tecnica_narrativa', '')}\n\n"
+                "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama."
+            )
+        else:
+            # Generar capítulos subsiguientes basados en el anterior y la idea del usuario
+            if not idea:
+                st.error("Por favor, proporciona una idea para el siguiente capítulo.")
+                return
+            ultimo_capitulo = st.session_state.chapters[-1]
+            prompt = (
+                f"Basándote en el siguiente capítulo y la idea proporcionada, escribe el siguiente capítulo de la novela del género **{st.session_state.genre}**. "
+                "El capítulo debe ser tres veces más largo de lo habitual, incluir diálogos entre los personajes utilizando la raya (—) y mantener un estilo narrativo coherente y atractivo.\n\n"
+                f"**Último Capítulo:**\n{ultimo_capitulo}\n\n"
+                f"**Idea para el siguiente capítulo:** {idea}\n\n"
+                "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama.\n"
+                "No incluyas nuevamente los elementos fundamentales (personajes, trama, ambientación, técnica narrativa) en este capítulo."
+            )
     else:
-        # Generar capítulos subsecuentes basados en el anterior y la idea del usuario
+        # Reescribir un capítulo existente
         if not idea:
-            st.error("Por favor, proporciona una idea para el siguiente capítulo.")
+            st.error("Por favor, proporciona una nueva idea para reescribir el capítulo.")
             return
-        ultimo_capitulo = st.session_state.chapters[-1]
-        prompt = (
-            f"Basándote en el siguiente capítulo y la idea proporcionada, escribe el siguiente capítulo de la novela del género **{st.session_state.genre}**. "
-            "El capítulo debe ser tres veces más largo de lo habitual, incluir diálogos entre los personajes utilizando la raya (—) y mantener un estilo narrativo coherente y atractivo.\n\n"
-            f"**Último Capítulo:**\n{ultimo_capitulo}\n\n"
-            f"**Idea para el siguiente capítulo:** {idea}\n\n"
-            "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama.\n"
-            "No incluyas nuevamente los elementos fundamentales (personajes, trama, ambientación, técnica narrativa) en este capítulo."
-        )
+        if index < 0 or index >= len(st.session_state.chapters):
+            st.error("Índice de capítulo inválido.")
+            return
+        if index == 0:
+            # Reescribir el primer capítulo basado en los elementos
+            prompt = (
+                f"Usa los siguientes elementos para reescribir el **Capítulo {index + 1}** de una novela del género **{st.session_state.genre}** basada en la sinopsis proporcionada y dirigida a la audiencia definida. "
+                "El capítulo debe ser tres veces más largo de lo habitual, incluir diálogos entre los personajes utilizando la raya (—) y mantener un estilo narrativo coherente y atractivo.\n\n"
+                f"**Sinopsis:** {st.session_state.synopsis}\n"
+                f"**Audiencia:** {st.session_state.audience}\n"
+                f"**Personajes principales:** {st.session_state.elements.get('personajes', '')}\n"
+                f"**Trama:** {st.session_state.elements.get('trama', '')}\n"
+                f"**Ambientación:** {st.session_state.elements.get('ambientacion', '')}\n"
+                f"**Técnica narrativa:** {st.session_state.elements.get('tecnica_narrativa', '')}\n\n"
+                f"**Nueva Idea para el Capítulo {index + 1}:** {idea}\n\n"
+                "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama."
+            )
+        else:
+            # Reescribir capítulos subsiguientes basados en el anterior y la nueva idea
+            anterior_capitulo = st.session_state.chapters[index - 1]
+            prompt = (
+                f"Basándote en el siguiente capítulo y la nueva idea proporcionada, reescribe el **Capítulo {index + 1}** de la novela del género **{st.session_state.genre}**. "
+                "El capítulo debe ser tres veces más largo de lo habitual, incluir diálogos entre los personajes utilizando la raya (—) y mantener un estilo narrativo coherente y atractivo.\n\n"
+                f"**Capítulo Anterior:**\n{anterior_capitulo}\n\n"
+                f"**Nueva Idea para el Capítulo {index + 1}:** {idea}\n\n"
+                "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama.\n"
+                "No incluyas nuevamente los elementos fundamentales (personajes, trama, ambientación, técnica narrativa) en este capítulo."
+            )
+
     with st.spinner("Generando capítulo..."):
         resultado = call_together_api(prompt)
     if resultado:
-        st.session_state.chapters.append(resultado)
-        st.success("Capítulo generado exitosamente.")
+        if index is None:
+            # Añadir un nuevo capítulo
+            st.session_state.chapters.append(resultado)
+            st.success("Capítulo generado exitosamente.")
+        else:
+            # Reemplazar un capítulo existente
+            st.session_state.chapters[index] = resultado
+            st.success(f"Capítulo {index + 1} reescrito exitosamente.")
 
 # Función para editar los elementos de la novela
 def editar_elementos():
@@ -299,12 +341,23 @@ else:
         st.markdown(f"### **Capítulo {len(st.session_state.chapters)}:**")
         st.write(st.session_state.chapters[-1])
 
-# Mostrar todos los capítulos generados
+# Mostrar todos los capítulos generados con opción de reescribir
 if st.session_state.chapters:
-    st.sidebar.header("🔍 Navegar por los Capítulos")
+    st.sidebar.header("🔍 Navegar y Reescribir Capítulos")
     for idx, cap in enumerate(st.session_state.chapters, 1):
         with st.sidebar.expander(f"Capítulo {idx}"):
             st.write(cap)
+            if st.button(f"Reescribir Capítulo {idx}", key=f"reescribir_capitulo_{idx}"):
+                # Mostrar un formulario para ingresar la nueva idea
+                with st.modal(key=f"modal_reescribir_{idx}"):
+                    nueva_idea = st.text_input(f"Nueva idea para el Capítulo {idx}:", key=f"nueva_idea_{idx}")
+                    if st.button(f"Actualizar Capítulo {idx}", key=f"actualizar_capitulo_{idx}"):
+                        if nueva_idea.strip() == "":
+                            st.error("La nueva idea no puede estar vacía.")
+                        else:
+                            generar_capitulo(idea=nueva_idea, index=idx-1)
+                            st.success(f"Capítulo {idx} reescrito exitosamente.")
+                            st.experimental_rerun()
 
 # Mostrar el estado de la sesión (opcional, para depuración)
 mostrar_estado()
