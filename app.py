@@ -176,7 +176,6 @@ def generar_capitulo(idea=None, index=None):
                 "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama.\n"
                 "No incluyas nuevamente los elementos fundamentales (personajes, trama, ambientación, técnica narrativa) en este capítulo."
             )
-
     with st.spinner("Generando capítulo..."):
         resultado = call_together_api(prompt)
     if resultado:
@@ -188,6 +187,8 @@ def generar_capitulo(idea=None, index=None):
             # Reemplazar un capítulo existente
             st.session_state.chapters[index] = resultado
             st.success(f"Capítulo {index + 1} reescrito exitosamente.")
+    else:
+        st.error("No se pudo generar el capítulo. Por favor, intenta de nuevo.")
 
 # Función para editar los elementos de la novela
 def editar_elementos():
@@ -349,7 +350,7 @@ if st.session_state.chapters:
             st.write(cap)
             if st.button(f"Reescribir Capítulo {idx}", key=f"reescribir_capitulo_{idx}"):
                 # Mostrar un formulario para ingresar la nueva idea
-                with st.modal(key=f"modal_reescribir_{idx}"):
+                with st.expander(f"Reescribir Capítulo {idx}", expanded=True):
                     nueva_idea = st.text_input(f"Nueva idea para el Capítulo {idx}:", key=f"nueva_idea_{idx}")
                     if st.button(f"Actualizar Capítulo {idx}", key=f"actualizar_capitulo_{idx}"):
                         if nueva_idea.strip() == "":
