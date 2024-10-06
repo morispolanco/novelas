@@ -21,7 +21,7 @@ def call_together_api(prompt):
             {"role": "system", "content": "Eres un escritor creativo que ayuda a desarrollar novelas."},
             {"role": "user", "content": prompt}
         ],
-        "max_tokens": 3000,  # Ajusta este valor según las limitaciones de la API
+        "max_tokens": 4000,  # Aumentado para permitir capítulos más largos
         "temperature": 0.7,
         "top_p": 0.7,
         "top_k": 50,
