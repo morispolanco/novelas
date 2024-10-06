@@ -348,6 +348,7 @@ if st.session_state.chapters:
     for idx, cap in enumerate(st.session_state.chapters, 1):
         with st.sidebar.expander(f"Capítulo {idx}"):
             st.write(cap)
+            # Botón para reescribir el capítulo
             if st.button(f"Reescribir Capítulo {idx}", key=f"reescribir_capitulo_{idx}"):
                 # Mostrar un formulario para ingresar la nueva idea
                 with st.expander(f"Reescribir Capítulo {idx}", expanded=True):
