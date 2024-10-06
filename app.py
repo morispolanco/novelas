@@ -18,20 +18,20 @@ def call_together_api(messages):
     payload = {
         "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
         "messages": messages,
-        "max_tokens": 7500,  # Aumentado para permitir capítulos más largos
+        "max_tokens": 4000,  # Ajustado a un valor razonable
         "temperature": 0.7,
         "top_p": 0.7,
         "top_k": 50,
         "repetition_penalty": 1,
         "stop": ["<|eot_id|>"],
-        "stream": False  # Mantenido en False para simplificar la implementación
+        "stream": False
     }
 
     try:
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
         data = response.json()
-        # Asumiendo que la respuesta contiene 'choices' con 'message' y 'content'
+        # Asegurarse de que la respuesta tiene el formato esperado
         return data['choices'][0]['message']['content'].strip()
     except requests.exceptions.RequestException as e:
         st.error(f"Error en la llamada a la API: {e}")
@@ -165,7 +165,10 @@ if not st.session_state.chapters:
         "Fantasía", "Ciencia Ficción", "Misterio", "Romance",
         "Terror", "Aventura", "Histórica", "Thriller", "Drama", "Comedia"
     ]
-    st.session_state.genre = st.selectbox("Selecciona el género de tu novela:", generos)
+    # Utilizamos una variable temporal para evitar sobrescribir en cada interacción
+    selected_genre = st.selectbox("Selecciona el género de tu novela:", generos, index=generos.index(st.session_state.genre) if st.session_state.genre in generos else 0)
+    if st.session_state.genre != selected_genre:
+        st.session_state.genre = selected_genre
 
     # Paso 1: Generar los Elementos de la Novela
     st.subheader("Paso 1: Generar Elementos de la Novela")
