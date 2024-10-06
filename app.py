@@ -169,8 +169,11 @@ else:
     st.markdown("### **Capítulo Anterior:**")
     st.write(st.session_state.chapters[-1])
     st.markdown("---")
-    idea = st.text_input("Ingresa una idea para el siguiente capítulo:", key="idea_input")
-    if st.button("Generar Siguiente Capítulo", key="generar_siguiente_capitulo_btn"):
+    # Usamos un formulario para manejar mejor la entrada del usuario
+    with st.form(key='idea_form'):
+        idea = st.text_input("Ingresa una idea para el siguiente capítulo:")
+        submit_button = st.form_submit_button(label="Generar Siguiente Capítulo")
+    if submit_button:
         generar_capitulo(idea=idea)
     if st.session_state.chapters:
         st.markdown(f"### **Capítulo {len(st.session_state.chapters)}:**")
