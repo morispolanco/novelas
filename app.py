@@ -68,11 +68,11 @@ def generar_elementos():
     prompt = (
         f"Necesito que me ayudes a crear una novela del género **{st.session_state.genre}** basada en la siguiente sinopsis:\n\n"
         f"**Sinopsis:** {st.session_state.synopsis}\n\n"
-        "Por favor, genera los siguientes elementos:\n"
-        "1. **Personajes principales:** Describe al menos tres personajes principales con sus características.\n"
-        "2. **Trama:** Esboza la trama principal de la novela.\n"
-        "3. **Ambientación:** Describe el mundo o entorno donde se desarrolla la historia.\n"
-        "4. **Técnica narrativa:** Indica el punto de vista y el estilo narrativo que se utilizará.\n"
+        "Por favor, genera los siguientes elementos de manera detallada y coherente:\n"
+        "1. **Personajes principales:** Describe al menos tres personajes principales con sus características, incluyendo personalidad, apariencia y motivaciones.\n"
+        "2. **Trama:** Esboza la trama principal de la novela, incluyendo el conflicto central y los puntos de giro principales.\n"
+        "3. **Ambientación:** Describe el mundo o entorno donde se desarrolla la historia, incluyendo detalles geográficos, culturales y temporales.\n"
+        "4. **Técnica narrativa:** Indica el punto de vista (primera persona, tercera persona, etc.) y el estilo narrativo que se utilizará (descriptivo, dinámico, etc.).\n"
     )
     with st.spinner("Generando elementos de la novela..."):
         resultado = call_together_api(prompt)
@@ -116,8 +116,8 @@ def generar_capitulo(idea=None):
             f"**Personajes principales:** {st.session_state.elements.get('personajes', '')}\n"
             f"**Trama:** {st.session_state.elements.get('trama', '')}\n"
             f"**Ambientación:** {st.session_state.elements.get('ambientacion', '')}\n"
-            f"**Técnica narrativa:** {st.session_state.elements.get('tecnica_narrativa', '')}\n"
-            "Escribe un capítulo detallado y atractivo siguiendo las indicaciones anteriores."
+            f"**Técnica narrativa:** {st.session_state.elements.get('tecnica_narrativa', '')}\n\n"
+            "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama."
         )
     else:
         # Generar capítulos subsecuentes basados en el anterior y la idea del usuario
@@ -130,7 +130,7 @@ def generar_capitulo(idea=None):
             "El capítulo debe ser tres veces más largo de lo habitual, incluir diálogos entre los personajes utilizando la raya (—) y mantener un estilo narrativo coherente y atractivo.\n\n"
             f"**Último Capítulo:**\n{ultimo_capitulo}\n\n"
             f"**Idea para el siguiente capítulo:** {idea}\n\n"
-            "Escribe el siguiente capítulo de manera coherente y creativa siguiendo las indicaciones anteriores."
+            "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama."
         )
     with st.spinner("Generando capítulo..."):
         resultado = call_together_api(prompt)
@@ -168,6 +168,18 @@ def ingresar_sinopsis():
         st.session_state.synopsis = sinopsis.strip()
         st.success("Sinopsis actualizada exitosamente.")
 
+# Función para mostrar el estado de la sesión (para depuración)
+def mostrar_estado():
+    st.sidebar.markdown("## 📊 Estado de la Sesión")
+    st.sidebar.write("### Género:")
+    st.sidebar.write(st.session_state.genre)
+    st.sidebar.write("### Sinopsis:")
+    st.sidebar.write(st.session_state.synopsis)
+    st.sidebar.write("### Elementos:")
+    st.sidebar.write(st.session_state.elements)
+    st.sidebar.write("### Capítulos Generados:")
+    st.sidebar.write(len(st.session_state.chapters))
+
 # Interfaz de la aplicación
 st.header("📖 Genera tu Novela")
 
@@ -179,7 +191,11 @@ if not st.session_state.chapters:
         "Terror", "Aventura", "Histórica", "Thriller", "Drama", "Comedia"
     ]
     # Utilizamos una variable temporal para evitar sobrescribir en cada interacción
-    selected_genre = st.selectbox("Selecciona el género de tu novela:", generos, index=generos.index(st.session_state.genre) if st.session_state.genre in generos else 0)
+    selected_genre = st.selectbox(
+        "Selecciona el género de tu novela:",
+        generos,
+        index=generos.index(st.session_state.genre) if st.session_state.genre in generos else 0
+    )
     if st.session_state.genre != selected_genre:
         st.session_state.genre = selected_genre
 
@@ -230,3 +246,6 @@ if st.session_state.chapters:
     for idx, cap in enumerate(st.session_state.chapters, 1):
         with st.sidebar.expander(f"Capítulo {idx}"):
             st.write(cap)
+
+# Mostrar el estado de la sesión (opcional, para depuración)
+mostrar_estado()
