@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import json
+import re
 
 # Configuración de la página
 st.set_page_config(page_title="Asistente para Escribir Novelas", layout="wide")
@@ -36,6 +37,9 @@ def call_together_api(messages):
     except requests.exceptions.RequestException as e:
         st.error(f"Error en la llamada a la API: {e}")
         return None
+    except (KeyError, IndexError) as e:
+        st.error(f"Formato inesperado de la respuesta de la API: {e}")
+        return None
 
 # Inicialización del estado de la sesión
 if 'elements' not in st.session_state:
@@ -62,29 +66,32 @@ def generar_elementos():
         {"role": "system", "content": "Eres un asistente creativo que ayuda a escribir novelas."},
         {"role": "user", "content": prompt}
     ]
-    resultado = call_together_api(messages)
+    with st.spinner("Generando elementos de la novela..."):
+        resultado = call_together_api(messages)
     if resultado:
         # Parsear el resultado asumiendo que está en formato Markdown
         try:
             elementos = {}
-            current_key = None
-            for linea in resultado.split('\n'):
-                if linea.startswith("**Personajes principales:**"):
-                    current_key = 'personajes'
-                    elementos[current_key] = linea.replace("**Personajes principales:**", "").strip()
-                elif linea.startswith("**Trama:**"):
-                    current_key = 'trama'
-                    elementos[current_key] = linea.replace("**Trama:**", "").strip()
-                elif linea.startswith("**Ambientación:**"):
-                    current_key = 'ambientacion'
-                    elementos[current_key] = linea.replace("**Ambientación:**", "").strip()
-                elif linea.startswith("**Técnica narrativa:**"):
-                    current_key = 'tecnica_narrativa'
-                    elementos[current_key] = linea.replace("**Técnica narrativa:**", "").strip()
-                elif current_key and linea.strip():
-                    elementos[current_key] += " " + linea.strip()
-            st.session_state.elements = elementos
-            st.success("Elementos generados exitosamente.")
+            # Utilizamos expresiones regulares para extraer las secciones
+            personajes_match = re.search(r"\*\*Personajes principales:\*\*\s*(.*)", resultado, re.DOTALL)
+            trama_match = re.search(r"\*\*Trama:\*\*\s*(.*)", resultado, re.DOTALL)
+            ambientacion_match = re.search(r"\*\*Ambientación:\*\*\s*(.*)", resultado, re.DOTALL)
+            tecnica_match = re.search(r"\*\*Técnica narrativa:\*\*\s*(.*)", resultado, re.DOTALL)
+
+            if personajes_match:
+                elementos['personajes'] = personajes_match.group(1).strip()
+            if trama_match:
+                elementos['trama'] = trama_match.group(1).strip()
+            if ambientacion_match:
+                elementos['ambientacion'] = ambientacion_match.group(1).strip()
+            if tecnica_match:
+                elementos['tecnica_narrativa'] = tecnica_match.group(1).strip()
+
+            if elementos:
+                st.session_state.elements = elementos
+                st.success("Elementos generados exitosamente.")
+            else:
+                st.error("No se pudieron extraer los elementos de la respuesta de la API.")
         except Exception as e:
             st.error(f"Error al procesar los elementos: {e}")
 
@@ -97,10 +104,10 @@ def generar_capitulo(idea=None):
             return
         prompt = (
             f"Usa los siguientes elementos para escribir el primer capítulo de una novela del género **{st.session_state.genre}**:\n"
-            f"**Personajes principales:** {st.session_state.elements['personajes']}\n"
-            f"**Trama:** {st.session_state.elements['trama']}\n"
-            f"**Ambientación:** {st.session_state.elements['ambientacion']}\n"
-            f"**Técnica narrativa:** {st.session_state.elements['tecnica_narrativa']}\n"
+            f"**Personajes principales:** {st.session_state.elements.get('personajes', '')}\n"
+            f"**Trama:** {st.session_state.elements.get('trama', '')}\n"
+            f"**Ambientación:** {st.session_state.elements.get('ambientacion', '')}\n"
+            f"**Técnica narrativa:** {st.session_state.elements.get('tecnica_narrativa', '')}\n"
             "Escribe un capítulo detallado y atractivo."
         )
     else:
@@ -119,7 +126,8 @@ def generar_capitulo(idea=None):
         {"role": "system", "content": "Eres un escritor creativo que ayuda a desarrollar novelas."},
         {"role": "user", "content": prompt}
     ]
-    resultado = call_together_api(messages)
+    with st.spinner("Generando capítulo..."):
+        resultado = call_together_api(messages)
     if resultado:
         st.session_state.chapters.append(resultado)
         st.success("Capítulo generado exitosamente.")
@@ -128,29 +136,29 @@ def generar_capitulo(idea=None):
 st.header("📖 Genera tu Novela")
 
 if not st.session_state.chapters:
-    # Paso 1: Seleccionar el Género
+    # Paso 0: Seleccionar el Género
     st.subheader("Paso 0: Seleccionar el Género de la Novela")
     generos = [
-        "Fantasía", "Ciencia Ficción", "Misterio", "Romance", 
+        "Fantasía", "Ciencia Ficción", "Misterio", "Romance",
         "Terror", "Aventura", "Histórica", "Thriller", "Drama", "Comedia"
     ]
     st.session_state.genre = st.selectbox("Selecciona el género de tu novela:", generos)
 
     # Paso 1: Generar los Elementos de la Novela
     st.subheader("Paso 1: Generar Elementos de la Novela")
-    if st.button("Generar Elementos"):
+    if st.button("Generar Elementos", key="generar_elementos_btn"):
         generar_elementos()
     if st.session_state.elements:
         st.markdown("### **Elementos Generados:**")
         st.markdown(f"**Género:** {st.session_state.genre}")
-        st.markdown(f"**Personajes Principales:** {st.session_state.elements['personajes']}")
-        st.markdown(f"**Trama:** {st.session_state.elements['trama']}")
-        st.markdown(f"**Ambientación:** {st.session_state.elements['ambientacion']}")
-        st.markdown(f"**Técnica Narrativa:** {st.session_state.elements['tecnica_narrativa']}")
+        st.markdown(f"**Personajes Principales:** {st.session_state.elements.get('personajes', '')}")
+        st.markdown(f"**Trama:** {st.session_state.elements.get('trama', '')}")
+        st.markdown(f"**Ambientación:** {st.session_state.elements.get('ambientacion', '')}")
+        st.markdown(f"**Técnica Narrativa:** {st.session_state.elements.get('tecnica_narrativa', '')}")
         st.markdown("---")
         # Paso 2: Generar el Primer Capítulo
         st.subheader("Paso 2: Generar el Primer Capítulo")
-        if st.button("Generar Primer Capítulo"):
+        if st.button("Generar Primer Capítulo", key="generar_primer_capitulo_btn"):
             generar_capitulo()
         if st.session_state.chapters:
             st.markdown("### **Capítulo 1:**")
@@ -161,8 +169,8 @@ else:
     st.markdown("### **Capítulo Anterior:**")
     st.write(st.session_state.chapters[-1])
     st.markdown("---")
-    idea = st.text_input("Ingresa una idea para el siguiente capítulo:")
-    if st.button("Generar Siguiente Capítulo"):
+    idea = st.text_input("Ingresa una idea para el siguiente capítulo:", key="idea_input")
+    if st.button("Generar Siguiente Capítulo", key="generar_siguiente_capitulo_btn"):
         generar_capitulo(idea=idea)
     if st.session_state.chapters:
         st.markdown(f"### **Capítulo {len(st.session_state.chapters)}:**")
