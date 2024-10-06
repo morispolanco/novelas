@@ -138,7 +138,8 @@ def generar_capitulo(idea=None):
             "El capítulo debe ser tres veces más largo de lo habitual, incluir diálogos entre los personajes utilizando la raya (—) y mantener un estilo narrativo coherente y atractivo.\n\n"
             f"**Último Capítulo:**\n{ultimo_capitulo}\n\n"
             f"**Idea para el siguiente capítulo:** {idea}\n\n"
-            "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama."
+            "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama.\n"
+            "No incluyas nuevamente los elementos fundamentales (personajes, trama, ambientación, técnica narrativa) en este capítulo."
         )
     with st.spinner("Generando capítulo..."):
         resultado = call_together_api(prompt)
@@ -290,7 +291,10 @@ else:
         idea = st.text_input("Ingresa una idea para el siguiente capítulo:", key="input_idea")
         submit_button = st.form_submit_button(label="Generar Siguiente Capítulo")
     if submit_button:
-        generar_capitulo(idea=idea)
+        if idea.strip() == "":
+            st.error("La idea para el siguiente capítulo no puede estar vacía.")
+        else:
+            generar_capitulo(idea=idea)
     if st.session_state.chapters:
         st.markdown(f"### **Capítulo {len(st.session_state.chapters)}:**")
         st.write(st.session_state.chapters[-1])
