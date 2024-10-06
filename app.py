@@ -125,7 +125,11 @@ def generar_capitulo(idea=None):
             f"**Trama:** {st.session_state.elements.get('trama', '')}\n"
             f"**Ambientación:** {st.session_state.elements.get('ambientacion', '')}\n"
             f"**Técnica narrativa:** {st.session_state.elements.get('tecnica_narrativa', '')}\n\n"
-            "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama."
+            "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama.\n\n"
+            "Ejemplo de diálogo:\n\n"
+            "— Hola, ¿cómo estás?\n\n"
+            "— Muy bien, gracias. ¿Y tú?\n\n"
+            "Continúa escribiendo los diálogos de esta manera."
         )
     else:
         # Generar capítulos subsecuentes basados en el anterior y la idea del usuario
@@ -138,14 +142,19 @@ def generar_capitulo(idea=None):
             "El capítulo debe ser tres veces más largo de lo habitual, incluir diálogos entre los personajes utilizando la raya (—) y mantener un estilo narrativo coherente y atractivo.\n\n"
             f"**Último Capítulo:**\n{ultimo_capitulo}\n\n"
             f"**Idea para el siguiente capítulo:** {idea}\n\n"
-            "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama."
+            "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama.\n\n"
+            "Ejemplo de diálogo:\n\n"
+            "— ¿Qué te parece nuestra próxima aventura?\n\n"
+            "— Creo que será aún más emocionante que la anterior.\n\n"
+            "Continúa escribiendo los diálogos de esta manera."
         )
     with st.spinner("Generando capítulo..."):
         resultado = call_together_api(prompt)
     if resultado:
         st.session_state.chapters.append(resultado)
         st.success("Capítulo generado exitosamente.")
-
+    else:
+        st.error("No se pudo generar el capítulo. Revisa los mensajes de error anteriores.")
 
 # Función para editar los elementos de la novela
 def editar_elementos():
@@ -161,51 +170,50 @@ def editar_elementos():
             "Selecciona el género de tu novela:",
             generos,
             index=generos.index(st.session_state.genre) if st.session_state.genre in generos else 0,
-            key="selectbox_genero"
+            key="selectbox_genero_edit"
         )
         if st.session_state.genre != selected_genre:
             st.session_state.genre = selected_genre
 
     with st.expander("Editar Sinopsis"):
         # Agregar clave única para el text_area de la sinopsis
-        sinopsis_editada = st.text_area("Sinopsis:", value=st.session_state.synopsis, height=200, key="text_area_sinopsis")
+        sinopsis_editada = st.text_area("Sinopsis:", value=st.session_state.synopsis, height=200, key="text_area_sinopsis_edit")
         if sinopsis_editada.strip() != st.session_state.synopsis:
             st.session_state.synopsis = sinopsis_editada.strip()
 
     with st.expander("Editar Audiencia"):
         # Agregar clave única para el text_area de la audiencia
-        audiencia_editada = st.text_area("Audiencia (e.g., edad, intereses):", value=st.session_state.audience, height=100, key="text_area_audiencia")
+        audiencia_editada = st.text_area("Audiencia (e.g., edad, intereses):", value=st.session_state.audience, height=100, key="text_area_audiencia_edit")
         if audiencia_editada.strip() != st.session_state.audience:
             st.session_state.audience = audiencia_editada.strip()
 
     with st.expander("Editar Personajes Principales"):
         # Agregar clave única para el text_area de los personajes
-        personajes_editados = st.text_area("Personajes principales:", value=st.session_state.elements.get('personajes', ''), height=150, key="text_area_personajes")
+        personajes_editados = st.text_area("Personajes principales:", value=st.session_state.elements.get('personajes', ''), height=150, key="text_area_personajes_edit")
         st.session_state.elements['personajes'] = personajes_editados.strip()
 
     with st.expander("Editar Trama"):
         # Agregar clave única para el text_area de la trama
-        trama_editada = st.text_area("Trama:", value=st.session_state.elements.get('trama', ''), height=150, key="text_area_trama")
+        trama_editada = st.text_area("Trama:", value=st.session_state.elements.get('trama', ''), height=150, key="text_area_trama_edit")
         st.session_state.elements['trama'] = trama_editada.strip()
 
     with st.expander("Editar Ambientación"):
         # Agregar clave única para el text_area de la ambientación
-        ambientacion_editada = st.text_area("Ambientación:", value=st.session_state.elements.get('ambientacion', ''), height=150, key="text_area_ambientacion")
+        ambientacion_editada = st.text_area("Ambientación:", value=st.session_state.elements.get('ambientacion', ''), height=150, key="text_area_ambientacion_edit")
         st.session_state.elements['ambientacion'] = ambientacion_editada.strip()
 
     with st.expander("Editar Técnica Narrativa"):
         # Agregar clave única para el text_area de la técnica narrativa
-        tecnica_editada = st.text_area("Técnica narrativa:", value=st.session_state.elements.get('tecnica_narrativa', ''), height=150, key="text_area_tecnica")
+        tecnica_editada = st.text_area("Técnica narrativa:", value=st.session_state.elements.get('tecnica_narrativa', ''), height=150, key="text_area_tecnica_edit")
         st.session_state.elements['tecnica_narrativa'] = tecnica_editada.strip()
 
-    if st.button("Guardar Cambios", key="guardar_cambios_btn"):
+    if st.button("Guardar Cambios", key="guardar_cambios_btn_edit"):
         st.success("Elementos actualizados exitosamente.")
-
 
 # Función para ingresar la sinopsis
 def ingresar_sinopsis():
     st.subheader("📄 Ingresar Sinopsis")
-    sinopsis = st.text_area("Escribe una sinopsis para tu novela:", value=st.session_state.synopsis, height=200)
+    sinopsis = st.text_area("Escribe una sinopsis para tu novela:", value=st.session_state.synopsis, height=200, key="text_area_sinopsis_input")
     if sinopsis != st.session_state.synopsis:
         st.session_state.synopsis = sinopsis.strip()
         st.success("Sinopsis actualizada exitosamente.")
@@ -213,7 +221,7 @@ def ingresar_sinopsis():
 # Función para definir la audiencia
 def definir_audiencia():
     st.subheader("🎯 Definir Audiencia")
-    audiencia = st.text_area("Describe la audiencia objetivo para tu novela (por ejemplo, edad, intereses, género, etc.):", value=st.session_state.audience, height=100)
+    audiencia = st.text_area("Describe la audiencia objetivo para tu novela (por ejemplo, edad, intereses, género, etc.):", value=st.session_state.audience, height=100, key="text_area_audiencia_input")
     if audiencia != st.session_state.audience:
         st.session_state.audience = audiencia.strip()
         st.success("Audiencia actualizada exitosamente.")
@@ -246,7 +254,8 @@ if not st.session_state.chapters:
     selected_genre = st.selectbox(
         "Selecciona el género de tu novela:",
         generos,
-        index=generos.index(st.session_state.genre) if st.session_state.genre in generos else 0
+        index=generos.index(st.session_state.genre) if st.session_state.genre in generos else 0,
+        key="selectbox_genero_main"
     )
     if st.session_state.genre != selected_genre:
         st.session_state.genre = selected_genre
@@ -259,7 +268,7 @@ if not st.session_state.chapters:
 
     # Paso 3: Generar los Elementos de la Novela
     st.subheader("Paso 3: Generar Elementos de la Novela")
-    if st.button("Generar Elementos", key="generar_elementos_btn"):
+    if st.button("Generar Elementos", key="generar_elementos_btn_main"):
         generar_elementos()
     if st.session_state.elements:
         st.markdown("### **Elementos Generados:**")
@@ -275,7 +284,7 @@ if not st.session_state.chapters:
         editar_elementos()
         # Paso 4: Generar el Primer Capítulo
         st.subheader("Paso 4: Generar el Primer Capítulo")
-        if st.button("Generar Primer Capítulo", key="generar_primer_capitulo_btn"):
+        if st.button("Generar Primer Capítulo", key="generar_primer_capitulo_btn_main"):
             generar_capitulo()
         if st.session_state.chapters:
             st.markdown("### **Capítulo 1:**")
@@ -287,9 +296,9 @@ else:
     st.write(st.session_state.chapters[-1])
     st.markdown("---")
     # Usamos un formulario para manejar mejor la entrada del usuario
-    with st.form(key='idea_form'):
-        idea = st.text_input("Ingresa una idea para el siguiente capítulo:")
-        submit_button = st.form_submit_button(label="Generar Siguiente Capítulo")
+    with st.form(key='idea_form_main'):
+        idea = st.text_input("Ingresa una idea para el siguiente capítulo:", key="idea_input")
+        submit_button = st.form_submit_button(label="Generar Siguiente Capítulo", key="generar_siguiente_capitulo_btn")
     if submit_button:
         generar_capitulo(idea=idea)
     if st.session_state.chapters:
