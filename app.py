@@ -8,7 +8,7 @@ st.set_page_config(page_title="Asistente para Escribir Novelas", layout="wide")
 # Título de la aplicación
 st.title("📚 Asistente para Escribir tu Novela Capítulo por Capítulo")
 
-# Función para llamar a la API de Together con el modelo Meta-Llama-3.1-70B-Instruct-Turbo
+# Función para llamar a la API de Together con el modelo Mixtral-8x7B-Instruct-v0.1
 def call_together_api(prompt):
     api_url = "https://api.together.xyz/v1/chat/completions"
     headers = {
@@ -16,7 +16,7 @@ def call_together_api(prompt):
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+        "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
         "messages": [
             {"role": "system", "content": "Eres un escritor creativo que ayuda a desarrollar novelas."},
             {"role": "user", "content": prompt}
@@ -54,14 +54,20 @@ if 'chapters' not in st.session_state:
     st.session_state.chapters = []
 if 'genre' not in st.session_state:
     st.session_state.genre = None
+if 'synopsis' not in st.session_state:
+    st.session_state.synopsis = ""
 
 # Función para generar los elementos fundamentales
 def generar_elementos():
     if not st.session_state.genre:
         st.error("Por favor, selecciona un género antes de generar los elementos.")
         return
+    if not st.session_state.synopsis:
+        st.error("Por favor, ingresa una sinopsis antes de generar los elementos.")
+        return
     prompt = (
-        f"Necesito que me ayudes a crear una novela del género **{st.session_state.genre}**. "
+        f"Necesito que me ayudes a crear una novela del género **{st.session_state.genre}** basada en la siguiente sinopsis:\n\n"
+        f"**Sinopsis:** {st.session_state.synopsis}\n\n"
         "Por favor, genera los siguientes elementos:\n"
         "1. **Personajes principales:** Describe al menos tres personajes principales con sus características.\n"
         "2. **Trama:** Esboza la trama principal de la novela.\n"
@@ -105,7 +111,7 @@ def generar_capitulo(idea=None):
             st.error("Primero debes generar los elementos de la novela.")
             return
         prompt = (
-            f"Usa los siguientes elementos para escribir el primer capítulo de una novela del género **{st.session_state.genre}**. "
+            f"Usa los siguientes elementos para escribir el primer capítulo de una novela del género **{st.session_state.genre}** basada en la sinopsis proporcionada. "
             "El capítulo debe ser tres veces más largo de lo habitual, incluir diálogos entre los personajes utilizando la raya (—) y mantener un estilo narrativo coherente y atractivo.\n\n"
             f"**Personajes principales:** {st.session_state.elements.get('personajes', '')}\n"
             f"**Trama:** {st.session_state.elements.get('trama', '')}\n"
@@ -154,6 +160,14 @@ def editar_elementos():
     if st.button("Guardar Cambios", key="guardar_cambios_btn"):
         st.success("Elementos actualizados exitosamente.")
 
+# Función para ingresar la sinopsis
+def ingresar_sinopsis():
+    st.subheader("📄 Ingresar Sinopsis")
+    sinopsis = st.text_area("Escribe una sinopsis para tu novela:", value=st.session_state.synopsis, height=200)
+    if sinopsis != st.session_state.synopsis:
+        st.session_state.synopsis = sinopsis.strip()
+        st.success("Sinopsis actualizada exitosamente.")
+
 # Interfaz de la aplicación
 st.header("📖 Genera tu Novela")
 
@@ -169,13 +183,17 @@ if not st.session_state.chapters:
     if st.session_state.genre != selected_genre:
         st.session_state.genre = selected_genre
 
-    # Paso 1: Generar los Elementos de la Novela
-    st.subheader("Paso 1: Generar Elementos de la Novela")
+    # Paso 1: Ingresar la Sinopsis
+    ingresar_sinopsis()
+
+    # Paso 2: Generar los Elementos de la Novela
+    st.subheader("Paso 2: Generar Elementos de la Novela")
     if st.button("Generar Elementos", key="generar_elementos_btn"):
         generar_elementos()
     if st.session_state.elements:
         st.markdown("### **Elementos Generados:**")
         st.markdown(f"**Género:** {st.session_state.genre}")
+        st.markdown(f"**Sinopsis:** {st.session_state.synopsis}")
         st.markdown(f"**Personajes Principales:** {st.session_state.elements.get('personajes', '')}")
         st.markdown(f"**Trama:** {st.session_state.elements.get('trama', '')}")
         st.markdown(f"**Ambientación:** {st.session_state.elements.get('ambientacion', '')}")
@@ -183,8 +201,8 @@ if not st.session_state.chapters:
         st.markdown("---")
         # Opción para editar los elementos
         editar_elementos()
-        # Paso 2: Generar el Primer Capítulo
-        st.subheader("Paso 2: Generar el Primer Capítulo")
+        # Paso 3: Generar el Primer Capítulo
+        st.subheader("Paso 3: Generar el Primer Capítulo")
         if st.button("Generar Primer Capítulo", key="generar_primer_capitulo_btn"):
             generar_capitulo()
         if st.session_state.chapters:
