@@ -146,50 +146,61 @@ def generar_capitulo(idea=None):
         st.session_state.chapters.append(resultado)
         st.success("Capítulo generado exitosamente.")
 
+
 # Función para editar los elementos de la novela
 def editar_elementos():
     st.subheader("📑 Editar Elementos de la Novela")
+    
     with st.expander("Editar Género"):
         generos = [
             "Fantasía", "Ciencia Ficción", "Misterio", "Romance",
             "Terror", "Aventura", "Histórica", "Thriller", "Drama", "Comedia"
         ]
+        # Agregar una clave única al selectbox para evitar el error de ID duplicado
         selected_genre = st.selectbox(
             "Selecciona el género de tu novela:",
             generos,
-            index=generos.index(st.session_state.genre) if st.session_state.genre in generos else 0
+            index=generos.index(st.session_state.genre) if st.session_state.genre in generos else 0,
+            key="selectbox_genero"
         )
         if st.session_state.genre != selected_genre:
             st.session_state.genre = selected_genre
 
     with st.expander("Editar Sinopsis"):
-        sinopsis_editada = st.text_area("Sinopsis:", value=st.session_state.synopsis, height=200)
+        # Agregar clave única para el text_area de la sinopsis
+        sinopsis_editada = st.text_area("Sinopsis:", value=st.session_state.synopsis, height=200, key="text_area_sinopsis")
         if sinopsis_editada.strip() != st.session_state.synopsis:
             st.session_state.synopsis = sinopsis_editada.strip()
 
     with st.expander("Editar Audiencia"):
-        audiencia_editada = st.text_area("Audiencia (e.g., edad, intereses):", value=st.session_state.audience, height=100)
+        # Agregar clave única para el text_area de la audiencia
+        audiencia_editada = st.text_area("Audiencia (e.g., edad, intereses):", value=st.session_state.audience, height=100, key="text_area_audiencia")
         if audiencia_editada.strip() != st.session_state.audience:
             st.session_state.audience = audiencia_editada.strip()
 
     with st.expander("Editar Personajes Principales"):
-        personajes_editados = st.text_area("Personajes principales:", value=st.session_state.elements.get('personajes', ''), height=150)
+        # Agregar clave única para el text_area de los personajes
+        personajes_editados = st.text_area("Personajes principales:", value=st.session_state.elements.get('personajes', ''), height=150, key="text_area_personajes")
         st.session_state.elements['personajes'] = personajes_editados.strip()
 
     with st.expander("Editar Trama"):
-        trama_editada = st.text_area("Trama:", value=st.session_state.elements.get('trama', ''), height=150)
+        # Agregar clave única para el text_area de la trama
+        trama_editada = st.text_area("Trama:", value=st.session_state.elements.get('trama', ''), height=150, key="text_area_trama")
         st.session_state.elements['trama'] = trama_editada.strip()
 
     with st.expander("Editar Ambientación"):
-        ambientacion_editada = st.text_area("Ambientación:", value=st.session_state.elements.get('ambientacion', ''), height=150)
+        # Agregar clave única para el text_area de la ambientación
+        ambientacion_editada = st.text_area("Ambientación:", value=st.session_state.elements.get('ambientacion', ''), height=150, key="text_area_ambientacion")
         st.session_state.elements['ambientacion'] = ambientacion_editada.strip()
 
     with st.expander("Editar Técnica Narrativa"):
-        tecnica_editada = st.text_area("Técnica narrativa:", value=st.session_state.elements.get('tecnica_narrativa', ''), height=150)
+        # Agregar clave única para el text_area de la técnica narrativa
+        tecnica_editada = st.text_area("Técnica narrativa:", value=st.session_state.elements.get('tecnica_narrativa', ''), height=150, key="text_area_tecnica")
         st.session_state.elements['tecnica_narrativa'] = tecnica_editada.strip()
 
     if st.button("Guardar Cambios", key="guardar_cambios_btn"):
         st.success("Elementos actualizados exitosamente.")
+
 
 # Función para ingresar la sinopsis
 def ingresar_sinopsis():
