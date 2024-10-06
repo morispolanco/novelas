@@ -8,35 +8,38 @@ st.set_page_config(page_title="Asistente para Escribir Novelas", layout="wide")
 # Título de la aplicación
 st.title("📚 Asistente para Escribir tu Novela Capítulo por Capítulo")
 
-# Función para llamar a la API de Together
-def call_together_api(messages):
-    api_url = "https://api.together.xyz/v1/chat/completions"
+# Función para llamar a la API de Meta Llama a través de Hugging Face
+def call_meta_llama_api(prompt):
+    api_url = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo"
     headers = {
-        "Authorization": f"Bearer {st.secrets['TOGETHER_API_KEY']}",
+        "Authorization": f"Bearer {st.secrets['HUGGINGFACE_API_KEY']}",
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
-        "messages": messages,
-        "max_tokens": 4000,  # Ajustado a un valor razonable
-        "temperature": 0.7,
-        "top_p": 0.7,
-        "top_k": 50,
-        "repetition_penalty": 1,
-        "stop": ["<|eot_id|>"],
-        "stream": False
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": 2000,  # Ajusta según tus necesidades y límites de la API
+            "temperature": 0.7,
+            "top_p": 0.7,
+            "top_k": 50,
+            "repetition_penalty": 1.2,
+            "stop": ["<|eot_id|>"]
+        }
     }
 
     try:
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
+        # La respuesta de Hugging Face suele ser una lista de resultados
         data = response.json()
-        # Asegurarse de que la respuesta tiene el formato esperado
-        return data['choices'][0]['message']['content'].strip()
+        if isinstance(data, dict) and "error" in data:
+            st.error(f"Error en la API: {data['error']}")
+            return None
+        return data[0]['generated_text'].strip()
     except requests.exceptions.RequestException as e:
         st.error(f"Error en la llamada a la API: {e}")
         return None
-    except (KeyError, IndexError) as e:
+    except (KeyError, IndexError, TypeError) as e:
         st.error(f"Formato inesperado de la respuesta de la API: {e}")
         return None
 
@@ -61,12 +64,8 @@ def generar_elementos():
         "3. **Ambientación:** Describe el mundo o entorno donde se desarrolla la historia.\n"
         "4. **Técnica narrativa:** Indica el punto de vista y el estilo narrativo que se utilizará.\n"
     )
-    messages = [
-        {"role": "system", "content": "Eres un asistente creativo que ayuda a escribir novelas."},
-        {"role": "user", "content": prompt}
-    ]
     with st.spinner("Generando elementos de la novela..."):
-        resultado = call_together_api(messages)
+        resultado = call_meta_llama_api(prompt)
     if resultado:
         # Parsear el resultado asumiendo que está en formato Markdown
         try:
@@ -123,12 +122,8 @@ def generar_capitulo(idea=None):
             f"**Idea para el siguiente capítulo:** {idea}\n\n"
             "Escribe el siguiente capítulo de manera coherente y creativa siguiendo las indicaciones anteriores."
         )
-    messages = [
-        {"role": "system", "content": "Eres un escritor creativo que ayuda a desarrollar novelas."},
-        {"role": "user", "content": prompt}
-    ]
     with st.spinner("Generando capítulo..."):
-        resultado = call_together_api(messages)
+        resultado = call_meta_llama_api(prompt)
     if resultado:
         st.session_state.chapters.append(resultado)
         st.success("Capítulo generado exitosamente.")
