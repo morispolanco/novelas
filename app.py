@@ -23,7 +23,7 @@ def call_openrouter_api(prompt):
             {"role": "system", "content": "Eres un escritor creativo que ayuda a desarrollar novelas."},
             {"role": "user", "content": prompt}
         ],
-        "max_tokens": 4000,  # Ajusta según las capacidades del modelo
+        "max_tokens": 8000,  # Ajusta según las capacidades del modelo
         "temperature": 0.7,
         "top_p": 0.7,
         "stream": False
