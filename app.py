@@ -8,25 +8,24 @@ st.set_page_config(page_title="Asistente para Escribir Novelas", layout="wide")
 # Título de la aplicación
 st.title("📚 Asistente para Escribir tu Novela Capítulo por Capítulo")
 
-# Función para llamar a la API de Together con el modelo Mixtral-8x7B-Instruct-v0.1
-def call_together_api(prompt):
-    api_url = "https://api.together.xyz/v1/chat/completions"
+# Función para llamar a la API de OpenRouter con el modelo rocinante-12b
+def call_openrouter_api(prompt):
+    api_url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
-        "Authorization": f"Bearer {st.secrets['TOGETHER_API_KEY']}",
+        "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
+        "HTTP-Referer": st.secrets.get('YOUR_SITE_URL', ''),
+        "X-Title": st.secrets.get('YOUR_SITE_NAME', ''),
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "google/gemma-2-27b-it",
+        "model": "thedrummer/rocinante-12b",  # Nombre del modelo actualizado
         "messages": [
             {"role": "system", "content": "Eres un escritor creativo que ayuda a desarrollar novelas."},
             {"role": "user", "content": prompt}
         ],
-        "max_tokens": 4000,  # Aumentado para permitir capítulos más largos
+        "max_tokens": 4000,  # Ajusta según las capacidades del modelo
         "temperature": 0.7,
         "top_p": 0.7,
-        "top_k": 50,
-        "repetition_penalty": 1.2,
-        "stop": ["<|eot_id|>"],
         "stream": False
     }
 
@@ -40,11 +39,18 @@ def call_together_api(prompt):
             return None
         # Asumiendo que la respuesta contiene 'choices' con 'message' y 'content'
         return data['choices'][0]['message']['content'].strip()
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error en la llamada a la API: {e}")
+    except requests.exceptions.HTTPError as http_err:
+        if response.status_code == 401:
+            st.error("Error de autenticación: Verifica tu clave API de OpenRouter.")
+        else:
+            st.error(f"Error HTTP en la llamada a la API: {http_err}")
+        return None
+    except requests.exceptions.ConnectionError:
+        st.error("Error de conexión: Verifica tu conexión a Internet.")
         return None
     except (KeyError, IndexError, TypeError) as e:
         st.error(f"Formato inesperado de la respuesta de la API: {e}")
+        st.debug(data)  # Imprime la respuesta completa para depuración
         return None
 
 # Inicialización del estado de la sesión
@@ -81,7 +87,7 @@ def generar_elementos():
         "4. **Técnica narrativa:** Indica el punto de vista (primera persona, tercera persona, etc.) y el estilo narrativo que se utilizará (descriptivo, dinámico, etc.).\n"
     )
     with st.spinner("Generando elementos de la novela..."):
-        resultado = call_together_api(prompt)
+        resultado = call_openrouter_api(prompt)
     if resultado:
         # Parsear el resultado asumiendo que está en formato Markdown
         try:
@@ -177,7 +183,7 @@ def generar_capitulo(idea=None, index=None):
                 "No incluyas nuevamente los elementos fundamentales (personajes, trama, ambientación, técnica narrativa) en este capítulo."
             )
     with st.spinner("Generando capítulo..."):
-        resultado = call_together_api(prompt)
+        resultado = call_openrouter_api(prompt)
     if resultado:
         if index is None:
             # Añadir un nuevo capítulo
@@ -199,7 +205,6 @@ def editar_elementos():
             "Fantasía", "Ciencia Ficción", "Misterio", "Romance",
             "Terror", "Aventura", "Histórica", "Thriller", "Drama", "Comedia"
         ]
-        # Agregar una clave única al selectbox para evitar el error de ID duplicado
         selected_genre = st.selectbox(
             "Selecciona el género de tu novela:",
             generos,
@@ -210,34 +215,28 @@ def editar_elementos():
             st.session_state.genre = selected_genre
 
     with st.expander("Editar Sinopsis"):
-        # Agregar clave única para el text_area de la sinopsis
         sinopsis_editada = st.text_area("Sinopsis:", value=st.session_state.synopsis, height=200, key="text_area_sinopsis_editar")
         if sinopsis_editada.strip() != st.session_state.synopsis:
             st.session_state.synopsis = sinopsis_editada.strip()
 
     with st.expander("Editar Audiencia"):
-        # Agregar clave única para el text_area de la audiencia
         audiencia_editada = st.text_area("Audiencia (e.g., edad, intereses):", value=st.session_state.audience, height=100, key="text_area_audiencia_editar")
         if audiencia_editada.strip() != st.session_state.audience:
             st.session_state.audience = audiencia_editada.strip()
 
     with st.expander("Editar Personajes Principales"):
-        # Agregar clave única para el text_area de los personajes
         personajes_editados = st.text_area("Personajes principales:", value=st.session_state.elements.get('personajes', ''), height=150, key="text_area_personajes_editar")
         st.session_state.elements['personajes'] = personajes_editados.strip()
 
     with st.expander("Editar Trama"):
-        # Agregar clave única para el text_area de la trama
         trama_editada = st.text_area("Trama:", value=st.session_state.elements.get('trama', ''), height=150, key="text_area_trama_editar")
         st.session_state.elements['trama'] = trama_editada.strip()
 
     with st.expander("Editar Ambientación"):
-        # Agregar clave única para el text_area de la ambientación
         ambientacion_editada = st.text_area("Ambientación:", value=st.session_state.elements.get('ambientacion', ''), height=150, key="text_area_ambientacion_editar")
         st.session_state.elements['ambientacion'] = ambientacion_editada.strip()
 
     with st.expander("Editar Técnica Narrativa"):
-        # Agregar clave única para el text_area de la técnica narrativa
         tecnica_editada = st.text_area("Técnica narrativa:", value=st.session_state.elements.get('tecnica_narrativa', ''), height=150, key="text_area_tecnica_editar")
         st.session_state.elements['tecnica_narrativa'] = tecnica_editada.strip()
 
@@ -274,6 +273,14 @@ def mostrar_estado():
     st.sidebar.write("### Capítulos Generados:")
     st.sidebar.write(len(st.session_state.chapters))
 
+# Función para reiniciar el estado de la sesión
+def reiniciar_sesion():
+    if st.sidebar.button("🔄 Reiniciar Proyecto", key="reset_project_btn"):
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.success("Proyecto reiniciado exitosamente.")
+        st.experimental_rerun()
+
 # Interfaz de la aplicación
 st.header("📖 Genera tu Novela")
 
@@ -284,12 +291,11 @@ if not st.session_state.chapters:
         "Fantasía", "Ciencia Ficción", "Misterio", "Romance",
         "Terror", "Aventura", "Histórica", "Thriller", "Drama", "Comedia"
     ]
-    # Utilizamos una variable temporal para evitar sobrescribir en cada interacción
     selected_genre = st.selectbox(
         "Selecciona el género de tu novela:",
         generos,
         index=generos.index(st.session_state.genre) if st.session_state.genre in generos else 0,
-        key="selectbox_genero_paso0"  # Clave única
+        key="selectbox_genero_paso0"
     )
     if st.session_state.genre != selected_genre:
         st.session_state.genre = selected_genre
@@ -363,3 +369,6 @@ if st.session_state.chapters:
 
 # Mostrar el estado de la sesión (opcional, para depuración)
 mostrar_estado()
+
+# Opción para reiniciar el proyecto
+reiniciar_sesion()
