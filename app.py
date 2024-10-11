@@ -126,14 +126,16 @@ def generar_capitulo(idea=None, index=None):
                 return
             prompt = (
                 f"Usa los siguientes elementos para escribir el primer capítulo de una novela del género **{st.session_state.genre}** basada en la sinopsis proporcionada y dirigida a la audiencia definida. "
-                "El capítulo debe ser tres veces más largo de lo habitual, incluir diálogos entre los personajes utilizando la raya (—) y mantener un estilo narrativo coherente y atractivo.\n\n"
+                "El capítulo debe estar dividido en **5 escenas** claras y estructuradas, cada una con un propósito específico en la trama. "
+                "Incluye diálogos entre los personajes utilizando la raya (—) y mantén un estilo narrativo coherente y atractivo.\n\n"
                 f"**Sinopsis:** {st.session_state.synopsis}\n"
                 f"**Audiencia:** {st.session_state.audience}\n"
                 f"**Personajes principales:** {st.session_state.elements.get('personajes', '')}\n"
                 f"**Trama:** {st.session_state.elements.get('trama', '')}\n"
                 f"**Ambientación:** {st.session_state.elements.get('ambientacion', '')}\n"
                 f"**Técnica narrativa:** {st.session_state.elements.get('tecnica_narrativa', '')}\n\n"
-                "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama."
+                "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama.\n"
+                "Divide el capítulo en 5 escenas numeradas, utilizando encabezados Markdown para cada escena (por ejemplo, ### Escena 1)."
             )
         else:
             # Generar capítulos subsiguientes basados en el anterior y la idea del usuario
@@ -143,11 +145,13 @@ def generar_capitulo(idea=None, index=None):
             ultimo_capitulo = st.session_state.chapters[-1]
             prompt = (
                 f"Basándote en el siguiente capítulo y la idea proporcionada, escribe el siguiente capítulo de la novela del género **{st.session_state.genre}**. "
-                "El capítulo debe ser tres veces más largo de lo habitual, incluir diálogos entre los personajes utilizando la raya (—) y mantener un estilo narrativo coherente y atractivo.\n\n"
+                "El capítulo debe estar dividido en **5 escenas** claras y estructuradas, cada una con un propósito específico en la trama. "
+                "Incluye diálogos entre los personajes utilizando la raya (—) y mantén un estilo narrativo coherente y atractivo.\n\n"
                 f"**Último Capítulo:**\n{ultimo_capitulo}\n\n"
                 f"**Idea para el siguiente capítulo:** {idea}\n\n"
                 "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama.\n"
-                "No incluyas nuevamente los elementos fundamentales (personajes, trama, ambientación, técnica narrativa) en este capítulo."
+                "No incluyas nuevamente los elementos fundamentales (personajes, trama, ambientación, técnica narrativa) en este capítulo.\n"
+                "Divide el capítulo en 5 escenas numeradas, utilizando encabezados Markdown para cada escena (por ejemplo, ### Escena 1)."
             )
     else:
         # Reescribir un capítulo existente
@@ -161,7 +165,8 @@ def generar_capitulo(idea=None, index=None):
             # Reescribir el primer capítulo basado en los elementos
             prompt = (
                 f"Usa los siguientes elementos para reescribir el **Capítulo {index + 1}** de una novela del género **{st.session_state.genre}** basada en la sinopsis proporcionada y dirigida a la audiencia definida. "
-                "El capítulo debe ser tres veces más largo de lo habitual, incluir diálogos entre los personajes utilizando la raya (—) y mantener un estilo narrativo coherente y atractivo.\n\n"
+                "El capítulo debe estar dividido en **5 escenas** claras y estructuradas, cada una con un propósito específico en la trama. "
+                "Incluye diálogos entre los personajes utilizando la raya (—) y mantén un estilo narrativo coherente y atractivo.\n\n"
                 f"**Sinopsis:** {st.session_state.synopsis}\n"
                 f"**Audiencia:** {st.session_state.audience}\n"
                 f"**Personajes principales:** {st.session_state.elements.get('personajes', '')}\n"
@@ -169,18 +174,21 @@ def generar_capitulo(idea=None, index=None):
                 f"**Ambientación:** {st.session_state.elements.get('ambientacion', '')}\n"
                 f"**Técnica narrativa:** {st.session_state.elements.get('tecnica_narrativa', '')}\n\n"
                 f"**Nueva Idea para el Capítulo {index + 1}:** {idea}\n\n"
-                "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama."
+                "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama.\n"
+                "Divide el capítulo en 5 escenas numeradas, utilizando encabezados Markdown para cada escena (por ejemplo, ### Escena 1)."
             )
         else:
             # Reescribir capítulos subsiguientes basados en el anterior y la nueva idea
             anterior_capitulo = st.session_state.chapters[index - 1]
             prompt = (
                 f"Basándote en el siguiente capítulo y la nueva idea proporcionada, reescribe el **Capítulo {index + 1}** de la novela del género **{st.session_state.genre}**. "
-                "El capítulo debe ser tres veces más largo de lo habitual, incluir diálogos entre los personajes utilizando la raya (—) y mantener un estilo narrativo coherente y atractivo.\n\n"
+                "El capítulo debe estar dividido en **5 escenas** claras y estructuradas, cada una con un propósito específico en la trama. "
+                "Incluye diálogos entre los personajes utilizando la raya (—) y mantén un estilo narrativo coherente y atractivo.\n\n"
                 f"**Capítulo Anterior:**\n{anterior_capitulo}\n\n"
                 f"**Nueva Idea para el Capítulo {index + 1}:** {idea}\n\n"
                 "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama.\n"
-                "No incluyas nuevamente los elementos fundamentales (personajes, trama, ambientación, técnica narrativa) en este capítulo."
+                "No incluyas nuevamente los elementos fundamentales (personajes, trama, ambientación, técnica narrativa) en este capítulo.\n"
+                "Divide el capítulo en 5 escenas numeradas, utilizando encabezados Markdown para cada escena (por ejemplo, ### Escena 1)."
             )
     with st.spinner("Generando capítulo..."):
         resultado = call_openrouter_api(prompt)
@@ -353,7 +361,7 @@ if st.session_state.chapters:
     st.sidebar.header("🔍 Navegar y Reescribir Capítulos")
     for idx, cap in enumerate(st.session_state.chapters, 1):
         with st.sidebar.expander(f"Capítulo {idx}"):
-            st.write(cap)
+            st.markdown(cap)  # Usar markdown para mantener el formato de escenas
             # Botón para reescribir el capítulo
             if st.button(f"Reescribir Capítulo {idx}", key=f"reescribir_capitulo_{idx}"):
                 # Mostrar un formulario para ingresar la nueva idea
