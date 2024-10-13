@@ -18,12 +18,12 @@ def call_openrouter_api(prompt):
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "thedrummer/rocinante-12b",  # Nombre del modelo actualizado
+        "model": "qwen/qwen-2.5-72b-instruct",  # Nombre del modelo actualizado
         "messages": [
             {"role": "system", "content": "Eres un escritor creativo que ayuda a desarrollar novelas."},
             {"role": "user", "content": prompt}
         ],
-        "max_tokens": 12000,  # Ajusta según las capacidades del modelo
+        "max_tokens": 31000,  # Ajusta según las capacidades del modelo
         "temperature": 0.7,
         "top_p": 0.7,
         "stream": False
