@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import re
+import json
 
 # Configuración de la página
 st.set_page_config(page_title="Asistente para Escribir Novelas", layout="wide")
@@ -8,7 +9,7 @@ st.set_page_config(page_title="Asistente para Escribir Novelas", layout="wide")
 # Título de la aplicación
 st.title("📚 Asistente para Escribir tu Novela Capítulo por Capítulo")
 
-# Función para llamar a la API de OpenRouter con el modelo rocinante-12b
+# Función para llamar a la API de OpenRouter con el modelo especificado
 def call_openrouter_api(prompt, max_tokens=5000):
     api_url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
@@ -50,7 +51,8 @@ def call_openrouter_api(prompt, max_tokens=5000):
         return None
     except (KeyError, IndexError, TypeError) as e:
         st.error(f"Formato inesperado de la respuesta de la API: {e}")
-        st.debug(data)  # Imprime la respuesta completa para depuración
+        st.write("### Respuesta Completa de la API para Depuración:")
+        st.json(data)  # Mostrar la respuesta completa para depuración
         return None
 
 # Inicialización del estado de la sesión
@@ -76,44 +78,44 @@ def generar_elementos():
     if not st.session_state.audience:
         st.error("Por favor, define la audiencia antes de generar los elementos.")
         return
+    
+    # Ajustamos el prompt para que la respuesta sea en formato JSON
     prompt = (
         f"Necesito que me ayudes a crear una novela del género **{st.session_state.genre}** basada en la siguiente sinopsis:\n\n"
         f"**Sinopsis:** {st.session_state.synopsis}\n\n"
         f"**Audiencia:** {st.session_state.audience}\n\n"
-        "Por favor, genera los siguientes elementos de manera detallada y coherente:\n"
-        "1. **Personajes principales:** Describe al menos tres personajes principales con sus características, incluyendo personalidad, apariencia y motivaciones.\n"
-        "2. **Trama:** Esboza la trama principal de la novela, incluyendo el conflicto central y los puntos de giro principales.\n"
-        "3. **Ambientación:** Describe el mundo o entorno donde se desarrolla la historia, incluyendo detalles geográficos, culturales y temporales.\n"
-        "4. **Técnica narrativa:** Indica el punto de vista (primera persona, tercera persona, etc.) y el estilo narrativo que se utilizará (descriptivo, dinámico, etc.).\n"
+        "Por favor, genera los siguientes elementos de manera detallada y coherente en formato JSON con las siguientes claves:\n"
+        "1. **personajes_principales**: Lista de al menos tres personajes principales con sus características (personalidad, apariencia y motivaciones).\n"
+        "2. **trama**: Descripción de la trama principal, incluyendo el conflicto central y los puntos de giro principales.\n"
+        "3. **ambientacion**: Descripción del mundo o entorno donde se desarrolla la historia, incluyendo detalles geográficos, culturales y temporales.\n"
+        "4. **tecnica_narrativa**: Descripción del punto de vista (primera persona, tercera persona, etc.) y el estilo narrativo que se utilizará (descriptivo, dinámico, etc.).\n"
     )
+    
     with st.spinner("Generando elementos de la novela..."):
         resultado = call_openrouter_api(prompt, max_tokens=5000)  # Ajustado a 5000 tokens
+    
     if resultado:
-        # Parsear el resultado asumiendo que está en formato Markdown
+        # Mostrar la respuesta completa para depuración
+        st.text_area("Respuesta de la API (para depuración):", value=resultado, height=300)
         try:
-            elementos = {}
-            # Utilizamos expresiones regulares para extraer las secciones
-            personajes_match = re.search(r"\*\*Personajes principales:\*\*\s*(.*?)(?=\n\*\*Trama:|\Z)", resultado, re.DOTALL)
-            trama_match = re.search(r"\*\*Trama:\*\*\s*(.*?)(?=\n\*\*Ambientación:|\Z)", resultado, re.DOTALL)
-            ambientacion_match = re.search(r"\*\*Ambientación:\*\*\s*(.*?)(?=\n\*\*Técnica narrativa:|\Z)", resultado, re.DOTALL)
-            tecnica_match = re.search(r"\*\*Técnica narrativa:\*\*\s*(.*)", resultado, re.DOTALL)
-
-            if personajes_match:
-                elementos['personajes'] = personajes_match.group(1).strip()
-            if trama_match:
-                elementos['trama'] = trama_match.group(1).strip()
-            if ambientacion_match:
-                elementos['ambientacion'] = ambientacion_match.group(1).strip()
-            if tecnica_match:
-                elementos['tecnica_narrativa'] = tecnica_match.group(1).strip()
-
-            if elementos:
+            # Intentar parsear la respuesta como JSON
+            elementos = json.loads(resultado)
+            
+            # Validar que todas las claves estén presentes
+            required_keys = ['personajes_principales', 'trama', 'ambientacion', 'tecnica_narrativa']
+            if all(key in elementos for key in required_keys):
                 st.session_state.elements = elementos
                 st.success("Elementos generados exitosamente.")
             else:
-                st.error("No se pudieron extraer los elementos de la respuesta de la API.")
-        except Exception as e:
-            st.error(f"Error al procesar los elementos: {e}")
+                st.error("La respuesta JSON no contiene todas las claves necesarias.")
+                st.write("### Respuesta JSON:")
+                st.json(elementos)
+        except json.JSONDecodeError:
+            st.error("La respuesta de la API no está en formato JSON válido.")
+            st.write("### Respuesta de la API:")
+            st.write(resultado)
+    else:
+        st.error("No se pudo generar los elementos de la novela. Por favor, intenta de nuevo.")
 
 # Función para generar una escena individual
 def generar_escena(capitulo_numero, escena_numero, idea=None):
@@ -121,7 +123,7 @@ def generar_escena(capitulo_numero, escena_numero, idea=None):
         st.error("El número de escena debe estar entre 1 y 5.")
         return
 
-    if len(st.session_state.chapters) < capitulo_numero:
+    if len(st.session_state.chapters) < capitulo_numero - 1:
         st.error(f"El capítulo {capitulo_numero} aún no ha sido generado.")
         return
 
@@ -129,7 +131,7 @@ def generar_escena(capitulo_numero, escena_numero, idea=None):
         st.error("El número de capítulo debe ser al menos 1.")
         return
 
-    if capitulo_numero > len(st.session_state.chapters):
+    if capitulo_numero > len(st.session_state.chapters) + 1:
         st.error(f"No existe el capítulo {capitulo_numero}.")
         return
 
@@ -153,14 +155,14 @@ def generar_escena(capitulo_numero, escena_numero, idea=None):
                 "Incluye diálogos entre los personajes utilizando la raya (—) y mantén un estilo narrativo coherente y atractivo.\n\n"
                 f"**Sinopsis:** {st.session_state.synopsis}\n"
                 f"**Audiencia:** {st.session_state.audience}\n"
-                f"**Personajes principales:** {st.session_state.elements.get('personajes', '')}\n"
+                f"**Personajes principales:** {st.session_state.elements.get('personajes_principales', '')}\n"
                 f"**Trama:** {st.session_state.elements.get('trama', '')}\n"
                 f"**Ambientación:** {st.session_state.elements.get('ambientacion', '')}\n"
                 f"**Técnica narrativa:** {st.session_state.elements.get('tecnica_narrativa', '')}\n\n"
                 "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama."
             )
         else:
-            ultimo_capitulo = st.session_state.chapters[capitulo_numero - 1]
+            ultimo_capitulo = st.session_state.chapters[capitulo_numero - 2]  # capitulo_numero -1 para 0 index
             prompt = (
                 f"Basándote en el siguiente capítulo y la idea proporcionada, escribe la **Escena {escena_numero}** del Capítulo {capitulo_numero} de la novela del género **{st.session_state.genre}**. "
                 "La escena debe tener aproximadamente **5000 tokens**. "
@@ -177,12 +179,14 @@ def generar_escena(capitulo_numero, escena_numero, idea=None):
         # Actualizar o crear el capítulo con la nueva escena
         if len(st.session_state.chapters) < capitulo_numero:
             st.session_state.chapters.append("")
+
         capitulo = st.session_state.chapters[capitulo_numero - 1]
 
-        # Buscar si la escena ya existe
-        pattern = re.compile(rf"### Escena {escena_numero}[\s\S]*?(?=### Escena \d|$)", re.MULTILINE)
+        # Crear el encabezado de la escena
         nueva_escena = f"### Escena {escena_numero}\n{resultado}\n\n"
 
+        # Buscar si la escena ya existe usando regex
+        pattern = re.compile(rf"### Escena {escena_numero}[\s\S]*?(?=### Escena \d|$)", re.MULTILINE)
         if pattern.search(capitulo):
             # Reemplazar la escena existente
             st.session_state.chapters[capitulo_numero - 1] = pattern.sub(nueva_escena, capitulo)
@@ -223,8 +227,8 @@ def editar_elementos():
             st.session_state.audience = audiencia_editada.strip()
 
     with st.expander("Editar Personajes Principales"):
-        personajes_editados = st.text_area("Personajes principales:", value=st.session_state.elements.get('personajes', ''), height=150, key="text_area_personajes_editar")
-        st.session_state.elements['personajes'] = personajes_editados.strip()
+        personajes_editados = st.text_area("Personajes principales:", value=st.session_state.elements.get('personajes_principales', ''), height=150, key="text_area_personajes_editar")
+        st.session_state.elements['personajes_principales'] = personajes_editados.strip()
 
     with st.expander("Editar Trama"):
         trama_editada = st.text_area("Trama:", value=st.session_state.elements.get('trama', ''), height=150, key="text_area_trama_editar")
@@ -313,7 +317,7 @@ if not st.session_state.chapters:
         st.markdown(f"**Género:** {st.session_state.genre}")
         st.markdown(f"**Sinopsis:** {st.session_state.synopsis}")
         st.markdown(f"**Audiencia:** {st.session_state.audience}")
-        st.markdown(f"**Personajes Principales:** {st.session_state.elements.get('personajes', '')}")
+        st.markdown(f"**Personajes Principales:** {st.session_state.elements.get('personajes_principales', '')}")
         st.markdown(f"**Trama:** {st.session_state.elements.get('trama', '')}")
         st.markdown(f"**Ambientación:** {st.session_state.elements.get('ambientacion', '')}")
         st.markdown(f"**Técnica Narrativa:** {st.session_state.elements.get('tecnica_narrativa', '')}")
