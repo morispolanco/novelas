@@ -1,7 +1,6 @@
 import streamlit as st
 import requests
 import re
-import json
 
 # Configuración de la página
 st.set_page_config(page_title="Asistente para Escribir Novelas", layout="wide")
@@ -9,25 +8,25 @@ st.set_page_config(page_title="Asistente para Escribir Novelas", layout="wide")
 # Título de la aplicación
 st.title("📚 Asistente para Escribir tu Novela Capítulo por Capítulo")
 
-# Función para llamar a la API de OpenRouter con el modelo especificado
-def call_openrouter_api(prompt, max_tokens=5000):
+# Función para llamar a la API de OpenRouter con el modelo qwen/qwen-2.5-72b-instruct
+def call_openrouter_api(prompt, max_tokens=6000):
     api_url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
-        "HTTP-Referer": st.secrets.get('YOUR_SITE_URL', ''),
-        "X-Title": st.secrets.get('YOUR_SITE_NAME', ''),
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "qwen/qwen-2.5-72b-instruct",  # Nombre del modelo actualizado
+        "model": "qwen/qwen-2.5-72b-instruct",
         "messages": [
             {"role": "system", "content": "Eres un escritor creativo que ayuda a desarrollar novelas."},
             {"role": "user", "content": prompt}
         ],
-        "max_tokens": max_tokens,  # Ajustado a 5000 tokens por escena
+        "max_tokens": max_tokens,  # Límite de tokens por escena
         "temperature": 0.7,
         "top_p": 0.7,
-        "stream": False
+        "frequency_penalty": 0.0,
+        "presence_penalty": 0.0,
+        "stop": ["<|eot_id|>"]
     }
 
     try:
@@ -40,26 +39,18 @@ def call_openrouter_api(prompt, max_tokens=5000):
             return None
         # Asumiendo que la respuesta contiene 'choices' con 'message' y 'content'
         return data['choices'][0]['message']['content'].strip()
-    except requests.exceptions.HTTPError as http_err:
-        if response.status_code == 401:
-            st.error("Error de autenticación: Verifica tu clave API de OpenRouter.")
-        else:
-            st.error(f"Error HTTP en la llamada a la API: {http_err}")
-        return None
-    except requests.exceptions.ConnectionError:
-        st.error("Error de conexión: Verifica tu conexión a Internet.")
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error en la llamada a la API: {e}")
         return None
     except (KeyError, IndexError, TypeError) as e:
         st.error(f"Formato inesperado de la respuesta de la API: {e}")
-        st.write("### Respuesta Completa de la API para Depuración:")
-        st.json(data)  # Mostrar la respuesta completa para depuración
         return None
 
 # Inicialización del estado de la sesión
 if 'elements' not in st.session_state:
     st.session_state.elements = {}
 if 'chapters' not in st.session_state:
-    st.session_state.chapters = []
+    st.session_state.chapters = []  # Ahora cada capítulo será una lista de escenas
 if 'genre' not in st.session_state:
     st.session_state.genre = "Fantasía"  # Valor por defecto
 if 'synopsis' not in st.session_state:
@@ -78,125 +69,109 @@ def generar_elementos():
     if not st.session_state.audience:
         st.error("Por favor, define la audiencia antes de generar los elementos.")
         return
-    
-    # Ajustamos el prompt para que la respuesta sea en formato JSON
     prompt = (
         f"Necesito que me ayudes a crear una novela del género **{st.session_state.genre}** basada en la siguiente sinopsis:\n\n"
         f"**Sinopsis:** {st.session_state.synopsis}\n\n"
         f"**Audiencia:** {st.session_state.audience}\n\n"
-        "Por favor, genera los siguientes elementos de manera detallada y coherente en formato JSON con las siguientes claves:\n"
-        "1. **personajes_principales**: Lista de al menos tres personajes principales con sus características (personalidad, apariencia y motivaciones).\n"
-        "2. **trama**: Descripción de la trama principal, incluyendo el conflicto central y los puntos de giro principales.\n"
-        "3. **ambientacion**: Descripción del mundo o entorno donde se desarrolla la historia, incluyendo detalles geográficos, culturales y temporales.\n"
-        "4. **tecnica_narrativa**: Descripción del punto de vista (primera persona, tercera persona, etc.) y el estilo narrativo que se utilizará (descriptivo, dinámico, etc.).\n"
+        "Por favor, genera los siguientes elementos de manera detallada y coherente:\n"
+        "1. **Personajes principales:** Describe al menos tres personajes principales con sus características, incluyendo personalidad, apariencia y motivaciones.\n"
+        "2. **Trama:** Esboza la trama principal de la novela, incluyendo el conflicto central y los puntos de giro principales.\n"
+        "3. **Ambientación:** Describe el mundo o entorno donde se desarrolla la historia, incluyendo detalles geográficos, culturales y temporales.\n"
+        "4. **Técnica narrativa:** Indica el punto de vista (primera persona, tercera persona, etc.) y el estilo narrativo que se utilizará (descriptivo, dinámico, etc.).\n"
     )
-    
     with st.spinner("Generando elementos de la novela..."):
-        resultado = call_openrouter_api(prompt, max_tokens=5000)  # Ajustado a 5000 tokens
-    
+        resultado = call_openrouter_api(prompt)
     if resultado:
-        # Mostrar la respuesta completa para depuración
-        st.text_area("Respuesta de la API (para depuración):", value=resultado, height=300)
+        # Parsear el resultado asumiendo que está en formato Markdown
         try:
-            # Intentar parsear la respuesta como JSON
-            elementos = json.loads(resultado)
-            
-            # Validar que todas las claves estén presentes
-            required_keys = ['personajes_principales', 'trama', 'ambientacion', 'tecnica_narrativa']
-            if all(key in elementos for key in required_keys):
+            elementos = {}
+            # Utilizamos expresiones regulares para extraer las secciones
+            personajes_match = re.search(r"\*\*Personajes principales:\*\*\s*(.*?)(?=\n\*\*Trama:|\Z)", resultado, re.DOTALL)
+            trama_match = re.search(r"\*\*Trama:\*\*\s*(.*?)(?=\n\*\*Ambientación:|\Z)", resultado, re.DOTALL)
+            ambientacion_match = re.search(r"\*\*Ambientación:\*\*\s*(.*?)(?=\n\*\*Técnica narrativa:|\Z)", resultado, re.DOTALL)
+            tecnica_match = re.search(r"\*\*Técnica narrativa:\*\*\s*(.*)", resultado, re.DOTALL)
+
+            if personajes_match:
+                elementos['personajes'] = personajes_match.group(1).strip()
+            if trama_match:
+                elementos['trama'] = trama_match.group(1).strip()
+            if ambientacion_match:
+                elementos['ambientacion'] = ambientacion_match.group(1).strip()
+            if tecnica_match:
+                elementos['tecnica_narrativa'] = tecnica_match.group(1).strip()
+
+            if elementos:
                 st.session_state.elements = elementos
                 st.success("Elementos generados exitosamente.")
             else:
-                st.error("La respuesta JSON no contiene todas las claves necesarias.")
-                st.write("### Respuesta JSON:")
-                st.json(elementos)
-        except json.JSONDecodeError:
-            st.error("La respuesta de la API no está en formato JSON válido.")
-            st.write("### Respuesta de la API:")
-            st.write(resultado)
-    else:
-        st.error("No se pudo generar los elementos de la novela. Por favor, intenta de nuevo.")
+                st.error("No se pudieron extraer los elementos de la respuesta de la API.")
+        except Exception as e:
+            st.error(f"Error al procesar los elementos: {e}")
 
-# Función para generar una escena individual
-def generar_escena(capitulo_numero, escena_numero, idea=None):
-    if not (1 <= escena_numero <= 5):
-        st.error("El número de escena debe estar entre 1 y 5.")
-        return
-
-    if len(st.session_state.chapters) < capitulo_numero - 1:
-        st.error(f"El capítulo {capitulo_numero} aún no ha sido generado.")
-        return
-
-    if capitulo_numero == 0:
-        st.error("El número de capítulo debe ser al menos 1.")
-        return
-
-    if capitulo_numero > len(st.session_state.chapters) + 1:
-        st.error(f"No existe el capítulo {capitulo_numero}.")
-        return
-
-    if capitulo_numero == 1 and not st.session_state.elements:
-        st.error("Primero debes generar los elementos de la novela.")
-        return
-
-    if idea:
-        prompt = (
-            f"Reescribe la **Escena {escena_numero}** del Capítulo {capitulo_numero} de la novela del género **{st.session_state.genre}**. "
-            f"Basándote en la siguiente idea: {idea}\n\n"
-            "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama.\n"
-            "Mantén el estilo narrativo coherente y atractivo."
+# Función para generar un capítulo con tres escenas
+def generar_capitulo(idea=None):
+    if not st.session_state.chapters:
+        # Generar el primer capítulo basado en los elementos
+        if not st.session_state.elements:
+            st.error("Primero debes generar los elementos de la novela.")
+            return
+        prompt_base = (
+            f"Usa los siguientes elementos para escribir una escena de una novela del género **{st.session_state.genre}** basada en la sinopsis proporcionada y dirigida a la audiencia definida. "
+            "La escena debe incluir diálogos entre los personajes utilizando la raya (—) y mantener un estilo narrativo coherente y atractivo.\n\n"
+            f"**Sinopsis:** {st.session_state.synopsis}\n"
+            f"**Audiencia:** {st.session_state.audience}\n"
+            f"**Personajes principales:** {st.session_state.elements.get('personajes', '')}\n"
+            f"**Trama:** {st.session_state.elements.get('trama', '')}\n"
+            f"**Ambientación:** {st.session_state.elements.get('ambientacion', '')}\n"
+            f"**Técnica narrativa:** {st.session_state.elements.get('tecnica_narrativa', '')}\n\n"
         )
+        num_scenes = 3
+        escenas = []
+        with st.spinner("Generando escenas del capítulo..."):
+            for i in range(1, num_scenes + 1):
+                prompt = (
+                    f"{prompt_base}"
+                    f"**Escena {i}:** Describe la escena {i} detalladamente, asegurándote de que avance la trama y desarrolle a los personajes."
+                )
+                resultado = call_openrouter_api(prompt, max_tokens=6000)
+                if resultado:
+                    escenas.append(resultado)
+                else:
+                    st.error(f"Error al generar la escena {i}.")
+                    return
+        if len(escenas) == num_scenes:
+            st.session_state.chapters.append(escenas)
+            st.success("Capítulo generado exitosamente con tres escenas.")
     else:
-        # Si no se proporciona una idea, generar la escena basada en los elementos o el capítulo anterior
-        if capitulo_numero == 1:
-            prompt = (
-                f"Genera la **Escena {escena_numero}** del Capítulo {capitulo_numero} de una novela del género **{st.session_state.genre}**. "
-                "La escena debe tener aproximadamente **5000 tokens**. "
-                "Incluye diálogos entre los personajes utilizando la raya (—) y mantén un estilo narrativo coherente y atractivo.\n\n"
-                f"**Sinopsis:** {st.session_state.synopsis}\n"
-                f"**Audiencia:** {st.session_state.audience}\n"
-                f"**Personajes principales:** {st.session_state.elements.get('personajes_principales', '')}\n"
-                f"**Trama:** {st.session_state.elements.get('trama', '')}\n"
-                f"**Ambientación:** {st.session_state.elements.get('ambientacion', '')}\n"
-                f"**Técnica narrativa:** {st.session_state.elements.get('tecnica_narrativa', '')}\n\n"
-                "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama."
-            )
-        else:
-            ultimo_capitulo = st.session_state.chapters[capitulo_numero - 2]  # capitulo_numero -1 para 0 index
-            prompt = (
-                f"Basándote en el siguiente capítulo y la idea proporcionada, escribe la **Escena {escena_numero}** del Capítulo {capitulo_numero} de la novela del género **{st.session_state.genre}**. "
-                "La escena debe tener aproximadamente **5000 tokens**. "
-                "Incluye diálogos entre los personajes utilizando la raya (—) y mantén un estilo narrativo coherente y atractivo.\n\n"
-                f"**Último Capítulo:**\n{ultimo_capitulo}\n\n"
-                f"**Idea para la escena:** {idea if idea else 'Continuar la trama de manera coherente con el capítulo anterior.'}\n\n"
-                "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama."
-            )
-
-    with st.spinner(f"Generando Escena {escena_numero} del Capítulo {capitulo_numero}..."):
-        resultado = call_openrouter_api(prompt, max_tokens=5000)  # Ajustado a 5000 tokens
-
-    if resultado:
-        # Actualizar o crear el capítulo con la nueva escena
-        if len(st.session_state.chapters) < capitulo_numero:
-            st.session_state.chapters.append("")
-
-        capitulo = st.session_state.chapters[capitulo_numero - 1]
-
-        # Crear el encabezado de la escena
-        nueva_escena = f"### Escena {escena_numero}\n{resultado}\n\n"
-
-        # Buscar si la escena ya existe usando regex
-        pattern = re.compile(rf"### Escena {escena_numero}[\s\S]*?(?=### Escena \d|$)", re.MULTILINE)
-        if pattern.search(capitulo):
-            # Reemplazar la escena existente
-            st.session_state.chapters[capitulo_numero - 1] = pattern.sub(nueva_escena, capitulo)
-            st.success(f"Escena {escena_numero} del Capítulo {capitulo_numero} reescrita exitosamente.")
-        else:
-            # Añadir la nueva escena
-            st.session_state.chapters[capitulo_numero - 1] += nueva_escena
-            st.success(f"Escena {escena_numero} del Capítulo {capitulo_numero} generada exitosamente.")
-    else:
-        st.error(f"No se pudo generar la Escena {escena_numero} del Capítulo {capitulo_numero}. Por favor, intenta de nuevo.")
+        # Generar capítulos subsecuentes basados en el anterior y la idea del usuario
+        if not idea:
+            st.error("Por favor, proporciona una idea para el siguiente capítulo.")
+            return
+        ultimo_capitulo = st.session_state.chapters[-1]
+        prompt_base = (
+            f"Basándote en el siguiente capítulo y la idea proporcionada, escribe una nueva escena de la novela del género **{st.session_state.genre}**. "
+            "La escena debe incluir diálogos entre los personajes utilizando la raya (—) y mantener un estilo narrativo coherente y atractivo.\n\n"
+            f"**Último Capítulo:**\n" + "\n".join(ultimo_capitulo) + "\n\n"
+            f"**Idea para el siguiente capítulo:** {idea}\n\n"
+            "Asegúrate de que los diálogos estén correctamente formateados utilizando la raya (—) y que cada diálogo sea claro y relevante para el desarrollo de la trama.\n"
+        )
+        num_scenes = 3
+        escenas = []
+        with st.spinner("Generando escenas del siguiente capítulo..."):
+            for i in range(1, num_scenes + 1):
+                prompt = (
+                    f"{prompt_base}"
+                    f"**Escena {i}:** Describe la escena {i} detalladamente, asegurándote de que avance la trama y desarrolle a los personajes."
+                )
+                resultado = call_openrouter_api(prompt, max_tokens=6000)
+                if resultado:
+                    escenas.append(resultado)
+                else:
+                    st.error(f"Error al generar la escena {i}.")
+                    return
+        if len(escenas) == num_scenes:
+            st.session_state.chapters.append(escenas)
+            st.success("Nuevo capítulo generado exitosamente con tres escenas.")
 
 # Función para editar los elementos de la novela
 def editar_elementos():
@@ -207,6 +182,7 @@ def editar_elementos():
             "Fantasía", "Ciencia Ficción", "Misterio", "Romance",
             "Terror", "Aventura", "Histórica", "Thriller", "Drama", "Comedia"
         ]
+        # Agregar una clave única al selectbox para evitar el error de ID duplicado
         selected_genre = st.selectbox(
             "Selecciona el género de tu novela:",
             generos,
@@ -217,28 +193,34 @@ def editar_elementos():
             st.session_state.genre = selected_genre
 
     with st.expander("Editar Sinopsis"):
+        # Agregar clave única para el text_area de la sinopsis
         sinopsis_editada = st.text_area("Sinopsis:", value=st.session_state.synopsis, height=200, key="text_area_sinopsis_editar")
         if sinopsis_editada.strip() != st.session_state.synopsis:
             st.session_state.synopsis = sinopsis_editada.strip()
 
     with st.expander("Editar Audiencia"):
+        # Agregar clave única para el text_area de la audiencia
         audiencia_editada = st.text_area("Audiencia (e.g., edad, intereses):", value=st.session_state.audience, height=100, key="text_area_audiencia_editar")
         if audiencia_editada.strip() != st.session_state.audience:
             st.session_state.audience = audiencia_editada.strip()
 
     with st.expander("Editar Personajes Principales"):
-        personajes_editados = st.text_area("Personajes principales:", value=st.session_state.elements.get('personajes_principales', ''), height=150, key="text_area_personajes_editar")
-        st.session_state.elements['personajes_principales'] = personajes_editados.strip()
+        # Agregar clave única para el text_area de los personajes
+        personajes_editados = st.text_area("Personajes principales:", value=st.session_state.elements.get('personajes', ''), height=150, key="text_area_personajes_editar")
+        st.session_state.elements['personajes'] = personajes_editados.strip()
 
     with st.expander("Editar Trama"):
+        # Agregar clave única para el text_area de la trama
         trama_editada = st.text_area("Trama:", value=st.session_state.elements.get('trama', ''), height=150, key="text_area_trama_editar")
         st.session_state.elements['trama'] = trama_editada.strip()
 
     with st.expander("Editar Ambientación"):
+        # Agregar clave única para el text_area de la ambientación
         ambientacion_editada = st.text_area("Ambientación:", value=st.session_state.elements.get('ambientacion', ''), height=150, key="text_area_ambientacion_editar")
         st.session_state.elements['ambientacion'] = ambientacion_editada.strip()
 
     with st.expander("Editar Técnica Narrativa"):
+        # Agregar clave única para el text_area de la técnica narrativa
         tecnica_editada = st.text_area("Técnica narrativa:", value=st.session_state.elements.get('tecnica_narrativa', ''), height=150, key="text_area_tecnica_editar")
         st.session_state.elements['tecnica_narrativa'] = tecnica_editada.strip()
 
@@ -275,14 +257,6 @@ def mostrar_estado():
     st.sidebar.write("### Capítulos Generados:")
     st.sidebar.write(len(st.session_state.chapters))
 
-# Función para reiniciar el estado de la sesión
-def reiniciar_sesion():
-    if st.sidebar.button("🔄 Reiniciar Proyecto", key="reset_project_btn"):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.success("Proyecto reiniciado exitosamente.")
-        st.experimental_rerun()
-
 # Interfaz de la aplicación
 st.header("📖 Genera tu Novela")
 
@@ -293,11 +267,12 @@ if not st.session_state.chapters:
         "Fantasía", "Ciencia Ficción", "Misterio", "Romance",
         "Terror", "Aventura", "Histórica", "Thriller", "Drama", "Comedia"
     ]
+    # Utilizamos una variable temporal para evitar sobrescribir en cada interacción
     selected_genre = st.selectbox(
         "Selecciona el género de tu novela:",
         generos,
         index=generos.index(st.session_state.genre) if st.session_state.genre in generos else 0,
-        key="selectbox_genero_paso0"
+        key="selectbox_genero_paso0"  # Clave única
     )
     if st.session_state.genre != selected_genre:
         st.session_state.genre = selected_genre
@@ -317,7 +292,7 @@ if not st.session_state.chapters:
         st.markdown(f"**Género:** {st.session_state.genre}")
         st.markdown(f"**Sinopsis:** {st.session_state.synopsis}")
         st.markdown(f"**Audiencia:** {st.session_state.audience}")
-        st.markdown(f"**Personajes Principales:** {st.session_state.elements.get('personajes_principales', '')}")
+        st.markdown(f"**Personajes Principales:** {st.session_state.elements.get('personajes', '')}")
         st.markdown(f"**Trama:** {st.session_state.elements.get('trama', '')}")
         st.markdown(f"**Ambientación:** {st.session_state.elements.get('ambientacion', '')}")
         st.markdown(f"**Técnica Narrativa:** {st.session_state.elements.get('tecnica_narrativa', '')}")
@@ -327,17 +302,20 @@ if not st.session_state.chapters:
         # Paso 4: Generar el Primer Capítulo
         st.subheader("Paso 4: Generar el Primer Capítulo")
         if st.button("Generar Primer Capítulo", key="generar_primer_capitulo_btn"):
-            # Generar las 5 escenas del primer capítulo
-            for escena_numero in range(1, 6):
-                generar_escena(capitulo_numero=1, escena_numero=escena_numero)
+            generar_capitulo()
         if st.session_state.chapters:
             st.markdown("### **Capítulo 1:**")
-            st.write(st.session_state.chapters[0])
+            for idx, escena in enumerate(st.session_state.chapters[0], 1):
+                st.markdown(f"**Escena {idx}:**")
+                st.write(escena)
 else:
     # Generar capítulos adicionales
     st.subheader("Generar Nuevos Capítulos")
-    st.markdown("### **Capítulo Anterior:**")
-    st.write(st.session_state.chapters[-1])
+    st.markdown("### **Último Capítulo Generado:**")
+    ultimo_capitulo = st.session_state.chapters[-1]
+    for idx, escena in enumerate(ultimo_capitulo, 1):
+        st.markdown(f"**Escena {idx}:**")
+        st.write(escena)
     st.markdown("---")
     # Usamos un formulario para manejar mejor la entrada del usuario
     with st.form(key='idea_form'):
@@ -347,37 +325,22 @@ else:
         if idea.strip() == "":
             st.error("La idea para el siguiente capítulo no puede estar vacía.")
         else:
-            nuevo_capitulo_numero = len(st.session_state.chapters) + 1
-            # Generar las 5 escenas del nuevo capítulo
-            for escena_numero in range(1, 6):
-                generar_escena(capitulo_numero=nuevo_capitulo_numero, escena_numero=escena_numero, idea=idea)
+            generar_capitulo(idea=idea)
     if st.session_state.chapters:
         st.markdown(f"### **Capítulo {len(st.session_state.chapters)}:**")
-        st.write(st.session_state.chapters[-1])
+        nuevo_capitulo = st.session_state.chapters[-1]
+        for idx, escena in enumerate(nuevo_capitulo, 1):
+            st.markdown(f"**Escena {idx}:**")
+            st.write(escena)
 
-# Mostrar todos los capítulos generados con opción de reescribir
+# Mostrar todos los capítulos generados
 if st.session_state.chapters:
-    st.sidebar.header("🔍 Navegar y Reescribir Capítulos")
+    st.sidebar.header("🔍 Navegar por los Capítulos")
     for idx, cap in enumerate(st.session_state.chapters, 1):
         with st.sidebar.expander(f"Capítulo {idx}"):
-            st.markdown(cap)  # Usar markdown para mantener el formato de escenas
-            # Botón para reescribir el capítulo
-            if st.button(f"Reescribir Capítulo {idx}", key=f"reescribir_capitulo_{idx}"):
-                # Mostrar un formulario para ingresar la nueva idea
-                with st.expander(f"Reescribir Capítulo {idx}", expanded=True):
-                    nueva_idea = st.text_input(f"Nueva idea para el Capítulo {idx}:", key=f"nueva_idea_{idx}")
-                    if st.button(f"Actualizar Capítulo {idx}", key=f"actualizar_capitulo_{idx}"):
-                        if nueva_idea.strip() == "":
-                            st.error("La nueva idea no puede estar vacía.")
-                        else:
-                            # Reescribir cada escena del capítulo
-                            for escena_numero in range(1, 6):
-                                generar_escena(capitulo_numero=idx, escena_numero=escena_numero, idea=nueva_idea)
-                            st.success(f"Capítulo {idx} reescrito exitosamente.")
-                            st.experimental_rerun()
+            for s_idx, escena in enumerate(cap, 1):
+                st.markdown(f"**Escena {s_idx}:**")
+                st.write(escena)
 
 # Mostrar el estado de la sesión (opcional, para depuración)
 mostrar_estado()
-
-# Opción para reiniciar el proyecto
-reiniciar_sesion()
