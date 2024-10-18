@@ -186,7 +186,7 @@ def generate_scene_content(title, plot, characters, setting, narrative_technique
 - Ambientación: {setting}
 - Técnica Narrativa: {narrative_technique}
 
-La escena debe tener exactamente 9 párrafos y continuar la historia de manera coherente. No incluyas encabezados ni títulos. Escribe en un estilo atractivo que enganche al lector.
+La escena debe tener exactamente 9 párrafos y continuar la historia de manera coherente. No incluyas encabezados ni títulos. Escribe en un estilo atractivo que enganche al lector. En los diálogos, utiliza la raya (—) para introducir las intervenciones de los personajes, siguiendo las normas de puntuación en español.
 
 Contenido de la escena:
 """
@@ -205,7 +205,7 @@ def validate_scene_paragraphs(scene_content, expected_paragraphs=9):
         paragraphs_needed = expected_paragraphs - num_paragraphs
         additional_paragraphs = []
         for _ in range(paragraphs_needed):
-            prompt = "Escribe un párrafo adicional que continúe la historia de manera coherente."
+            prompt = """Escribe un párrafo adicional que continúe la historia de manera coherente. Utiliza la raya (—) en los diálogos si corresponde."""
             messages = [
                 {"role": "user", "content": prompt}
             ]
