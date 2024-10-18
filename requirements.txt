@@ -1,4 +1,6 @@
 streamlit
+requests
 python-docx
 markdown
-beatifulsoup4
+markdown2
+beautifulsoup4
