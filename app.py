@@ -46,7 +46,7 @@ if 'current_chapter' not in st.session_state:
 if 'current_scene' not in st.session_state:
     st.session_state.current_scene = 1
 if 'total_chapters' not in st.session_state:
-    st.session_state.total_chapters = 9  # **Total de capítulos ajustado a 7**
+    st.session_state.total_chapters = 2  # **Total de capítulos ajustado a 7**
 if 'total_scenes' not in st.session_state:
     st.session_state.total_scenes = 5  # Total de escenas por capítulo
 if 'total_paragraphs' not in st.session_state:
