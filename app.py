@@ -78,7 +78,7 @@ def reset_session():
     st.session_state.selected_scene = None
 
 # Función para llamar a la API de OpenRouter con reintentos
-def call_openrouter_api(prompt, model="openai/gpt-4o-mini", max_tokens=3000, temperature=0.7, retries=3, delay_seconds=5):
+def call_openrouter_api(prompt, model="qwen/qwen-2.5-72b-instruct", max_tokens=1500, temperature=0.7, retries=3, delay_seconds=2):
     try:
         api_key = st.secrets["OPENROUTER_API_KEY"]
     except KeyError:
@@ -399,7 +399,13 @@ if st.session_state.chapters:
     # Barra de progreso
     generated_scenes = sum([len(chap['scenes']) for chap in st.session_state.chapters if chap['scenes']])
     total_scenes = st.session_state.total_chapters * st.session_state.total_scenes
-    progress = generated_scenes / total_scenes
+    # Evitar división por cero
+    if total_scenes > 0:
+        progress = generated_scenes / total_scenes
+        # Asegurar que progress esté entre 0.0 y 1.0
+        progress = max(0.0, min(progress, 1.0))
+    else:
+        progress = 0.0
     progress_bar = st.progress(progress)
 
     # Botón para regenerar la escena seleccionada
@@ -435,6 +441,14 @@ if st.session_state.chapters:
                         st.session_state.markdown_content = pattern.sub(replacement, st.session_state.markdown_content)
                         
                         st.success(f"Escena {scene['number']} del Capítulo {chapter['number']} regenerada exitosamente.")
+            # Actualizar barra de progreso después de regenerar
+            generated_scenes = sum([len(chap['scenes']) for chap in st.session_state.chapters if chap['scenes']])
+            if total_scenes > 0:
+                progress = generated_scenes / total_scenes
+                progress = max(0.0, min(progress, 1.0))
+            else:
+                progress = 0.0
+            progress_bar.progress(progress)
 
     # Botón para generar la siguiente escena
     if st.session_state.current_chapter <= st.session_state.total_chapters and st.session_state.current_scene <= st.session_state.total_scenes:
@@ -468,7 +482,11 @@ if st.session_state.chapters:
                     
                     # Actualizar la barra de progreso
                     generated_scenes += 1
-                    progress = generated_scenes / total_scenes
+                    if total_scenes > 0:
+                        progress = generated_scenes / total_scenes
+                        progress = max(0.0, min(progress, 1.0))
+                    else:
+                        progress = 0.0
                     progress_bar.progress(progress)
                     
                     # Pausa de 1 segundo entre escenas para mejorar la experiencia del usuario
