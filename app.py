@@ -487,15 +487,20 @@ if st.session_state.table_of_chapters:
                     )
                     if not generated_title:
                         st.error(f"No se pudo generar el título para el capítulo {st.session_state.current_chapter}.")
-                        return
-                    st.session_state.chapters[st.session_state.current_chapter - 1]['title'] = generated_title
-                    # Actualizar el contenido Markdown para el capítulo
-                    chapter_heading = f"## Capítulo {st.session_state.current_chapter}: {generated_title}\n\n"
-                    st.session_state.markdown_content += f"{chapter_heading}"
-                
-                st.success(f"Capítulo {st.session_state.current_chapter} generado exitosamente. Ahora puedes comenzar a generar sus escenas.")
-                st.session_state.current_chapter += 1
-                st.session_state.current_scene = 1  # Reiniciar la escena para el nuevo capítulo
+                        continue_generation = False
+                    else:
+                        st.session_state.chapters[st.session_state.current_chapter - 1]['title'] = generated_title
+                        # Actualizar el contenido Markdown para el capítulo
+                        chapter_heading = f"## Capítulo {st.session_state.current_chapter}: {generated_title}\n\n"
+                        st.session_state.markdown_content += f"{chapter_heading}"
+                        continue_generation = True
+                else:
+                    continue_generation = True  # Título ya generado
+
+                if continue_generation:
+                    st.success(f"Capítulo {st.session_state.current_chapter} generado exitosamente. Ahora puedes comenzar a generar sus escenas.")
+                    st.session_state.current_chapter += 1
+                    st.session_state.current_scene = 1  # Reiniciar la escena para el nuevo capítulo
 
     # Actualizar la barra de progreso hasta completar
     if len([chap for chap in st.session_state.chapters if len(chap['scenes']) == st.session_state.total_scenes]) == st.session_state.total_chapters:
@@ -554,6 +559,6 @@ if st.session_state.table_of_chapters:
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
 
-# Opcional: Mostrar todo el contenido generado
-with st.expander("Mostrar Contenido Completo"):
-    st.markdown(st.session_state.markdown_content)
+    # Opcional: Mostrar todo el contenido generado
+    with st.expander("Mostrar Contenido Completo"):
+        st.markdown(st.session_state.markdown_content)
