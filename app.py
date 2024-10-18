@@ -48,7 +48,7 @@ if 'total_chapters' not in st.session_state:
 if 'total_scenes' not in st.session_state:
     st.session_state.total_scenes = 5
 if 'total_paragraphs' not in st.session_state:
-    st.session_state.total_paragraphs = 9
+    st.session_state.total_paragraphs = 27
 if 'markdown_content' not in st.session_state:
     st.session_state.markdown_content = ""
 if 'generation_complete' not in st.session_state:
