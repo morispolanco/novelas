@@ -6,6 +6,7 @@ from docx import Document
 from io import BytesIO
 import re
 import time
+import base64
 
 # Configuración de la página
 st.set_page_config(
@@ -48,7 +49,7 @@ if 'total_chapters' not in st.session_state:
 if 'total_scenes' not in st.session_state:
     st.session_state.total_scenes = 5
 if 'total_paragraphs' not in st.session_state:
-    st.session_state.total_paragraphs = 25
+    st.session_state.total_paragraphs = 25  # Aumentamos los párrafos a 25
 if 'markdown_content' not in st.session_state:
     st.session_state.markdown_content = ""
 if 'generation_complete' not in st.session_state:
@@ -186,7 +187,7 @@ def generate_scene_content(title, plot, characters, setting, narrative_technique
 - Ambientación: {setting}
 - Técnica Narrativa: {narrative_technique}
 
-La escena debe tener exactamente 9 párrafos y continuar la historia de manera coherente. No incluyas encabezados ni títulos. Escribe en un estilo atractivo que enganche al lector. En los diálogos, utiliza la raya (—) para introducir las intervenciones de los personajes, siguiendo las normas de puntuación en español.
+La escena debe tener exactamente 25 párrafos y continuar la historia de manera coherente. No incluyas encabezados ni títulos. Escribe en un estilo atractivo que enganche al lector. En los diálogos, utiliza la raya (—) para introducir las intervenciones de los personajes, siguiendo las normas de puntuación en español.
 
 Contenido de la escena:
 """
@@ -196,8 +197,8 @@ Contenido de la escena:
     response = call_openrouter_api(messages)
     return response
 
-# Función para validar que cada escena tenga exactamente 9 párrafos
-def validate_scene_paragraphs(scene_content, expected_paragraphs=9):
+# Función para validar que cada escena tenga exactamente 25 párrafos
+def validate_scene_paragraphs(scene_content, expected_paragraphs=25):
     paragraphs = [p for p in scene_content.strip().split('\n') if p.strip() != ""]
     num_paragraphs = len(paragraphs)
     if num_paragraphs < expected_paragraphs:
@@ -251,7 +252,13 @@ def export_to_word(markdown_content):
     buffer = BytesIO()
     doc.save(buffer)
     buffer.seek(0)
-    return buffer.getvalue()  # Devolver los bytes del documento
+    return buffer  # Retornamos el objeto BytesIO
+
+# Función para crear un enlace de descarga
+def create_download_link(buffer, filename):
+    b64 = base64.b64encode(buffer.read()).decode()
+    href = f'<a href="data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,{b64}" download="{filename}">Descargar {filename}</a>'
+    return href
 
 # --- Barra Lateral ---
 with st.sidebar:
@@ -396,7 +403,7 @@ if st.session_state.title and st.session_state.plot and st.session_state.table_o
     st.header("Generación de Capítulos y Escenas")
 
     # Barra de progreso
-    generated_scenes = sum([len(chap['scenes']) for chap in st.session_state.chapters if chap['scenes']])
+    generated_scenes = sum([len([scene for scene in chap['scenes'] if scene['content']]) for chap in st.session_state.chapters])
     total_scenes = st.session_state.total_chapters * st.session_state.total_scenes
     progress = generated_scenes / total_scenes
     progress_bar = st.progress(progress)
@@ -413,7 +420,7 @@ if st.session_state.title and st.session_state.plot and st.session_state.table_o
                 st.markdown(scene['content'])
             else:
                 st.info("Esta escena aún no ha sido generada.")
-            if st.button("Regenerar Escena"):
+            if st.button("Regenerar Escena", key="regenerate_scene"):
                 with st.spinner(f"Regenerando Escena {scene['number']} del Capítulo {chapter['number']}..."):
                     # Generar contenido para la escena
                     new_content = generate_scene_content(
@@ -427,7 +434,7 @@ if st.session_state.title and st.session_state.plot and st.session_state.table_o
                         scene['number']
                     )
                     if new_content:
-                        # Validar que la escena tenga exactamente 9 párrafos
+                        # Validar que la escena tenga exactamente 25 párrafos
                         validated_content = validate_scene_paragraphs(new_content, expected_paragraphs=st.session_state.total_paragraphs)
                         # Actualizar la escena con el nuevo contenido
                         st.session_state.chapters[st.session_state.selected_chapter]['scenes'][st.session_state.selected_scene]['content'] = validated_content
@@ -467,7 +474,7 @@ if st.session_state.title and st.session_state.plot and st.session_state.table_o
                     scene['number']
                 )
                 if generated_content:
-                    # Validar que la escena tenga exactamente 9 párrafos
+                    # Validar que la escena tenga exactamente 25 párrafos
                     validated_content = validate_scene_paragraphs(generated_content, expected_paragraphs=st.session_state.total_paragraphs)
                     # Actualizar la escena con contenido
                     scene['content'] = validated_content
@@ -511,20 +518,18 @@ if st.session_state.title and st.session_state.plot and st.session_state.table_o
             complete_word_file = None
 
         # Botón para descargar contenido parcial en Word
-        st.download_button(
-            label="Descargar Contenido Parcial en Word",
-            data=partial_word_file,
-            file_name=f"{st.session_state.title.replace(' ', '_')}_Parcial.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        partial_filename = f"{st.session_state.title.replace(' ', '_')}_Parcial.docx"
+        st.markdown(
+            create_download_link(partial_word_file, partial_filename),
+            unsafe_allow_html=True
         )
         
         # Botón para descargar contenido completo en Word (solo si está completo)
         if st.session_state.generation_complete:
-            st.download_button(
-                label="Descargar Novela Completa en Word",
-                data=complete_word_file,
-                file_name=f"{st.session_state.title.replace(' ', '_')}.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            complete_filename = f"{st.session_state.title.replace(' ', '_')}.docx"
+            st.markdown(
+                create_download_link(complete_word_file, complete_filename),
+                unsafe_allow_html=True
             )
 
     # Opcional: Mostrar todo el contenido generado
