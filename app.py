@@ -50,7 +50,7 @@ if 'total_chapters' not in st.session_state:
 if 'total_scenes' not in st.session_state:
     st.session_state.total_scenes = 5  # Total de escenas por capítulo
 if 'total_paragraphs' not in st.session_state:
-    st.session_state.total_paragraphs = 9  # Total de párrafos por escena
+    st.session_state.total_paragraphs = 27  # Total de párrafos por escena
 if 'markdown_content' not in st.session_state:
     st.session_state.markdown_content = ""
 if 'generation_complete' not in st.session_state:
