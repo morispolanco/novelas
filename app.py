@@ -48,7 +48,7 @@ if 'total_chapters' not in st.session_state:
 if 'total_scenes' not in st.session_state:
     st.session_state.total_scenes = 5
 if 'total_paragraphs' not in st.session_state:
-    st.session_state.total_paragraphs = 27
+    st.session_state.total_paragraphs = 25
 if 'markdown_content' not in st.session_state:
     st.session_state.markdown_content = ""
 if 'generation_complete' not in st.session_state:
@@ -251,7 +251,7 @@ def export_to_word(markdown_content):
     buffer = BytesIO()
     doc.save(buffer)
     buffer.seek(0)
-    return buffer
+    return buffer.getvalue()  # Devolver los bytes del documento
 
 # --- Barra Lateral ---
 with st.sidebar:
