@@ -46,11 +46,11 @@ if 'current_chapter' not in st.session_state:
 if 'current_scene' not in st.session_state:
     st.session_state.current_scene = 1
 if 'total_chapters' not in st.session_state:
-    st.session_state.total_chapters = 9  # Total de capítulos
+    st.session_state.total_chapters = 7  # **Total de capítulos ajustado a 7**
 if 'total_scenes' not in st.session_state:
     st.session_state.total_scenes = 5  # Total de escenas por capítulo
 if 'total_paragraphs' not in st.session_state:
-    st.session_state.total_paragraphs = 27  # Total de párrafos por escena
+    st.session_state.total_paragraphs = 27  # **Total de párrafos por escena ajustado a 27**
 if 'markdown_content' not in st.session_state:
     st.session_state.markdown_content = ""
 if 'generation_complete' not in st.session_state:
@@ -78,7 +78,7 @@ def reset_session():
     st.session_state.selected_scene = None
 
 # Función para llamar a la API de OpenRouter con reintentos
-def call_openrouter_api(prompt, model="qwen/qwen-2.5-72b-instruct", max_tokens=3500, temperature=0.7, retries=3, delay_seconds=2):
+def call_openrouter_api(prompt, model="qwen/qwen-2.5-72b-instruct", max_tokens=1500, temperature=0.7, retries=3, delay_seconds=2):
     try:
         api_key = st.secrets["OPENROUTER_API_KEY"]
     except KeyError:
@@ -201,7 +201,7 @@ Título del Capítulo {chapter_num}: [Título Único]
 
 # Función para generar una escena
 def generate_scene(plot, characters, setting, narrative_technique, chapter_num, scene_num):
-    prompt = f"""Escribe una escena para el capítulo {chapter_num} de una novela. La escena debe tener exactamente {st.session_state.total_paragraphs} párrafos. Usa rayas (–) para los diálogos y no incluye títulos para la escena.
+    prompt = f"""Escribe una escena para el capítulo {chapter_num} de una novela. La escena debe tener exactamente {st.session_state.total_paragraphs} párrafos. Usa raya (—) para los diálogos y no incluye títulos para la escena.
     
 Trama: {plot}
 Personajes Principales: {characters}
@@ -219,8 +219,8 @@ Formato de respuesta:
 """
     response = call_openrouter_api(prompt, model="qwen/qwen-2.5-72b-instruct")
     if response:
-        # Asegurarse de que los diálogos utilizan rayas
-        response = response.replace('"', '–').replace("“", '–').replace("”", '–')
+        # Asegurarse de que los diálogos utilizan raya (—)
+        response = response.replace('"', '—').replace("“", '—').replace("”", '—')
         return response.strip()
     return None
 
@@ -429,8 +429,7 @@ if st.session_state.chapters:
                         st.session_state.chapters[st.session_state.selected_chapter]['scenes'][st.session_state.selected_scene]['content'] = new_content
                         
                         # Actualizar el contenido Markdown
-                        # Encontrar y reemplazar la escena en markdown_content
-                        # Asumiendo que las escenas no tienen títulos, solo se indican como "Escena X"
+                        # Asumimos que cada escena está marcada como "Escena X" seguida de su contenido
                         pattern = re.compile(rf"Escena {scene['number']}\s*\n\n(.*?)\n\n", re.DOTALL)
                         replacement = f"Escena {scene['number']}\n\n{new_content}\n\n"
                         st.session_state.markdown_content = pattern.sub(replacement, st.session_state.markdown_content)
