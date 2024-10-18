@@ -81,7 +81,7 @@ def reset_session():
     st.session_state.selected_scene = None
 
 # Función para llamar a la API de OpenAI con reintentos
-def call_openai_api(prompt, model="gpt-4", max_tokens=1500, temperature=0.7, retries=3, delay=2):
+def call_openai_api(prompt, model="text-davinci-003", max_tokens=1500, temperature=0.7, retries=3, delay_seconds=2):
     api_key = st.secrets["OPENAI_API_KEY"]
     headers = {
         "Content-Type": "application/json",
@@ -105,15 +105,15 @@ def call_openai_api(prompt, model="gpt-4", max_tokens=1500, temperature=0.7, ret
         except Exception as e:
             st.error(f"Error inesperado: {e}")
         if attempt < retries - 1:
-            st.warning(f"Reintentando en {delay} segundos...")
-            time.sleep(delay)
+            st.warning(f"Reintentando en {delay_seconds} segundos...")
+            time.sleep(delay_seconds)
     st.error("No se pudo obtener una respuesta válida de la API después de varios intentos.")
     return None
 
 # Función para generar elementos iniciales de la novela
 def generate_initial_elements(title, genre, audience):
     prompt = f"""Genera una trama, personajes principales, ambientación y técnica narrativa para una novela con el siguiente título, género y audiencia.
-    
+
 Título: {title}
 Género: {genre}
 Audiencia: {audience}
@@ -147,7 +147,7 @@ Técnica Narrativa:
 # Función para generar la tabla de capítulos
 def generate_table_of_chapters(plot, characters, setting, narrative_technique, total_chapters):
     prompt = f"""Basándote en la siguiente información, genera una tabla de contenidos para una novela con {total_chapters} capítulos. Cada capítulo debe tener un título descriptivo.
-    
+
 Trama: {plot}
 Personajes Principales: {characters}
 Ambientación: {setting}
@@ -178,7 +178,7 @@ Capítulo {total_chapters}: [Título del Capítulo {total_chapters}]
 # Función para generar un título de capítulo
 def generate_chapter_title(plot, characters, setting, narrative_technique, chapter_num):
     prompt = f"""Basándote en la siguiente información, genera un título descriptivo para el capítulo {chapter_num} de una novela.
-    
+
 Trama: {plot}
 Personajes Principales: {characters}
 Ambientación: {setting}
@@ -242,7 +242,7 @@ def export_to_word(markdown_content):
             doc.add_heading(element.get_text(), level=3)
         elif element.name == 'p':
             doc.add_paragraph(element.get_text())
-        # Ignorar encabezados de nivel 4 o más
+        # Ignorar otros elementos
         else:
             if element.name == 'p':
                 doc.add_paragraph(element.get_text())
@@ -416,6 +416,7 @@ if st.session_state.table_of_chapters:
                         
                         # Actualizar el contenido Markdown
                         # Encontrar y reemplazar la escena en markdown_content
+                        # Asumiendo que las escenas no tienen títulos, solo se indican como "Escena X"
                         pattern = re.compile(rf"Escena {scene['number']}\s*\n\n(.*?)\n\n", re.DOTALL)
                         replacement = f"Escena {scene['number']}\n\n{new_content}\n\n"
                         st.session_state.markdown_content = pattern.sub(replacement, st.session_state.markdown_content)
@@ -437,7 +438,7 @@ if st.session_state.table_of_chapters:
                     scene_num=scene_num
                 )
                 if generated_content:
-                    # Actualizar la escena con título y contenido
+                    # Actualizar la escena con contenido
                     chapter['scenes'].append({
                         "number": scene_num,
                         "content": generated_content
@@ -460,7 +461,7 @@ if st.session_state.table_of_chapters:
                     time.sleep(3)
                 else:
                     st.error(f"No se pudo generar el contenido para la escena {scene_num} del capítulo {st.session_state.current_chapter}.")
-    
+
     # Botón para generar el siguiente capítulo
     if st.session_state.current_chapter <= st.session_state.total_chapters and st.session_state.current_scene > st.session_state.total_scenes:
         if st.button("Generar Siguiente Capítulo"):
@@ -476,7 +477,7 @@ if st.session_state.table_of_chapters:
                     )
                     if not generated_title:
                         st.error(f"No se pudo generar el título para el capítulo {st.session_state.current_chapter}.")
-                        
+                        return
                     st.session_state.chapters[st.session_state.current_chapter - 1]['title'] = generated_title
                     # Actualizar el contenido Markdown para el capítulo
                     chapter_heading = f"## Capítulo {st.session_state.current_chapter}: {generated_title}\n\n"
