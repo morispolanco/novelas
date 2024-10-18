@@ -476,7 +476,7 @@ if st.session_state.table_of_chapters:
                     )
                     if not generated_title:
                         st.error(f"No se pudo generar el título para el capítulo {st.session_state.current_chapter}.")
-                        return
+                            return
                     st.session_state.chapters[st.session_state.current_chapter - 1]['title'] = generated_title
                     # Actualizar el contenido Markdown para el capítulo
                     chapter_heading = f"## Capítulo {st.session_state.current_chapter}: {generated_title}\n\n"
