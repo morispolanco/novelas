@@ -19,12 +19,14 @@ st.title("Generador de Novelas Automático")
 
 # Descripción de la aplicación
 st.markdown("""
-Esta aplicación genera automáticamente una novela basada en el título, género y audiencia proporcionados. 
+Esta aplicación genera automáticamente una novela basada en el tema proporcionado. 
 Puedes generar capítulos y escenas de manera continua, permitiéndote descargar contenido parcial en cualquier momento.
 Finalmente, puedes exportar la novela completa a un archivo en formato Word.
 """)
 
 # Inicialización de variables en el estado de la sesión
+if 'theme' not in st.session_state:
+    st.session_state.theme = ""
 if 'title' not in st.session_state:
     st.session_state.title = ""
 if 'genre' not in st.session_state:
@@ -46,7 +48,7 @@ if 'current_chapter' not in st.session_state:
 if 'current_scene' not in st.session_state:
     st.session_state.current_scene = 1
 if 'total_chapters' not in st.session_state:
-    st.session_state.total_chapters = 7  # **Total de capítulos ajustado a 7**
+    st.session_state.total_chapters = 9  # **Total de capítulos ajustado a 9**
 if 'total_scenes' not in st.session_state:
     st.session_state.total_scenes = 5  # Total de escenas por capítulo
 if 'total_paragraphs' not in st.session_state:
@@ -62,6 +64,7 @@ if 'selected_scene' not in st.session_state:
 
 # Función para reiniciar el estado de la sesión
 def reset_session():
+    st.session_state.theme = ""
     st.session_state.title = ""
     st.session_state.genre = ""
     st.session_state.audience = ""
@@ -78,7 +81,7 @@ def reset_session():
     st.session_state.selected_scene = None
 
 # Función para llamar a la API de OpenRouter con reintentos
-def call_openrouter_api(prompt, model="openai/gpt-4o-mini", max_tokens=3000, temperature=0.7, retries=3, delay_seconds=5):
+def call_openrouter_api(prompt, model="qwen/qwen-2.5-72b-instruct", max_tokens=3000, temperature=0.7, retries=3, delay_seconds=2):
     try:
         api_key = st.secrets["OPENROUTER_API_KEY"]
     except KeyError:
@@ -113,6 +116,22 @@ def call_openrouter_api(prompt, model="openai/gpt-4o-mini", max_tokens=3000, tem
             st.warning(f"Reintentando en {delay_seconds} segundos...")
             time.sleep(delay_seconds)
     st.error("No se pudo obtener una respuesta válida de la API después de varios intentos.")
+    return None
+
+# Función para generar el título de la novela basado en el tema
+def generate_title(theme):
+    prompt = f"""Genera un título creativo para una novela basada en el siguiente tema.
+
+Tema: {theme}
+
+Formato de respuesta:
+Título: [Título Único]
+"""
+    response = call_openrouter_api(prompt)
+    if response:
+        match = re.search(r"Título:\s*(.*)", response)
+        if match:
+            return match.group(1).strip()
     return None
 
 # Función para generar elementos iniciales de la novela
@@ -313,52 +332,59 @@ with st.sidebar:
 
 # --- Sección Principal ---
 
-# Entrada de usuario para los detalles de la novela
+# Entrada de usuario para el tema de la novela
 st.header("Datos de la Novela")
 with st.form("novel_details"):
-    title = st.text_input("Título de la Novela:", st.session_state.title)
+    theme = st.text_input("Tema de la Novela:", st.session_state.theme)
     genre = st.selectbox("Género:", ["Misterio", "Romance", "Ciencia Ficción", "Fantasía", "Thriller", "Drama", "Aventura", "Otro"], index=0)
     audience = st.selectbox("Audiencia:", ["Adolescentes", "Jóvenes Adultos", "Adultos"], index=0)
     submit_details = st.form_submit_button("Guardar Detalles")
     
     if submit_details:
-        if not title:
-            st.warning("Por favor, ingresa un título para la novela.")
+        if not theme:
+            st.warning("Por favor, ingresa un tema para la novela.")
         else:
-            st.session_state.title = title
+            st.session_state.theme = theme
             st.session_state.genre = genre
             st.session_state.audience = audience
             st.success("Detalles de la novela guardados exitosamente.")
 
-# Botón para generar elementos iniciales de la novela
-if st.session_state.title and st.session_state.genre and st.session_state.audience and not st.session_state.chapters:
-    if st.button("Generar Trama, Personajes, Ambientación y Técnica Narrativa"):
+# Botón para generar el título y elementos iniciales de la novela
+if st.session_state.theme and st.session_state.genre and st.session_state.audience and not st.session_state.chapters:
+    if st.button("Generar Título, Trama, Personajes, Ambientación y Técnica Narrativa"):
         with st.spinner("Generando elementos iniciales de la novela..."):
-            trama, personajes, ambientacion, tecnica = generate_initial_elements(st.session_state.title, st.session_state.genre, st.session_state.audience)
-            if trama and personajes and ambientacion and tecnica:
-                st.session_state.plot = trama
-                st.session_state.characters = personajes
-                st.session_state.setting = ambientacion
-                st.session_state.narrative_technique = tecnica
-                table = generate_table_of_chapters(trama, personajes, ambientacion, tecnica, st.session_state.total_chapters)
-                if table:
-                    # Inicializar la lista de capítulos
-                    st.session_state.chapters = table
-                    # Construir el contenido Markdown inicial
-                    st.session_state.markdown_content = f"# {st.session_state.title}\n\n"
-                    st.session_state.markdown_content += f"**Género:** {st.session_state.genre}\n\n"
-                    st.session_state.markdown_content += f"**Audiencia:** {st.session_state.audience}\n\n"
-                    st.session_state.markdown_content += f"## Trama\n\n{st.session_state.plot}\n\n"
-                    st.session_state.markdown_content += f"## Personajes Principales\n\n{st.session_state.characters}\n\n"
-                    st.session_state.markdown_content += f"## Ambientación\n\n{st.session_state.setting}\n\n"
-                    st.session_state.markdown_content += f"## Técnica Narrativa\n\n{st.session_state.narrative_technique}\n\n"
-                    st.session_state.markdown_content += f"## Tabla de Capítulos\n\n"
-                    for chap in table:
-                        st.session_state.markdown_content += f"Capítulo {chap['number']}: {chap['title']}\n"
-                    st.session_state.markdown_content += "\n"
-                    st.success("Elementos iniciales generados exitosamente.")
+            # Generar el título basado en el tema
+            generated_title = generate_title(st.session_state.theme)
+            if not generated_title:
+                st.error("No se pudo generar el título basado en el tema proporcionado. Por favor, intenta nuevamente.")
             else:
-                st.error("No se pudieron generar los elementos iniciales. Por favor, intenta nuevamente.")
+                st.session_state.title = generated_title
+                # Generar trama, personajes, ambientación y técnica narrativa
+                trama, personajes, ambientacion, tecnica = generate_initial_elements(st.session_state.title, st.session_state.genre, st.session_state.audience)
+                if trama and personajes and ambientacion and tecnica:
+                    st.session_state.plot = trama
+                    st.session_state.characters = personajes
+                    st.session_state.setting = ambientacion
+                    st.session_state.narrative_technique = tecnica
+                    table = generate_table_of_chapters(trama, personajes, ambientacion, tecnica, st.session_state.total_chapters)
+                    if table:
+                        # Inicializar la lista de capítulos
+                        st.session_state.chapters = table
+                        # Construir el contenido Markdown inicial
+                        st.session_state.markdown_content = f"# {st.session_state.title}\n\n"
+                        st.session_state.markdown_content += f"**Género:** {st.session_state.genre}\n\n"
+                        st.session_state.markdown_content += f"**Audiencia:** {st.session_state.audience}\n\n"
+                        st.session_state.markdown_content += f"## Trama\n\n{st.session_state.plot}\n\n"
+                        st.session_state.markdown_content += f"## Personajes Principales\n\n{st.session_state.characters}\n\n"
+                        st.session_state.markdown_content += f"## Ambientación\n\n{st.session_state.setting}\n\n"
+                        st.session_state.markdown_content += f"## Técnica Narrativa\n\n{st.session_state.narrative_technique}\n\n"
+                        st.session_state.markdown_content += f"## Tabla de Capítulos\n\n"
+                        for chap in table:
+                            st.session_state.markdown_content += f"Capítulo {chap['number']}: {chap['title']}\n"
+                        st.session_state.markdown_content += "\n"
+                        st.success("Elementos iniciales generados exitosamente.")
+                else:
+                    st.error("No se pudieron generar los elementos iniciales. Por favor, intenta nuevamente.")
 
 # Permitir edición de los elementos iniciales si ya se han generado
 if st.session_state.chapters:
