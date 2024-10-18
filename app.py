@@ -78,7 +78,7 @@ def reset_session():
     st.session_state.selected_scene = None
 
 # Función para llamar a la API de OpenRouter con reintentos
-def call_openrouter_api(prompt, model="qwen/qwen-2.5-72b-instruct", max_tokens=1500, temperature=0.7, retries=3, delay_seconds=2):
+def call_openrouter_api(prompt, model="qwen/qwen-2.5-72b-instruct", max_tokens=3500, temperature=0.7, retries=3, delay_seconds=2):
     try:
         api_key = st.secrets["OPENROUTER_API_KEY"]
     except KeyError:
