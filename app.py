@@ -219,6 +219,12 @@ Formato de respuesta:
         return response.strip()
     return None
 
+# Función para limpiar el contenido Markdown de subdivisiones (opcional)
+def clean_markdown_content(markdown_content):
+    # Eliminar líneas que comiencen con #### (o más #)
+    cleaned_content = re.sub(r'#{4,} .*', '', markdown_content)
+    return cleaned_content
+
 # Función para exportar a Word
 def export_to_word(markdown_content):
     # Convertir Markdown a HTML
@@ -272,28 +278,31 @@ with st.sidebar:
             chapter_titles,
             key="select_chapter"
         )
-        chapter_index = int(selected_chapter.split(" ")[1].replace(":", "")) - 1
-        # Verificar que el índice esté dentro del rango
-        if 0 <= chapter_index < len(st.session_state.chapters):
-            st.session_state.selected_chapter = chapter_index
-            chapter = st.session_state.chapters[chapter_index]
-            if chapter['scenes']:
-                scene_titles = [f"Escena {sec['number']}" for sec in chapter['scenes']]
-                selected_scene = st.selectbox(
-                    "Selecciona una escena para ver:",
-                    scene_titles,
-                    key="select_scene"
-                )
-                scene_index = int(selected_scene.split(" ")[1]) - 1
-                # Verificar que el índice esté dentro del rango
-                if 0 <= scene_index < len(chapter['scenes']):
-                    st.session_state.selected_scene = scene_index
+        try:
+            chapter_index = int(selected_chapter.split(" ")[1].replace(":", "")) - 1
+            # Verificar que el índice esté dentro del rango
+            if 0 <= chapter_index < len(st.session_state.chapters):
+                st.session_state.selected_chapter = chapter_index
+                chapter = st.session_state.chapters[chapter_index]
+                if chapter['scenes']:
+                    scene_titles = [f"Escena {sec['number']}" for sec in chapter['scenes']]
+                    selected_scene = st.selectbox(
+                        "Selecciona una escena para ver:",
+                        scene_titles,
+                        key="select_scene"
+                    )
+                    scene_index = int(selected_scene.split(" ")[1]) - 1
+                    # Verificar que el índice esté dentro del rango
+                    if 0 <= scene_index < len(chapter['scenes']):
+                        st.session_state.selected_scene = scene_index
+                    else:
+                        st.error("Escena seleccionada no válida.")
                 else:
-                    st.error("Escena seleccionada no válida.")
+                    st.info("No hay escenas generadas aún en este capítulo.")
             else:
-                st.info("No hay escenas generadas aún en este capítulo.")
-        else:
-            st.error("Capítulo seleccionado no válido.")
+                st.error("Capítulo seleccionado no válido.")
+        except (IndexError, ValueError):
+            st.error("Error al seleccionar el capítulo.")
     else:
         st.info("No hay capítulos generados aún.")
 
@@ -422,6 +431,7 @@ if st.session_state.table_of_chapters:
                         st.session_state.markdown_content = pattern.sub(replacement, st.session_state.markdown_content)
                         
                         st.success(f"Escena {scene['number']} del Capítulo {chapter['number']} regenerada exitosamente.")
+
     # Botón para generar la siguiente escena
     if st.session_state.current_chapter <= st.session_state.total_chapters and st.session_state.current_scene <= st.session_state.total_scenes:
         if st.button("Generar Siguiente Escena"):
@@ -544,6 +554,6 @@ if st.session_state.table_of_chapters:
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
 
-    # Opcional: Mostrar todo el contenido generado
-    with st.expander("Mostrar Contenido Completo"):
-        st.markdown(st.session_state.markdown_content)
+# Opcional: Mostrar todo el contenido generado
+with st.expander("Mostrar Contenido Completo"):
+    st.markdown(st.session_state.markdown_content)
