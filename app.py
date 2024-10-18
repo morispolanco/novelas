@@ -441,14 +441,15 @@ if st.session_state.chapters:
                         st.session_state.markdown_content = pattern.sub(replacement, st.session_state.markdown_content)
                         
                         st.success(f"Escena {scene['number']} del Capítulo {chapter['number']} regenerada exitosamente.")
-            # Actualizar barra de progreso después de regenerar
-            generated_scenes = sum([len(chap['scenes']) for chap in st.session_state.chapters if chap['scenes']])
-            if total_scenes > 0:
-                progress = generated_scenes / total_scenes
-                progress = max(0.0, min(progress, 1.0))
-            else:
-                progress = 0.0
-            progress_bar.progress(progress)
+                        
+                        # Actualizar barra de progreso después de regenerar
+                        generated_scenes = sum([len(chap['scenes']) for chap in st.session_state.chapters if chap['scenes']])
+                        if total_scenes > 0:
+                            progress = generated_scenes / total_scenes
+                            progress = max(0.0, min(progress, 1.0))
+                        else:
+                            progress = 0.0
+                        progress_bar.progress(progress)
 
     # Botón para generar la siguiente escena
     if st.session_state.current_chapter <= st.session_state.total_chapters and st.session_state.current_scene <= st.session_state.total_scenes:
