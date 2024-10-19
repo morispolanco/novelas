@@ -205,7 +205,7 @@ def generate_scene_content(title, plot, characters, setting, narrative_technique
 - Técnica Narrativa: {narrative_technique}
 - Síntesis de la Escena: {scene_summary}
 
-La escena debe tener exactamente {st.session_state.total_paragraphs} párrafos y continuar la historia de manera coherente. No incluyas encabezados ni títulos. Escribe en un estilo atractivo que enganche al lector. En los diálogos, utiliza la raya (—) para introducir las intervenciones de los personajes, siguiendo las normas de puntuación en español.
+La escena debe tener exactamente 25 párrafos y continuar la historia de manera coherente. No incluyas encabezados ni títulos. Escribe en un estilo atractivo que enganche al lector. En los diálogos, utiliza la raya (—) para introducir las intervenciones de los personajes, siguiendo las normas de puntuación en español.
 
 Contenido de la escena:
 """
@@ -297,28 +297,31 @@ with st.sidebar:
             chapter_titles,
             key="select_chapter"
         )
-        chapter_index = int(selected_chapter.split(" ")[1].replace(":", "")) - 1
-        # Verificar que el índice esté dentro del rango
-        if 0 <= chapter_index < len(st.session_state.chapters):
-            st.session_state.selected_chapter = chapter_index
-            chapter = st.session_state.chapters[chapter_index]
-            if chapter['scenes']:
-                scene_numbers = [f"Escena {scene['number']}" for scene in chapter['scenes']]
-                selected_scene = st.selectbox(
-                    "Selecciona una escena para ver:",
-                    scene_numbers,
-                    key="select_scene"
-                )
-                scene_index = int(selected_scene.split(" ")[1]) - 1
-                # Verificar que el índice esté dentro del rango
-                if 0 <= scene_index < len(chapter['scenes']):
-                    st.session_state.selected_scene = scene_index
+        try:
+            chapter_index = int(selected_chapter.split(" ")[1].replace(":", "")) - 1
+            # Verificar que el índice esté dentro del rango
+            if 0 <= chapter_index < len(st.session_state.chapters):
+                st.session_state.selected_chapter = chapter_index
+                chapter = st.session_state.chapters[chapter_index]
+                if chapter['scenes']:
+                    scene_numbers = [f"Escena {scene['number']}" for scene in chapter['scenes']]
+                    selected_scene = st.selectbox(
+                        "Selecciona una escena para ver:",
+                        scene_numbers,
+                        key="select_scene"
+                    )
+                    scene_index = int(selected_scene.split(" ")[1]) - 1
+                    # Verificar que el índice esté dentro del rango
+                    if 0 <= scene_index < len(chapter['scenes']):
+                        st.session_state.selected_scene = scene_index
+                    else:
+                        st.error("Escena seleccionada no válida.")
                 else:
-                    st.error("Escena seleccionada no válida.")
+                    st.info("No hay escenas generadas aún en este capítulo.")
             else:
-                st.info("No hay escenas generadas aún en este capítulo.")
-        else:
-            st.error("Capítulo seleccionado no válido.")
+                st.error("Capítulo seleccionado no válido.")
+        except (ValueError, IndexError):
+            st.error("Selección de capítulo o escena inválida.")
     else:
         st.info("No hay capítulos generados aún.")
 
@@ -348,10 +351,25 @@ if submit_novel_info and not st.session_state.title:
                 table_of_chapters = generate_table_of_chapters(st.session_state.title, st.session_state.total_chapters)
                 if table_of_chapters:
                     st.session_state.table_of_contents = table_of_chapters
-                    # Inicializar las escenas con campos para síntesis y aprobación
+                    # Inicializar capítulos con escenas que incluyen 'summary' y 'summary_approved'
+                    st.session_state.chapters = []
                     for chap in table_of_chapters:
-                        chap['scenes'] = [{"number": i+1, "content": "", "summary": "", "summary_approved": False} for i in range(st.session_state.total_scenes)]
-                    st.session_state.chapters = table_of_chapters
+                        chapter = {
+                            "number": chap['number'],
+                            "title": chap['title'],
+                            "scenes": []
+                        }
+                        # Inicializar escenas con 'summary' y 'summary_approved'
+                        for scene_num in range(1, st.session_state.total_scenes + 1):
+                            scene = {
+                                "number": scene_num,
+                                "summary": "",
+                                "summary_approved": False,
+                                "content": ""
+                            }
+                            chapter['scenes'].append(scene)
+                        st.session_state.chapters.append(chapter)
+                    
                     # Construir el contenido Markdown
                     st.session_state.markdown_content = f"# {st.session_state.title}\n\n"
                     st.session_state.markdown_content += f"## Trama\n\n{st.session_state.plot}\n\n"
@@ -437,58 +455,62 @@ if st.session_state.title and st.session_state.plot and st.session_state.table_o
             st.subheader(f"Capítulo {chapter['number']}: {chapter['title']}")
             st.markdown(f"### Escena {scene['number']}")
 
-            if not scene.get('summary_approved', False):
-                if not scene.get('summary', ""):
-                    with st.spinner("Generando síntesis de la escena..."):
-                        summary = generate_scene_summary(
-                            st.session_state.title,
-                            st.session_state.plot,
-                            st.session_state.characters,
-                            st.session_state.setting,
-                            st.session_state.narrative_technique,
-                            chapter['number'],
-                            chapter['title'],
-                            scene['number']
-                        )
-                        if summary:
-                            st.session_state.chapters[st.session_state.selected_chapter]['scenes'][st.session_state.selected_scene]['summary'] = summary
-                        else:
-                            st.error("No se pudo generar la síntesis de la escena.")
+            # Generar síntesis si no existe
+            if not scene['summary']:
+                with st.spinner("Generando síntesis de la escena..."):
+                    summary = generate_scene_summary(
+                        st.session_state.title,
+                        st.session_state.plot,
+                        st.session_state.characters,
+                        st.session_state.setting,
+                        st.session_state.narrative_technique,
+                        chapter['number'],
+                        chapter['title'],
+                        scene['number']
+                    )
+                    if summary:
+                        scene['summary'] = summary
+                    else:
+                        st.error("No se pudo generar la síntesis de la escena.")
 
-                if scene.get('summary', ""):
-                    st.markdown("**Síntesis de la Escena:**")
-                    st.write(scene['summary'])
+            # Mostrar síntesis
+            if scene['summary']:
+                st.markdown("**Síntesis de la Escena:**")
+                st.write(scene['summary'])
 
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button("Regenerar Síntesis", key=f"regenerate_summary_{chapter['number']}_{scene['number']}"):
-                            with st.spinner("Regenerando síntesis de la escena..."):
-                                summary = generate_scene_summary(
-                                    st.session_state.title,
-                                    st.session_state.plot,
-                                    st.session_state.characters,
-                                    st.session_state.setting,
-                                    st.session_state.narrative_technique,
-                                    chapter['number'],
-                                    chapter['title'],
-                                    scene['number']
-                                )
-                                if summary:
-                                    st.session_state.chapters[st.session_state.selected_chapter]['scenes'][st.session_state.selected_scene]['summary'] = summary
-                                    st.success("Síntesis regenerada exitosamente.")
-                                else:
-                                    st.error("No se pudo regenerar la síntesis de la escena.")
-                    with col2:
-                        if st.button("Aprobar Síntesis", key=f"approve_summary_{chapter['number']}_{scene['number']}"):
-                            st.session_state.chapters[st.session_state.selected_chapter]['scenes'][st.session_state.selected_scene]['summary_approved'] = True
-                            st.success("Síntesis aprobada. Ahora puedes generar el contenido completo de la escena.")
+                # Botones para regenerar y aprobar síntesis
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("Regenerar Síntesis", key=f"regenerate_summary_{chapter['number']}_{scene['number']}"):
+                        with st.spinner("Regenerando síntesis de la escena..."):
+                            summary = generate_scene_summary(
+                                st.session_state.title,
+                                st.session_state.plot,
+                                st.session_state.characters,
+                                st.session_state.setting,
+                                st.narrative_technique,
+                                chapter['number'],
+                                chapter['title'],
+                                scene['number']
+                            )
+                            if summary:
+                                scene['summary'] = summary
+                                st.success("Síntesis regenerada exitosamente.")
+                            else:
+                                st.error("No se pudo regenerar la síntesis de la escena.")
+                with col2:
+                    if st.button("Aprobar Síntesis", key=f"approve_summary_{chapter['number']}_{scene['number']}"):
+                        scene['summary_approved'] = True
+                        st.success("Síntesis aprobada. Ahora puedes generar el contenido completo de la escena.")
 
-            if scene.get('summary_approved', False):
+            # Generar contenido si la síntesis ha sido aprobada
+            if scene['summary_approved']:
                 if scene['content']:
                     # Mostrar contenido de la escena
+                    st.markdown("**Contenido de la Escena:**")
                     st.markdown(scene['content'])
                 else:
-                    if st.button("Generar Contenido de la Escena", key=f"generate_scene_content_{chapter['number']}_{scene['number']}"):
+                    if st.button("Generar Contenido de la Escena", key=f"generate_content_{chapter['number']}_{scene['number']}"):
                         with st.spinner(f"Generando contenido para Escena {scene['number']} del Capítulo {chapter['number']}..."):
                             # Generar contenido para la escena basado en la síntesis
                             generated_content = generate_scene_content(
@@ -506,7 +528,7 @@ if st.session_state.title and st.session_state.plot and st.session_state.table_o
                                 # Validar que la escena tenga exactamente 25 párrafos
                                 validated_content = validate_scene_paragraphs(generated_content, expected_paragraphs=st.session_state.total_paragraphs)
                                 # Actualizar la escena con contenido
-                                st.session_state.chapters[st.session_state.selected_chapter]['scenes'][st.session_state.selected_scene]['content'] = validated_content
+                                scene['content'] = validated_content
                                 # Agregar al contenido Markdown
                                 scene_heading = f"### Escena {scene['number']}\n\n"
                                 scene_content = validated_content + "\n\n"
@@ -518,8 +540,8 @@ if st.session_state.title and st.session_state.plot and st.session_state.table_o
                                 progress = generated_scenes / total_scenes
                                 progress_bar.progress(progress)
                                 # Resetear la síntesis y aprobación para la próxima escena
-                                st.session_state.chapters[st.session_state.selected_chapter]['scenes'][st.session_state.selected_scene]['summary'] = ""
-                                st.session_state.chapters[st.session_state.selected_chapter]['scenes'][st.session_state.selected_scene]['summary_approved'] = False
+                                scene['summary'] = ""
+                                scene['summary_approved'] = False
                                 # Pausa de 3 segundos entre escenas
                                 time.sleep(3)
                             else:
@@ -532,63 +554,49 @@ if st.session_state.title and st.session_state.plot and st.session_state.table_o
                 chapter = st.session_state.chapters[st.session_state.current_chapter - 1]
                 if not chapter['scenes']:
                     # Inicializar escenas si aún no se han creado
-                    chapter['scenes'] = [{"number": i+1, "content": "", "summary": "", "summary_approved": False} for i in range(st.session_state.total_scenes)]
+                    chapter['scenes'] = [{"number": i+1, "summary": "", "summary_approved": False, "content": ""} for i in range(st.session_state.total_scenes)]
                 scene = chapter['scenes'][st.session_state.current_scene - 1]
-                # Generar síntesis si no existe
-                if not scene['summary']:
-                    summary = generate_scene_summary(
-                        st.session_state.title,
-                        st.session_state.plot,
-                        st.session_state.characters,
-                        st.session_state.setting,
-                        st.session_state.narrative_technique,
-                        chapter['number'],
-                        chapter['title'],
-                        scene['number']
-                    )
-                    if summary:
-                        st.session_state.chapters[st.session_state.current_chapter - 1]['scenes'][st.session_state.current_scene - 1]['summary'] = summary
-                    else:
-                        st.error("No se pudo generar la síntesis de la escena.")
-                        st.stop()
-
-                # Aprobar automáticamente la síntesis (opcional)
-                # st.session_state.chapters[st.session_state.current_chapter - 1]['scenes'][st.session_state.current_scene - 1]['summary_approved'] = True
-
-                # Generar contenido para la escena
-                generated_content = generate_scene_content(
-                    st.session_state.title,
-                    st.session_state.plot,
-                    st.session_state.characters,
-                    st.session_state.setting,
-                    st.session_state.narrative_technique,
-                    chapter['number'],
-                    chapter['title'],
-                    scene['number'],
-                    st.session_state.chapters[st.session_state.current_chapter - 1]['scenes'][st.session_state.current_scene - 1]['summary']  # Pasar la síntesis como contexto
-                )
-                if generated_content:
-                    # Validar que la escena tenga exactamente 25 párrafos
-                    validated_content = validate_scene_paragraphs(generated_content, expected_paragraphs=st.session_state.total_paragraphs)
-                    # Actualizar la escena con contenido
-                    st.session_state.chapters[st.session_state.current_chapter - 1]['scenes'][st.session_state.current_scene - 1]['content'] = validated_content
-                    # Agregar al contenido Markdown
-                    scene_heading = f"### Escena {scene['number']}\n\n"
-                    scene_content = validated_content + "\n\n"
-                    st.session_state.markdown_content += f"{scene_heading}{scene_content}"
-                    st.success(f"Escena {scene['number']} del Capítulo {chapter['number']} generada exitosamente.")
-                    st.session_state.current_scene += 1
-                    # Actualizar la barra de progreso
-                    generated_scenes += 1
-                    progress = generated_scenes / total_scenes
-                    progress_bar.progress(progress)
-                    # Resetear la síntesis y aprobación para la próxima escena
-                    st.session_state.chapters[st.session_state.current_chapter - 1]['scenes'][st.session_state.current_scene - 1]['summary'] = ""
-                    st.session_state.chapters[st.session_state.current_chapter - 1]['scenes'][st.session_state.current_scene - 1]['summary_approved'] = False
-                    # Pausa de 3 segundos entre escenas
-                    time.sleep(3)
+                # Verificar si la síntesis ya ha sido aprobada
+                if not scene['summary_approved']:
+                    st.warning("Por favor, aprueba la síntesis de la escena antes de generar el contenido.")
                 else:
-                    st.error(f"No se pudo generar el contenido para la escena {scene['number']} del capítulo {chapter['number']}.")
+                    if scene['content']:
+                        st.info("Esta escena ya ha sido generada.")
+                    else:
+                        # Generar contenido para la escena basado en la síntesis
+                        generated_content = generate_scene_content(
+                            st.session_state.title,
+                            st.session_state.plot,
+                            st.session_state.characters,
+                            st.session_state.setting,
+                            st.session_state.narrative_technique,
+                            chapter['number'],
+                            chapter['title'],
+                            scene['number'],
+                            scene['summary']  # Pasar la síntesis como contexto
+                        )
+                        if generated_content:
+                            # Validar que la escena tenga exactamente 25 párrafos
+                            validated_content = validate_scene_paragraphs(generated_content, expected_paragraphs=st.session_state.total_paragraphs)
+                            # Actualizar la escena con contenido
+                            scene['content'] = validated_content
+                            # Agregar al contenido Markdown
+                            scene_heading = f"### Escena {scene['number']}\n\n"
+                            scene_content = validated_content + "\n\n"
+                            st.session_state.markdown_content += f"{scene_heading}{scene_content}"
+                            st.success(f"Escena {scene['number']} del Capítulo {chapter['number']} generada exitosamente.")
+                            st.session_state.current_scene += 1
+                            # Actualizar la barra de progreso
+                            generated_scenes += 1
+                            progress = generated_scenes / total_scenes
+                            progress_bar.progress(progress)
+                            # Resetear la síntesis y aprobación para la próxima escena
+                            scene['summary'] = ""
+                            scene['summary_approved'] = False
+                            # Pausa de 3 segundos entre escenas
+                            time.sleep(3)
+                        else:
+                            st.error(f"No se pudo generar el contenido para la escena {scene['number']} del capítulo {chapter['number']}.")
 
     # Botón para avanzar al siguiente capítulo
     if st.session_state.current_chapter <= st.session_state.total_chapters and st.session_state.current_scene > st.session_state.total_scenes:
