@@ -462,27 +462,29 @@ if st.session_state.title and st.session_state.plot and st.session_state.table_o
                     st.markdown("**Síntesis de la Escena:**")
                     st.write(st.session_state.current_scene_summary)
 
-                    if st.button("Regenerar Síntesis", key="regenerate_summary"):
-                        with st.spinner("Regenerando síntesis de la escena..."):
-                            summary = generate_scene_summary(
-                                st.session_state.title,
-                                st.session_state.plot,
-                                st.session_state.characters,
-                                st.session_state.setting,
-                                st.session_state.narrative_technique,
-                                chapter['number'],
-                                chapter['title'],
-                                scene['number']
-                            )
-                            if summary:
-                                st.session_state.current_scene_summary = summary
-                                st.success("Síntesis regenerada exitosamente.")
-                            else:
-                                st.error("No se pudo regenerar la síntesis de la escena.")
-
-                    if st.button("Aprobar Síntesis", key="approve_summary"):
-                        st.session_state.summary_approved = True
-                        st.success("Síntesis aprobada. Ahora puedes generar el contenido completo de la escena.")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("Regenerar Síntesis", key="regenerate_summary"):
+                            with st.spinner("Regenerando síntesis de la escena..."):
+                                summary = generate_scene_summary(
+                                    st.session_state.title,
+                                    st.session_state.plot,
+                                    st.session_state.characters,
+                                    st.session_state.setting,
+                                    st.session_state.narrative_technique,
+                                    chapter['number'],
+                                    chapter['title'],
+                                    scene['number']
+                                )
+                                if summary:
+                                    st.session_state.current_scene_summary = summary
+                                    st.success("Síntesis regenerada exitosamente.")
+                                else:
+                                    st.error("No se pudo regenerar la síntesis de la escena.")
+                    with col2:
+                        if st.button("Aprobar Síntesis", key="approve_summary"):
+                            st.session_state.summary_approved = True
+                            st.success("Síntesis aprobada. Ahora puedes generar el contenido completo de la escena.")
 
             if st.session_state.summary_approved:
                 if scene['content']:
