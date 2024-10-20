@@ -119,7 +119,7 @@ def validar_tema(tema):
         return False, "El tema no puede estar vacío."
     if len(tema) < 5:
         return False, "El tema es demasiado corto. Por favor, introduce un tema más descriptivo."
-    if len(tema) > 100:
+    if len(tema) > 250:
         return False, "El tema es demasiado largo. Por favor, introduce un tema más corto."
     if not re.match("^[a-zA-Z0-9\s\-.,áéíóúñüÁÉÍÓÚÑÜ]+$", tema):
         return False, "El tema contiene caracteres no permitidos."
