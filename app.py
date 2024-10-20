@@ -165,6 +165,7 @@ if st.button("Enviar", key="enviar_tema"):
             prompt_intro = (
                 f"Escribe un resumen de la novela y un esquema de los {num_capitulos} capítulos, cada uno con {num_escenas} escenas únicas, "
                 f"para un thriller con elementos de aventura y misterio basado en el tema: {tema}. "
+                f"En los diálogos, utiliza la raya (—) en lugar de comillas para marcar el inicio de las conversaciones."
             )
             contenido_inicial = generar_contenido_cache(prompt_intro, max_tokens, temperature, repetition_penalty)
             st.session_state.contenido_inicial = contenido_inicial
@@ -199,7 +200,8 @@ if 'aprobado' in st.session_state and st.session_state.aprobado:
         for escena_num in range(1, num_escenas + 1):
             prompt_escena = (
                 f"Escribe la escena {escena_num} del {titulo_capitulo} "
-                f"de la novela sobre {st.session_state.tema}. Debe ser un thriller con elementos de misterio y aventura."
+                f"de la novela sobre {st.session_state.tema}. Debe ser un thriller con elementos de misterio y aventura. "
+                f"Utiliza la raya (—) para los diálogos."
             )
             contenido_escena = generar_contenido_cache(prompt_escena, max_tokens, temperature, repetition_penalty)
             contenido_novela += contenido_escena + "\n\n"
