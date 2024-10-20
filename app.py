@@ -19,7 +19,7 @@ MODEL = "openai/gpt-4o-mini"  # Usando el modelo específico de OpenAI en OpenRo
 # Funciones Auxiliares
 # =====================
 
-def generar_contenido(prompt, max_tokens=3000, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
+def generar_contenido(prompt, max_tokens=2000, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {OPENROUTER_API_KEY}"
@@ -54,8 +54,8 @@ def exportar_a_docx(contenido_novela):
         # Configuración de la página
         sections = doc.sections
         for section in sections:
-            section.page_width = Inches(5.5)
-            section.page_height = Inches(8.5)
+            section.page_width = Inches(5)
+            section.page_height = Inches(8)
             section.top_margin = Inches(0.6)
             section.bottom_margin = Inches(0.6)
             section.left_margin = Inches(0.6)
