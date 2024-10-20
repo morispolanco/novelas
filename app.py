@@ -19,7 +19,7 @@ MODEL = "openai/gpt-4o-mini"  # Usando el modelo específico de OpenAI en OpenRo
 # Funciones Auxiliares
 # =====================
 
-def generar_contenido(prompt, max_tokens=2000, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
+def generar_contenido(prompt, max_tokens=3000, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {OPENROUTER_API_KEY}"
@@ -107,7 +107,7 @@ def exportar_a_docx(contenido_novela):
 # =====================
 
 @st.cache_data(show_spinner=False, ttl=3600)
-def generar_contenido_cache(prompt, max_tokens=2000, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
+def generar_contenido_cache(prompt, max_tokens=3000, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
     return generar_contenido(prompt, max_tokens, temperature, repetition_penalty, frequency_penalty)
 
 # =====================
@@ -141,12 +141,12 @@ num_escenas = st.sidebar.slider("Número de Escenas por Capítulo", min_value=3,
 # 2. Modo Avanzado
 modo_avanzado = st.sidebar.checkbox("Modo Avanzado")
 if modo_avanzado:
-    max_tokens = st.sidebar.number_input("Máximo de Tokens por Solicitud", min_value=500, max_value=5000, value=2000, step=100)
+    max_tokens = st.sidebar.number_input("Máximo de Tokens por Solicitud", min_value=500, max_value=5000, value=3000, step=100)
     temperature = st.sidebar.slider("Temperature", min_value=0.0, max_value=1.0, value=0.7, step=0.1)
     repetition_penalty = st.sidebar.slider("Repetition Penalty", min_value=1.0, max_value=2.0, value=1.2, step=0.1)
     frequency_penalty = st.sidebar.slider("Frequency Penalty", min_value=0.0, max_value=2.0, value=0.5, step=0.1)
 else:
-    max_tokens = 2000
+    max_tokens = 3000
     temperature = 0.7
     repetition_penalty = 1.2
     frequency_penalty = 0.5
