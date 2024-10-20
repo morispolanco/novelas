@@ -143,12 +143,12 @@ modo_avanzado = st.sidebar.checkbox("Modo Avanzado")
 if modo_avanzado:
     max_tokens = st.sidebar.number_input("Máximo de Tokens por Solicitud", min_value=500, max_value=5000, value=3000, step=100)
     temperature = st.sidebar.slider("Temperature", min_value=0.0, max_value=1.0, value=0.7, step=0.1)
-    repetition_penalty = st.sidebar.slider("Repetition Penalty", min_value=1.0, max_value=2.0, value=1.0, step=0.1)
+    repetition_penalty = st.sidebar.slider("Repetition Penalty", min_value=1.0, max_value=2.0, value=1.2, step=0.1)
     frequency_penalty = st.sidebar.slider("Frequency Penalty", min_value=0.0, max_value=2.0, value=0.5, step=0.1)
 else:
-    max_tokens = 3000
+    max_tokens = 2000
     temperature = 0.7
-    repetition_penalty = 1.0
+    repetition_penalty = 1.2
     frequency_penalty = 0.5
 
 # Título principal
