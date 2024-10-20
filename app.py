@@ -32,7 +32,7 @@ def generar_contenido(prompt, max_tokens=2000, temperature=0.7, repetition_penal
                 "content": prompt
             }
         ],
-        "max_tokens": max_tokens,
+        "max_": max_tokens,
         "temperature": temperature,
         "repetition_penalty": repetition_penalty,
         "frequency_penalty": frequency_penalty  # Adding frequency penalty
@@ -107,7 +107,7 @@ def exportar_a_docx(contenido_novela):
 # =====================
 
 @st.cache_data(show_spinner=False, ttl=3600)
-def generar_contenido_cache(prompt, max_tokens=3000, temperature=0.7, repetition_penalty=1.0, frequency_penalty=0.5):
+def generar_contenido_cache(prompt, max_tokens=2000, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
     return generar_contenido(prompt, max_tokens, temperature, repetition_penalty, frequency_penalty)
 
 # =====================
