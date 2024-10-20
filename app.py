@@ -134,8 +134,8 @@ st.set_page_config(page_title="Generador de Novelas", layout="wide")
 st.sidebar.title("Opciones de Generación de la Novela")
 
 # 1. Opciones de personalización
-num_capitulos = 12
-num_escenas = 5
+num_capitulos = st.sidebar.slider("Número de Capítulos", min_value=5, max_value=20, value=12)
+num_escenas = st.sidebar.slider("Número de Escenas por Capítulo", min_value=3, max_value=10, value=5)
 
 # 2. Modo Avanzado
 modo_avanzado = st.sidebar.checkbox("Modo Avanzado")
@@ -163,7 +163,7 @@ if st.button("Enviar", key="enviar_tema"):
     else:
         with st.spinner("Generando la estructura de la novela..."):
             prompt_intro = (
-                f"Escribe un resumen de la novela y un esquema de los 12 capítulos, cada uno con 5 escenas únicas, "
+                f"Escribe un resumen de la novela y un esquema de los {num_capitulos} capítulos, cada uno con {num_escenas} escenas únicas, "
                 f"para un thriller con elementos de aventura y misterio basado en el tema: {tema}. "
             )
             contenido_inicial = generar_contenido_cache(prompt_intro, max_tokens, temperature, repetition_penalty)
