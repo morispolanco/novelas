@@ -19,7 +19,7 @@ MODEL = "openai/gpt-4o-mini"  # Usando el modelo específico de OpenAI en OpenRo
 # Funciones Auxiliares
 # =====================
 
-def generar_contenido(prompt, max_tokens=3000, temperature=0.7, repetition_penalty=1.2):
+def generar_contenido(prompt, max_tokens=3000, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {OPENROUTER_API_KEY}"
@@ -34,7 +34,8 @@ def generar_contenido(prompt, max_tokens=3000, temperature=0.7, repetition_penal
         ],
         "max_tokens": max_tokens,
         "temperature": temperature,
-        "repetition_penalty": repetition_penalty
+        "repetition_penalty": repetition_penalty,
+        "frequency_penalty": frequency_penalty  # Adding frequency penalty
     }
     try:
         response = requests.post(API_URL, headers=headers, json=data, timeout=30)
@@ -106,8 +107,8 @@ def exportar_a_docx(contenido_novela):
 # =====================
 
 @st.cache_data(show_spinner=False, ttl=3600)
-def generar_contenido_cache(prompt, max_tokens=3000, temperature=0.7, repetition_penalty=1.0):
-    return generar_contenido(prompt, max_tokens, temperature, repetition_penalty)
+def generar_contenido_cache(prompt, max_tokens=3000, temperature=0.7, repetition_penalty=1.0, frequency_penalty=0.5):
+    return generar_contenido(prompt, max_tokens, temperature, repetition_penalty, frequency_penalty)
 
 # =====================
 # Validación de Entrada
@@ -143,10 +144,12 @@ if modo_avanzado:
     max_tokens = st.sidebar.number_input("Máximo de Tokens por Solicitud", min_value=500, max_value=5000, value=3000, step=100)
     temperature = st.sidebar.slider("Temperature", min_value=0.0, max_value=1.0, value=0.7, step=0.1)
     repetition_penalty = st.sidebar.slider("Repetition Penalty", min_value=1.0, max_value=2.0, value=1.0, step=0.1)
+    frequency_penalty = st.sidebar.slider("Frequency Penalty", min_value=0.0, max_value=2.0, value=0.5, step=0.1)
 else:
     max_tokens = 3000
     temperature = 0.7
     repetition_penalty = 1.0
+    frequency_penalty = 0.5
 
 # Título principal
 st.title("Generador de Novelas")
@@ -167,7 +170,7 @@ if st.button("Enviar", key="enviar_tema"):
                 f"para un thriller con elementos de aventura y misterio basado en el tema: {tema}. "
                 f"En los diálogos, utiliza la raya (—) en lugar de comillas para marcar el inicio de las conversaciones."
             )
-            contenido_inicial = generar_contenido_cache(prompt_intro, max_tokens, temperature, repetition_penalty)
+            contenido_inicial = generar_contenido_cache(prompt_intro, max_tokens, temperature, repetition_penalty, frequency_penalty)
             st.session_state.contenido_inicial = contenido_inicial
             st.session_state.aprobado = False
             st.session_state.tema = tema
@@ -203,7 +206,7 @@ if 'aprobado' in st.session_state and st.session_state.aprobado:
                 f"de la novela sobre {st.session_state.tema}. Debe ser un thriller con elementos de misterio y aventura. "
                 f"Utiliza la raya (—) para los diálogos."
             )
-            contenido_escena = generar_contenido_cache(prompt_escena, max_tokens, temperature, repetition_penalty)
+            contenido_escena = generar_contenido_cache(prompt_escena, max_tokens, temperature, repetition_penalty, frequency_penalty)
             contenido_novela += contenido_escena + "\n\n"
             tareas_completadas += 1
             status_text.text(f"Generada Escena {capitulo_num}.{escena_num}")
