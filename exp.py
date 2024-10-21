@@ -167,6 +167,8 @@ if 'eventos' not in st.session_state:
     st.session_state.eventos = []      # Lista de eventos clave
 if 'trama_general' not in st.session_state:
     st.session_state.trama_general = ""  # Resumen de la trama
+if 'novela_generada' not in st.session_state:
+    st.session_state.novela_generada = False  # Bandera para evitar regeneración
 
 # =====================
 # Interfaz de Usuario
@@ -224,6 +226,8 @@ if st.button("Enviar", key="enviar_tema"):
                 # Inicializar personajes y eventos
                 st.session_state.personajes = []
                 st.session_state.eventos = []
+                # Resetear la bandera de novela generada
+                st.session_state.novela_generada = False
                 st.success("Estructura de la novela generada exitosamente.")
 
 # Mostrar el contenido generado y permitir aprobar y continuar
@@ -283,7 +287,8 @@ if 'aprobado' in st.session_state and st.session_state.aprobado:
     st.session_state.trama_general = trama_editable
 
 # Paso 3: Generar el contenido de la novela
-if 'aprobado' in st.session_state and st.session_state.aprobado:
+if ('aprobado' in st.session_state and st.session_state.aprobado 
+    and not st.session_state.novela_generada):
     st.header("Paso 3: Generando la Novela Completa...")
     contenido_novela = st.session_state.contenido_final + "\n\n"
 
@@ -340,9 +345,27 @@ if 'aprobado' in st.session_state and st.session_state.aprobado:
         )
 
     st.success("Generación de la novela completada.")
+    
+    # Establecer la bandera de novela generada para evitar regeneración
+    st.session_state.novela_generada = True
+
+# Paso 4: Exportar la novela (mover el bloque dentro de la generación)
+if 'novela_generada' in st.session_state and st.session_state.novela_generada:
+    st.subheader("Paso 4: Exportar Novela")
+
+    buffer_docx = exportar_a_docx(contenido_novela)
+    if buffer_docx:
+        st.download_button(
+            label="Descargar Novela en DOCX",
+            data=buffer_docx,
+            file_name="novela.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+
+    st.success("Generación de la novela completada.")
 
     if st.button("Generar Nueva Novela", key="nueva_novela"):
-        for key in ['contenido_inicial', 'tema', 'aprobado', 'contenido_final', 'personajes', 'eventos', 'trama_general']:
+        for key in ['contenido_inicial', 'tema', 'aprobado', 'contenido_final', 'personajes', 'eventos', 'trama_general', 'novela_generada']:
             if key in st.session_state:
                 del st.session_state[key]
         st.experimental_rerun()
