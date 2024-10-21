@@ -15,7 +15,7 @@ import json
 
 OPENROUTER_API_KEY = st.secrets["OPENROUTER_API_KEY"]
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "liquid/lfm-40b"  # Asegúrate de que este es el nombre correcto del modelo
+MODEL = "anthropic/claude-3.5-sonnet:beta"  # Asegúrate de que este es el nombre correcto del modelo
 
 # =====================
 # Funciones Auxiliares
