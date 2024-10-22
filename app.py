@@ -20,7 +20,7 @@ MODEL = "anthropic/claude-3.5-sonnet:beta"  # Asegúrate de que este es el nombr
 # Funciones Auxiliares
 # =====================
 
-def generar_contenido(prompt, max_tokens=5000, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
+def generar_contenido(prompt, max_tokens=2000, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {OPENROUTER_API_KEY}"
@@ -97,7 +97,7 @@ def exportar_a_docx(contenido_novela, titulo="Novela Mejorada"):
             if not linea:
                 continue
 
-            if re.match(r"^Capítulo\s+\d+", linea, re.IGNORECASE):
+            if re.match(r"^Escena\s+\d+", linea, re.IGNORECASE):
                 p = doc.add_heading(linea, level=2)
                 p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                 p.paragraph_format.line_spacing = 1.15
@@ -128,12 +128,31 @@ def leer_docx(file):
         st.error(f"Error al leer el archivo DOCX: {e}")
         return ""
 
+def dividir_en_escenas(texto_novela):
+    """
+    Divide el texto de la novela en escenas basándose en delimitadores específicos.
+    Por ejemplo, se espera que cada escena comience con "Escena X" donde X es un número.
+    """
+    try:
+        # Regex para detectar el inicio de una escena
+        escenas = re.split(r'(?i)(Escena\s+\d+)', texto_novela)
+        # Combina los encabezados de escena con su contenido
+        escenas_combinadas = []
+        for i in range(1, len(escenas), 2):
+            encabezado = escenas[i].strip()
+            contenido = escenas[i+1].strip() if i+1 < len(escenas) else ""
+            escenas_combinadas.append(f"{encabezado}\n{contenido}")
+        return escenas_combinadas
+    except Exception as e:
+        st.error(f"Error al dividir la novela en escenas: {e}")
+        return []
+
 # =====================
 # Cacheo de Funciones
 # =====================
 
 @st.cache_data(show_spinner=False, ttl=3600)
-def generar_contenido_cache(prompt, max_tokens=5000, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
+def generar_contenido_cache(prompt, max_tokens=2000, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
     return generar_contenido(prompt, max_tokens, temperature, repetition_penalty, frequency_penalty)
 
 # =====================
@@ -163,7 +182,7 @@ if 'novela_mejorada' not in st.session_state:
 st.set_page_config(page_title="Mejorar tu Novela", layout="wide")
 
 # Título principal
-st.title("Mejorar tu Novela")
+st.title("Mejorar tu Novela Escena por Escena")
 
 # ============================================
 # Sección: Mejorar una Novela Subida por el Usuario
@@ -177,7 +196,7 @@ archivo_subido = st.file_uploader("Selecciona tu archivo DOCX:", type=["docx"])
 
 # Paso 2: Especificar las Correcciones y Mejoras
 st.subheader("Paso 2: Especifica las Correcciones y Mejoras")
-correcciones = st.text_area("Describe los defectos que has identificado en tu novela y las mejoras que deseas aplicar:", height=200)
+correcciones = st.text_area("Describe los defectos que has identificado en tu novela y las mejoras que deseas aplicar a cada escena:", height=200)
 
 # Botón para iniciar la mejora
 if st.button("Aplicar Correcciones y Mejoras", key="aplicar_mejoras"):
@@ -194,30 +213,63 @@ if st.button("Aplicar Correcciones y Mejoras", key="aplicar_mejoras"):
                 if not contenido_novela.strip():
                     st.error("El archivo DOCX está vacío o no se pudo extraer el contenido.")
                 else:
-                    # Crear el prompt para mejorar la novela
-                    prompt_mejora = (
-                        f"Corrige los defectos señalados y aplica las mejoras sugeridas en la siguiente novela. "
-                        f"Defectos y mejoras a aplicar:\n{correcciones}\n\n"
-                        f"Texto de la novela:\n{contenido_novela}\n\n"
-                        f"Por favor, reescribe la novela incorporando las correcciones y mejoras mencionadas. "
-                        f"Mantén la coherencia, el estilo y el tono original de la obra."
-                    )
-                    
-                    # Generar el contenido mejorado
-                    contenido_mejorado = generar_contenido_cache(
-                        prompt_mejora,
-                        max_tokens=10000,  # Ajusta según sea necesario
-                        temperature=0.7,
-                        repetition_penalty=1.2,
-                        frequency_penalty=0.5
-                    )
-                    
-                    if contenido_mejorado:
-                        st.session_state.contenido_mejorado = contenido_mejorado
-                        st.session_state.novela_mejorada = True
-                        st.success("Tu novela ha sido mejorada exitosamente.")
+                    # Dividir la novela en escenas
+                    escenas = dividir_en_escenas(contenido_novela)
+                    if not escenas:
+                        st.error("No se encontraron escenas delimitadas en la novela. Asegúrate de que cada escena comience con 'Escena X' donde X es un número.")
                     else:
-                        st.error("Ocurrió un error al intentar mejorar tu novela.")
+                        escenas_mejoradas = []
+                        total_escenas = len(escenas)
+                        tareas_completadas = 0
+
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+
+                        for escena in escenas:
+                            # Extraer el encabezado de la escena
+                            encabezado = escena.split('\n')[0]
+                            contenido = '\n'.join(escena.split('\n')[1:]).strip()
+
+                            # Crear el prompt para mejorar la escena
+                            prompt_mejora = (
+                                f"Corrige los defectos señalados y aplica las mejoras sugeridas en la siguiente escena de una novela. "
+                                f"Defectos y mejoras a aplicar:\n{correcciones}\n\n"
+                                f"Texto de la escena:\n{contenido}\n\n"
+                                f"Por favor, reescribe la escena incorporando las correcciones y mejoras mencionadas. "
+                                f"Mantén la coherencia, el estilo y el tono original de la obra."
+                            )
+
+                            # Generar el contenido mejorado de la escena
+                            contenido_mejorado = generar_contenido_cache(
+                                prompt_mejora,
+                                max_tokens=2000,  # Ajusta según sea necesario
+                                temperature=0.7,
+                                repetition_penalty=1.2,
+                                frequency_penalty=0.5
+                            )
+
+                            if contenido_mejorado:
+                                # Añadir el encabezado y el contenido mejorado
+                                escena_mejorada = f"{encabezado}\n{contenido_mejorado}"
+                                escenas_mejoradas.append(escena_mejorada)
+                            else:
+                                # Si hubo un error, conservar la escena original y notificar al usuario
+                                escenas_mejoradas.append(escena)
+                                st.warning(f"No se pudo mejorar la escena: {encabezado}")
+
+                            tareas_completadas += 1
+                            status_text.text(f"Mejorada Escena {tareas_completadas} de {total_escenas}")
+                            progress_bar.progress(tareas_completadas / total_escenas)
+
+                        # Unir todas las escenas mejoradas en una sola novela
+                        novela_mejorada = '\n\n'.join(escenas_mejoradas)
+
+                        if novela_mejorada:
+                            st.session_state.contenido_mejorado = novela_mejorada
+                            st.session_state.novela_mejorada = True
+                            st.success("Tu novela ha sido mejorada exitosamente.")
+                        else:
+                            st.error("Ocurrió un error al intentar mejorar tu novela.")
 
 # Mostrar el contenido mejorado y permitir la descarga
 if 'contenido_mejorado' in st.session_state and st.session_state.novela_mejorada:
@@ -225,7 +277,7 @@ if 'contenido_mejorado' in st.session_state and st.session_state.novela_mejorada
     contenido_editable_mejorado = st.text_area(
         "Revisa y edita el contenido mejorado si es necesario:", 
         st.session_state.contenido_mejorado, 
-        height=600
+        height=800
     )
 
     # Botón para descargar el archivo mejorado
@@ -255,5 +307,5 @@ if 'contenido_mejorado' in st.session_state and st.session_state.novela_mejorada
 
 st.markdown("""
 ---
-*Nota: Asegúrate de que el archivo DOCX que subas no exceda el tamaño máximo permitido por la API de OpenRouter. Si tu novela es muy extensa, considera dividirla en secciones más pequeñas y procesarlas por separado.*
+*Nota: Asegúrate de que el archivo DOCX que subas esté bien estructurado con delimitadores claros para cada escena (por ejemplo, "Escena 1", "Escena 2", etc.). Esto facilitará el proceso de división y reescritura escena por escena.*
 """)
