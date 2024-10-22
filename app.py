@@ -113,6 +113,10 @@ def exportar_a_docx(contenido_novela, titulo="Novela Mejorada"):
         buffer.seek(0)
         return buffer
 
+    except Exception as e:
+        st.error(f"Error al formatear el documento DOCX: {e}")
+        return None
+
 def leer_docx(file):
     try:
         doc = Document(file)
