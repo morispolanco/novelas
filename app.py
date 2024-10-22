@@ -15,7 +15,7 @@ import json
 
 OPENROUTER_API_KEY = st.secrets["OPENROUTER_API_KEY"]
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "gpt-4-mini"  # Asegúrate de que este es el nombre correcto del modelo
+MODEL = "anthropic/claude-3.5-sonnet:beta"  # Asegúrate de que este es el nombre correcto del modelo
 
 # =====================
 # Funciones Auxiliares
@@ -114,6 +114,17 @@ def exportar_a_docx(contenido_novela):
         st.error(f"Error al formatear el documento DOCX: {e}")
         return None
 
+def leer_docx(file):
+    try:
+        doc = Document(file)
+        full_text = []
+        for para in doc.paragraphs:
+            full_text.append(para.text)
+        return '\n'.join(full_text)
+    except Exception as e:
+        st.error(f"Error al leer el archivo DOCX: {e}")
+        return ""
+
 # =====================
 # Cacheo de Funciones
 # =====================
@@ -167,6 +178,11 @@ if 'eventos' not in st.session_state:
     st.session_state.eventos = []      # Lista de eventos clave
 if 'trama_general' not in st.session_state:
     st.session_state.trama_general = ""  # Resumen de la trama
+if 'novela_generada' not in st.session_state:
+    st.session_state.novela_generada = False  # Bandera para evitar regeneración
+
+if 'novela_mejorada' not in st.session_state:
+    st.session_state.novela_mejorada = False  # Bandera para evitar reprocesamiento
 
 # =====================
 # Interfaz de Usuario
@@ -197,6 +213,12 @@ else:
 # Título principal
 st.title("Generador de Novelas")
 
+# =========================================
+# Sección 1: Generación de una Nueva Novela
+# =========================================
+
+st.header("Generar una Nueva Novela")
+
 # Paso 1: Solicitar el tema al usuario
 st.subheader("Paso 1: Introduce el Tema de la Novela")
 tema = st.text_input("Introduce el tema de la novela:")
@@ -224,6 +246,8 @@ if st.button("Enviar", key="enviar_tema"):
                 # Inicializar personajes y eventos
                 st.session_state.personajes = []
                 st.session_state.eventos = []
+                # Resetear la bandera de novela generada
+                st.session_state.novela_generada = False
                 st.success("Estructura de la novela generada exitosamente.")
 
 # Mostrar el contenido generado y permitir aprobar y continuar
@@ -283,7 +307,8 @@ if 'aprobado' in st.session_state and st.session_state.aprobado:
     st.session_state.trama_general = trama_editable
 
 # Paso 3: Generar el contenido de la novela
-if 'aprobado' in st.session_state and st.session_state.aprobado:
+if ('aprobado' in st.session_state and st.session_state.aprobado 
+    and not st.session_state.novela_generada):
     st.header("Paso 3: Generando la Novela Completa...")
     contenido_novela = st.session_state.contenido_final + "\n\n"
 
@@ -340,9 +365,105 @@ if 'aprobado' in st.session_state and st.session_state.aprobado:
         )
 
     st.success("Generación de la novela completada.")
+    
+    # Establecer la bandera de novela generada para evitar regeneración
+    st.session_state.novela_generada = True
+
+# Paso 4: Exportar la novela (mover el bloque dentro de la generación)
+if 'novela_generada' in st.session_state and st.session_state.novela_generada:
+    st.subheader("Paso 4: Exportar Novela")
+
+    buffer_docx = exportar_a_docx(contenido_novela)
+    if buffer_docx:
+        st.download_button(
+            label="Descargar Novela en DOCX",
+            data=buffer_docx,
+            file_name="novela.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+
+    st.success("Generación de la novela completada.")
 
     if st.button("Generar Nueva Novela", key="nueva_novela"):
-        for key in ['contenido_inicial', 'tema', 'aprobado', 'contenido_final', 'personajes', 'eventos', 'trama_general']:
+        for key in ['contenido_inicial', 'tema', 'aprobado', 'contenido_final', 'personajes', 'eventos', 'trama_general', 'novela_generada']:
             if key in st.session_state:
                 del st.session_state[key]
         st.experimental_rerun()
+
+# ============================================
+# Sección 2: Mejorar una Novela Subida por el Usuario
+# ============================================
+
+st.header("Mejorar tu Novela")
+
+# Paso 1: Subir el archivo DOCX
+st.subheader("Paso 1: Sube tu Novela en Formato DOCX")
+archivo_subido = st.file_uploader("Selecciona tu archivo DOCX:", type=["docx"])
+
+# Paso 2: Especificar qué se quiere corregir o mejorar
+st.subheader("Paso 2: Especifica las Correcciones o Mejoras")
+correcciones = st.text_area("Describe qué aspectos quieres corregir o mejorar en tu novela:", height=150)
+
+# Botón para iniciar la mejora
+if st.button("Mejorar Novela", key="mejorar_novela"):
+    if not archivo_subido:
+        st.error("Por favor, sube un archivo DOCX para poder mejorarlo.")
+    elif not correcciones.strip():
+        st.error("Por favor, describe qué quieres corregir o mejorar en tu novela.")
+    else:
+        with st.spinner("Procesando tu novela y aplicando mejoras..."):
+            # Leer el contenido del archivo DOCX
+            contenido_novela = leer_docx(archivo_subido)
+            if not contenido_novela:
+                st.error("No se pudo extraer el contenido de la novela.")
+            else:
+                # Crear el prompt para mejorar la novela
+                prompt_mejora = (
+                    f"Mejora el siguiente texto de una novela de acuerdo con las siguientes especificaciones: {correcciones}\n\n"
+                    f"Texto de la novela:\n{contenido_novela}"
+                )
+                contenido_mejorado = generar_contenido_cache(
+                    prompt_mejora,
+                    max_tokens=5000,  # Ajusta según sea necesario
+                    temperature=0.7,
+                    repetition_penalty=1.2,
+                    frequency_penalty=0.5
+                )
+                if contenido_mejorado:
+                    st.session_state.contenido_mejorado = contenido_mejorado
+                    st.session_state.novela_mejorada = True
+                    st.success("Tu novela ha sido mejorada exitosamente.")
+                else:
+                    st.error("Ocurrió un error al intentar mejorar tu novela.")
+
+# Mostrar el contenido mejorado y permitir la descarga
+if 'contenido_mejorado' in st.session_state and st.session_state.novela_mejorada:
+    st.subheader("Paso 3: Revisa y Descarga tu Novela Mejorada")
+    contenido_editable_mejorado = st.text_area("Revisa y edita el contenido mejorado si es necesario:", st.session_state.contenido_mejorado, height=400)
+
+    # Botón para descargar el archivo mejorado
+    if st.button("Descargar Novela Mejorada", key="descargar_mejorada"):
+        buffer_docx_mejorada = exportar_a_docx(contenido_editable_mejorado)
+        if buffer_docx_mejorada:
+            st.download_button(
+                label="Descargar Novela Mejorada en DOCX",
+                data=buffer_docx_mejorada,
+                file_name="novela_mejorada.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
+            st.success("Descarga iniciada correctamente.")
+        else:
+            st.error("Ocurrió un error al generar el archivo DOCX.")
+
+    # Botón para resetear la sección de mejora
+    if st.button("Mejorar Otra Novela", key="reset_mejorar_novela"):
+        for key in ['contenido_mejorado', 'novela_mejorada']:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.experimental_rerun()
+
+# =====================
+# Finalización
+# =====================
+
+# Nota: Puedes ajustar la posición de esta sección según prefieras en la interfaz.
