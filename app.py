@@ -172,6 +172,7 @@ def obtener_inicio_escena():
 # Inicialización de Variables de Sesión
 # =====================
 
+# Variables para generación de nueva novela
 if 'personajes' not in st.session_state:
     st.session_state.personajes = []  # Lista de personajes
 if 'eventos' not in st.session_state:
@@ -181,6 +182,7 @@ if 'trama_general' not in st.session_state:
 if 'novela_generada' not in st.session_state:
     st.session_state.novela_generada = False  # Bandera para evitar regeneración
 
+# Variables para mejora/reescritura de novela
 if 'novela_mejorada' not in st.session_state:
     st.session_state.novela_mejorada = False  # Bandera para evitar reprocesamiento
 
@@ -391,72 +393,97 @@ if 'novela_generada' in st.session_state and st.session_state.novela_generada:
         st.experimental_rerun()
 
 # ============================================
-# Sección 2: Mejorar una Novela Subida por el Usuario
+# Sección 2: Mejorar o Reescribir una Novela Subida por el Usuario
 # ============================================
 
-st.header("Mejorar tu Novela")
+st.header("Mejorar o Reescribir tu Novela")
 
 # Paso 1: Subir el archivo DOCX
 st.subheader("Paso 1: Sube tu Novela en Formato DOCX")
 archivo_subido = st.file_uploader("Selecciona tu archivo DOCX:", type=["docx"])
 
-# Paso 2: Especificar qué se quiere corregir o mejorar
-st.subheader("Paso 2: Especifica las Correcciones o Mejoras")
-correcciones = st.text_area("Describe qué aspectos quieres corregir o mejorar en tu novela:", height=150)
+# Paso 2: Seleccionar acción (Mejorar o Reescribir)
+st.subheader("Paso 2: Selecciona la Acción Deseada")
+accion = st.radio(
+    "¿Qué deseas hacer con tu novela?",
+    ("Mejorar aspectos específicos", "Reescribir la novela completa")
+)
 
-# Botón para iniciar la mejora
-if st.button("Mejorar Novela", key="mejorar_novela"):
+# Paso 3: Especificar qué se quiere corregir, mejorar o reescribir
+if accion == "Mejorar aspectos específicos":
+    st.subheader("Paso 3A: Especifica las Correcciones o Mejoras")
+    correcciones = st.text_area("Describe qué aspectos quieres corregir o mejorar en tu novela:", height=150)
+elif accion == "Reescribir la novela completa":
+    st.subheader("Paso 3B: Especifica las Instrucciones para la Reescritura")
+    correcciones = st.text_area("Describe cómo deseas que se reescriba tu novela (por ejemplo, cambiar el tono, el estilo, el desarrollo de personajes, etc.):", height=150)
+
+# Botón para iniciar la mejora o reescritura
+if st.button("Aplicar Acción", key="aplicar_accion"):
     if not archivo_subido:
-        st.error("Por favor, sube un archivo DOCX para poder mejorarlo.")
+        st.error("Por favor, sube un archivo DOCX para poder proceder.")
     elif not correcciones.strip():
-        st.error("Por favor, describe qué quieres corregir o mejorar en tu novela.")
+        if accion == "Mejorar aspectos específicos":
+            st.error("Por favor, describe qué quieres corregir o mejorar en tu novela.")
+        else:
+            st.error("Por favor, describe cómo deseas que se reescriba tu novela.")
     else:
-        with st.spinner("Procesando tu novela y aplicando mejoras..."):
+        with st.spinner("Procesando tu novela y aplicando las acciones solicitadas..."):
             # Leer el contenido del archivo DOCX
             contenido_novela = leer_docx(archivo_subido)
             if not contenido_novela:
                 st.error("No se pudo extraer el contenido de la novela.")
             else:
-                # Crear el prompt para mejorar la novela
-                prompt_mejora = (
-                    f"Mejora el siguiente texto de una novela de acuerdo con las siguientes especificaciones: {correcciones}\n\n"
-                    f"Texto de la novela:\n{contenido_novela}"
-                )
-                contenido_mejorado = generar_contenido_cache(
-                    prompt_mejora,
+                # Crear el prompt según la acción seleccionada
+                if accion == "Mejorar aspectos específicos":
+                    prompt_accion = (
+                        f"Mejora el siguiente texto de una novela de acuerdo con las siguientes especificaciones: {correcciones}\n\n"
+                        f"Texto de la novela:\n{contenido_novela}"
+                    )
+                else:  # Reescribir la novela completa
+                    prompt_accion = (
+                        f"Reescribe el siguiente texto de una novela según las siguientes especificaciones: {correcciones}\n\n"
+                        f"Texto de la novela:\n{contenido_novela}"
+                    )
+                
+                contenido_modificado = generar_contenido_cache(
+                    prompt_accion,
                     max_tokens=5000,  # Ajusta según sea necesario
                     temperature=0.7,
                     repetition_penalty=1.2,
                     frequency_penalty=0.5
                 )
-                if contenido_mejorado:
-                    st.session_state.contenido_mejorado = contenido_mejorado
+                if contenido_modificado:
+                    st.session_state.contenido_mejorado = contenido_modificado
                     st.session_state.novela_mejorada = True
-                    st.success("Tu novela ha sido mejorada exitosamente.")
+                    st.success("Tu novela ha sido procesada exitosamente.")
                 else:
-                    st.error("Ocurrió un error al intentar mejorar tu novela.")
+                    st.error("Ocurrió un error al intentar procesar tu novela.")
 
-# Mostrar el contenido mejorado y permitir la descarga
+# Mostrar el contenido mejorado o reescrito y permitir la descarga
 if 'contenido_mejorado' in st.session_state and st.session_state.novela_mejorada:
-    st.subheader("Paso 3: Revisa y Descarga tu Novela Mejorada")
-    contenido_editable_mejorado = st.text_area("Revisa y edita el contenido mejorado si es necesario:", st.session_state.contenido_mejorado, height=400)
+    st.subheader("Paso 4: Revisa y Descarga tu Novela Procesada")
+    contenido_editable_mejorado = st.text_area(
+        "Revisa y edita el contenido procesado si es necesario:", 
+        st.session_state.contenido_mejorado, 
+        height=400
+    )
 
-    # Botón para descargar el archivo mejorado
-    if st.button("Descargar Novela Mejorada", key="descargar_mejorada"):
+    # Botón para descargar el archivo mejorado o reescrito
+    if st.button("Descargar Novela Procesada", key="descargar_procesada"):
         buffer_docx_mejorada = exportar_a_docx(contenido_editable_mejorado)
         if buffer_docx_mejorada:
             st.download_button(
-                label="Descargar Novela Mejorada en DOCX",
+                label="Descargar Novela Procesada en DOCX",
                 data=buffer_docx_mejorada,
-                file_name="novela_mejorada.docx",
+                file_name="novela_procesada.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
             st.success("Descarga iniciada correctamente.")
         else:
             st.error("Ocurrió un error al generar el archivo DOCX.")
 
-    # Botón para resetear la sección de mejora
-    if st.button("Mejorar Otra Novela", key="reset_mejorar_novela"):
+    # Botón para resetear la sección de mejora/reescritura
+    if st.button("Procesar Otra Novela", key="reset_procesar_novela"):
         for key in ['contenido_mejorado', 'novela_mejorada']:
             if key in st.session_state:
                 del st.session_state[key]
