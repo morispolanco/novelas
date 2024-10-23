@@ -8,7 +8,6 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 import random
 import json
-import zipfile
 
 # =====================
 # Configuración Inicial
@@ -114,13 +113,6 @@ def exportar_a_docx(contenido_novela):
     except Exception as e:
         st.error(f"Error al formatear el documento DOCX: {e}")
         return None
-
-def comprimir_docx(buffer_docx):
-    with zipfile.ZipFile("novela.zip", "w", zipfile.ZIP_DEFLATED) as zipf:
-        zipf.writestr("novela.docx", buffer_docx.getvalue())
-    with open("novela.zip", "rb") as f:
-        zip_data = f.read()
-    return zip_data
 
 # =====================
 # Cacheo de Funciones
@@ -364,21 +356,18 @@ if 'novela_generada' in st.session_state and st.session_state.novela_generada:
     with st.expander("Mostrar Contenido Completo"):
         st.text_area("Contenido de la Novela:", st.session_state.contenido_final, height=600)
 
-    # Opcional: Guardar el contenido localmente para verificación
-    # guardar_temporal(st.session_state.contenido_final)
-
     buffer_docx = exportar_a_docx(st.session_state.contenido_final)
     if buffer_docx:
-        zip_data = comprimir_docx(buffer_docx)
         st.download_button(
-            label="Descargar Novela en ZIP",
-            data=zip_data,
-            file_name="novela.zip",
-            mime="application/zip",
-            key="download_zip_final"  # Clave única asignada
+            label="Descargar Novela en DOCX",
+            data=buffer_docx,
+            file_name="novela.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            key="download_docx_final"  # Clave única asignada
         )
-
-    st.success("La novela ha sido generada y está lista para ser descargada.")
+        st.success("La novela ha sido generada y está lista para ser descargada.")
+    else:
+        st.error("No se pudo generar el documento DOCX.")
 
     if st.button("Generar Nueva Novela", key="nueva_novela"):
         for key in ['contenido_inicial', 'tema', 'aprobado', 'contenido_final', 'personajes', 'eventos', 'trama_general', 'novela_generada']:
