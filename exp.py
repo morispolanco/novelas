@@ -146,6 +146,10 @@ def generar_contenido_cache(tema, num_capitulos, num_escenas, max_tokens=3000, t
     )
     return generar_contenido(prompt_intro, max_tokens, temperature, repetition_penalty, frequency_penalty)
 
+@st.cache_data(show_spinner=False, ttl=3600)
+def generar_contenido_generico(prompt, max_tokens=1500, temperature=0.5, repetition_penalty=1.0, frequency_penalty=0.0):
+    return generar_contenido(prompt, max_tokens, temperature, repetition_penalty, frequency_penalty)
+
 # =====================
 # Validación de Entrada
 # =====================
@@ -261,7 +265,7 @@ if 'contenido_inicial' in st.session_state and 'tema' in st.session_state:
                 f"Del siguiente esquema de la novela, extrae una lista de personajes principales junto con sus características y motivaciones:\n\n"
                 f"{st.session_state.contenido_final}"
             )
-            personajes_info = generar_contenido_cache(prompt_extraer_personajes, max_tokens=1500, temperature=0.5, repetition_penalty=1.0, frequency_penalty=0.0)
+            personajes_info = generar_contenido_generico(prompt_extraer_personajes, max_tokens=1500, temperature=0.5, repetition_penalty=1.0, frequency_penalty=0.0)
             if personajes_info:
                 try:
                     personajes = json.loads(personajes_info)
@@ -326,7 +330,7 @@ if ('aprobado' in st.session_state and st.session_state.aprobado
             for personaje in st.session_state.personajes:
                 prompt_escena += f"- **{personaje['nombre']}**: {personaje['descripcion']}\n"
 
-            contenido_escena = generar_contenido_cache(prompt_escena, max_tokens, temperature, repetition_penalty, frequency_penalty)
+            contenido_escena = generar_contenido_generico(prompt_escena, max_tokens, temperature, repetition_penalty, frequency_penalty)
             if contenido_escena:
                 contenido_novela += contenido_escena + "\n\n"
                 resumen_fragmento = contenido_escena[:150] + "..." if len(contenido_escena) > 150 else contenido_escena
