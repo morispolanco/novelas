@@ -333,25 +333,20 @@ if ('aprobado' in st.session_state and st.session_state.aprobado
             status_text.text(f"Generada Escena {capitulo_num}.{escena_num}")
             progress_bar.progress(tareas_completadas / total_tareas)
 
-    st.subheader("Paso 4: Exportar Novela")
+    # Actualizar el contenido_final con el contenido completo generado
+    st.session_state.contenido_final = contenido_novela
 
-    buffer_docx = exportar_a_docx(contenido_novela)
-    if buffer_docx:
-        st.download_button(
-            label="Descargar Novela en DOCX",
-            data=buffer_docx,
-            file_name="novela.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            key="download_docx_step3"  # Clave única asignada
-        )
+    st.session_state.novela_generada = True  # Marcar como generada
 
-    st.success("Generación de la novela completada.")
-    
-    st.session_state.novela_generada = True
+    st.success("Generación de la novela completada. Puedes proceder a exportarla.")
 
 # Paso 4: Exportar la novela
 if 'novela_generada' in st.session_state and st.session_state.novela_generada:
     st.subheader("Paso 4: Exportar Novela")
+
+    # **Depuración:** Verificar el contenido antes de exportar
+    st.markdown("### **Verifica el contenido antes de descargar:**")
+    st.text_area("Contenido de la Novela:", st.session_state.contenido_final, height=300)
 
     buffer_docx = exportar_a_docx(st.session_state.contenido_final)
     if buffer_docx:
@@ -363,7 +358,7 @@ if 'novela_generada' in st.session_state and st.session_state.novela_generada:
             key="download_docx_final"  # Clave única asignada
         )
 
-    st.success("Generación de la novela completada.")
+    st.success("La novela ha sido generada y está lista para ser descargada.")
 
     if st.button("Generar Nueva Novela", key="nueva_novela"):
         for key in ['contenido_inicial', 'tema', 'aprobado', 'contenido_final', 'personajes', 'eventos', 'trama_general', 'novela_generada']:
