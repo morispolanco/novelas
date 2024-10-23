@@ -8,6 +8,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 import random
 import json
+import zipfile
 
 # =====================
 # Configuración Inicial
@@ -40,7 +41,7 @@ def generar_contenido(prompt, max_tokens=3000, temperature=0.7, repetition_penal
         "frequency_penalty": frequency_penalty
     }
     try:
-        response = requests.post(API_URL, headers=headers, json=data, timeout=60)
+        response = requests.post(API_URL, headers=headers, json=data, timeout=120)  # Aumentar timeout si es necesario
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
     except requests.exceptions.Timeout:
@@ -113,6 +114,13 @@ def exportar_a_docx(contenido_novela):
     except Exception as e:
         st.error(f"Error al formatear el documento DOCX: {e}")
         return None
+
+def comprimir_docx(buffer_docx):
+    with zipfile.ZipFile("novela.zip", "w", zipfile.ZIP_DEFLATED) as zipf:
+        zipf.writestr("novela.docx", buffer_docx.getvalue())
+    with open("novela.zip", "rb") as f:
+        zip_data = f.read()
+    return zip_data
 
 # =====================
 # Cacheo de Funciones
@@ -202,7 +210,7 @@ num_escenas = st.sidebar.slider("Número de Escenas por Capítulo", min_value=3,
 # 2. Modo Avanzado
 modo_avanzado = st.sidebar.checkbox("Modo Avanzado")
 if modo_avanzado:
-    max_tokens = st.sidebar.number_input("Máximo de Tokens por Solicitud", min_value=500, max_value=5000, value=3000, step=100)
+    max_tokens = st.sidebar.number_input("Máximo de Tokens por Solicitud", min_value=500, max_value=10000, value=3000, step=100)
     temperature = st.sidebar.slider("Temperature", min_value=0.0, max_value=1.0, value=0.7, step=0.1)
     repetition_penalty = st.sidebar.slider("Repetition Penalty", min_value=1.0, max_value=2.0, value=1.2, step=0.1)
     frequency_penalty = st.sidebar.slider("Frequency Penalty", min_value=0.0, max_value=2.0, value=0.5, step=0.1)
@@ -333,7 +341,7 @@ if ('aprobado' in st.session_state and st.session_state.aprobado
             status_text.text(f"Generada Escena {capitulo_num}.{escena_num}")
             progress_bar.progress(tareas_completadas / total_tareas)
 
-    # Actualizar el contenido_final con el contenido completo generado
+    # **Actualizar el contenido_final con el contenido completo generado**
     st.session_state.contenido_final = contenido_novela
 
     st.session_state.novela_generada = True  # Marcar como generada
@@ -344,18 +352,26 @@ if ('aprobado' in st.session_state and st.session_state.aprobado
 if 'novela_generada' in st.session_state and st.session_state.novela_generada:
     st.subheader("Paso 4: Exportar Novela")
 
-    # **Depuración:** Verificar el contenido antes de exportar
-    st.markdown("### **Verifica el contenido antes de descargar:**")
-    st.text_area("Contenido de la Novela:", st.session_state.contenido_final, height=300)
+    # **Depuración:** Mostrar la longitud del contenido
+    st.markdown(f"### **Longitud del Contenido:** {len(st.session_state.contenido_final)} caracteres")
+
+    # **Depuración:** Mostrar el contenido completo antes de descargar
+    st.markdown("### **Verifica el contenido completo de la novela:**")
+    with st.expander("Mostrar Contenido Completo"):
+        st.text_area("Contenido de la Novela:", st.session_state.contenido_final, height=600)
+
+    # Opcional: Guardar el contenido localmente para verificación
+    # guardar_temporal(st.session_state.contenido_final)
 
     buffer_docx = exportar_a_docx(st.session_state.contenido_final)
     if buffer_docx:
+        zip_data = comprimir_docx(buffer_docx)
         st.download_button(
-            label="Descargar Novela en DOCX",
-            data=buffer_docx,
-            file_name="novela.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            key="download_docx_final"  # Clave única asignada
+            label="Descargar Novela en ZIP",
+            data=zip_data,
+            file_name="novela.zip",
+            mime="application/zip",
+            key="download_zip_final"  # Clave única asignada
         )
 
     st.success("La novela ha sido generada y está lista para ser descargada.")
