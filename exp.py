@@ -34,13 +34,13 @@ def generar_contenido(prompt, max_tokens=3000, temperature=0.7, repetition_penal
                 "content": prompt
             }
         ],
-        "max_tokens": max_tokens,  # Corregido
+        "max_tokens": max_tokens,
         "temperature": temperature,
         "repetition_penalty": repetition_penalty,
         "frequency_penalty": frequency_penalty
     }
     try:
-        response = requests.post(API_URL, headers=headers, json=data, timeout=60)  # Aumentar timeout si es necesario
+        response = requests.post(API_URL, headers=headers, json=data, timeout=60)
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
     except requests.exceptions.Timeout:
@@ -84,7 +84,7 @@ def exportar_a_docx(contenido_novela):
         for heading in ['Heading 1', 'Heading 2', 'Heading 3']:
             style_heading = doc.styles[heading]
             font_heading = style_heading.font
-            font_heading.name = 'Alegreya'  # Cambiado de 'Calibri' a 'Alegreya' para consistencia
+            font_heading.name = 'Alegreya'
             font_heading.size = Pt(14)
             style_heading.element.rPr.rFonts.set(qn('w:eastAsia'), 'Alegreya')
 
@@ -119,8 +119,21 @@ def exportar_a_docx(contenido_novela):
 # =====================
 
 @st.cache_data(show_spinner=False, ttl=3600)
-def generar_contenido_cache(prompt, max_tokens=3000, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
-    return generar_contenido(prompt, max_tokens, temperature, repetition_penalty, frequency_penalty)
+def generar_contenido_cache(tema, num_capitulos, num_escenas, max_tokens=3000, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
+    prompt_intro = (
+        f"Crea un esquema para una novela de suspense de 35,000 palabras basada en el tema: '{tema}'. "
+        f"El esquema debe especificar {num_capitulos} capítulos, cada uno con {num_escenas} escenas. "
+        f"Incluye puntos clave de la trama, desarrollo de personajes, descripciones del escenario e indicadores de ritmo. "
+        f"Utiliza los siguientes pasos para estructurar el esquema:\n"
+        f"1. Introducción: Define el tema principal y el escenario de la historia. Presenta al protagonista y personajes secundarios.\n"
+        f"2. Estructura de la Trama: Usa una estructura de tres actos para delinear la trama principal con los eventos clave y desafíos.\n"
+        f"3. Capítulos y Escenas: Desglosa la trama en capítulos y escenas, indicando transiciones y contribuciones al ritmo.\n"
+        f"4. Arcos de Personajes: Describe cómo evolucionan los personajes principales a lo largo de la historia.\n"
+        f"5. Escenas Clímax: Detalla las escenas que conducen al clímax, asegurando que generen tensión.\n"
+        f"6. Resolución: Asegúrate de que la historia cierre las líneas argumentales de forma satisfactoria.\n"
+        f"7. Asignación de Palabras: Calcula la distribución aproximada de palabras para cada capítulo para un total de 35,000 palabras."
+    )
+    return generar_contenido(prompt_intro, max_tokens, temperature, repetition_penalty, frequency_penalty)
 
 # =====================
 # Validación de Entrada
@@ -210,23 +223,14 @@ if st.button("Enviar", key="enviar_tema"):
         st.error(mensaje_error)
     else:
         with st.spinner("Generando la estructura de la novela..."):
-            prompt_intro = (
-                f"Escribe un resumen detallado de la novela y un esquema de los {num_capitulos} capítulos, "
-                f"cada uno con {num_escenas} escenas únicas para un thriller con elementos de aventura y misterio basado en el tema: {tema}. "
-                f"Incluye descripciones claras de las motivaciones de los personajes principales y asegúrate de que la trama sea coherente y libre de inconsistencias. "
-                f"En los diálogos, utiliza la raya (—) en lugar de comillas para marcar el inicio de las conversaciones."
-            )
-            contenido_inicial = generar_contenido_cache(prompt_intro, max_tokens, temperature, repetition_penalty, frequency_penalty)
+            contenido_inicial = generar_contenido_cache(tema, num_capitulos, num_escenas, max_tokens, temperature, repetition_penalty, frequency_penalty)
             if contenido_inicial:
                 st.session_state.contenido_inicial = contenido_inicial
                 st.session_state.aprobado = False
                 st.session_state.tema = tema
-                # Inicializar el resumen de la trama
                 st.session_state.trama_general = ""
-                # Inicializar personajes y eventos
                 st.session_state.personajes = []
                 st.session_state.eventos = []
-                # Resetear la bandera de novela generada
                 st.session_state.novela_generada = False
                 st.success("Estructura de la novela generada exitosamente.")
 
@@ -239,7 +243,7 @@ if 'contenido_inicial' in st.session_state and 'tema' in st.session_state:
         st.session_state.aprobado = True
         st.session_state.contenido_final = contenido_editable
         st.success("Estructura aprobada y lista para la generación de la novela.")
-        
+
         # Extraer personajes y motivaciones desde el contenido aprobado
         with st.spinner("Extrayendo personajes y sus motivaciones..."):
             prompt_extraer_personajes = (
@@ -249,10 +253,8 @@ if 'contenido_inicial' in st.session_state and 'tema' in st.session_state:
             personajes_info = generar_contenido_cache(prompt_extraer_personajes, max_tokens=1500, temperature=0.5, repetition_penalty=1.0, frequency_penalty=0.0)
             if personajes_info:
                 try:
-                    # Intentar parsear la respuesta como JSON
                     personajes = json.loads(personajes_info)
                 except json.JSONDecodeError:
-                    # Si no es JSON, tratar de extraer la información de forma estructurada
                     personajes = []
                     for linea in personajes_info.split('\n'):
                         if linea.strip().startswith("-"):
@@ -266,14 +268,12 @@ if 'contenido_inicial' in st.session_state and 'tema' in st.session_state:
             else:
                 st.warning("No se pudieron extraer los personajes.")
 
-        # Inicializar el resumen de la trama
         st.session_state.trama_general = "Resumen inicial de la trama:\n" + st.session_state.contenido_final
 
 # Visualizar y Editar Personajes y Resumen de la Trama
 if 'aprobado' in st.session_state and st.session_state.aprobado:
     st.subheader("Información de Personajes y Resumen de la Trama")
     
-    # Mostrar personajes
     st.markdown("### Personajes Principales")
     if st.session_state.personajes:
         for personaje in st.session_state.personajes:
@@ -281,7 +281,6 @@ if 'aprobado' in st.session_state and st.session_state.aprobado:
     else:
         st.write("No se han definido personajes.")
 
-    # Mostrar resumen de la trama
     st.markdown("### Resumen de la Trama")
     trama_editable = st.text_area("Edita el resumen de la trama si es necesario:", st.session_state.trama_general, height=200)
     st.session_state.trama_general = trama_editable
@@ -311,17 +310,14 @@ if ('aprobado' in st.session_state and st.session_state.aprobado
                 f"Resumen de la trama hasta ahora:\n{st.session_state.trama_general}\n\n"
                 f"Información de los personajes:\n"
             )
-            # Incluir información de los personajes en el prompt
             for personaje in st.session_state.personajes:
                 prompt_escena += f"- **{personaje['nombre']}**: {personaje['descripcion']}\n"
 
             contenido_escena = generar_contenido_cache(prompt_escena, max_tokens, temperature, repetition_penalty, frequency_penalty)
             if contenido_escena:
                 contenido_novela += contenido_escena + "\n\n"
-                # Actualizar el resumen de la trama con un fragmento de la escena
                 resumen_fragmento = contenido_escena[:150] + "..." if len(contenido_escena) > 150 else contenido_escena
                 st.session_state.trama_general += f"Escena {capitulo_num}.{escena_num}: {resumen_fragmento}\n"
-                # Agregar evento clave (puedes mejorar esto extrayendo eventos específicos)
                 st.session_state.eventos.append(f"Escena {capitulo_num}.{escena_num}: {resumen_fragmento}")
             else:
                 contenido_novela += f"[Error al generar la escena {escena_num} del capítulo {capitulo_num}]\n\n"
@@ -332,7 +328,6 @@ if ('aprobado' in st.session_state and st.session_state.aprobado
             status_text.text(f"Generada Escena {capitulo_num}.{escena_num}")
             progress_bar.progress(tareas_completadas / total_tareas)
 
-    # Exportar la novela
     st.subheader("Paso 4: Exportar Novela")
 
     buffer_docx = exportar_a_docx(contenido_novela)
@@ -346,14 +341,12 @@ if ('aprobado' in st.session_state and st.session_state.aprobado
 
     st.success("Generación de la novela completada.")
     
-    # Establecer la bandera de novela generada para evitar regeneración
     st.session_state.novela_generada = True
 
-# Paso 4: Exportar la novela (mover el bloque dentro de la generación)
 if 'novela_generada' in st.session_state and st.session_state.novela_generada:
     st.subheader("Paso 4: Exportar Novela")
 
-    buffer_docx = exportar_a_docx(contenido_novela)
+    buffer_docx = exportar_a_docx(st.session_state.contenido_final)
     if buffer_docx:
         st.download_button(
             label="Descargar Novela en DOCX",
