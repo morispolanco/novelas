@@ -13,15 +13,19 @@ import json
 # Configuración Inicial
 # =====================
 
+# Asegúrate de que `OPENROUTER_API_KEY` esté configurado en tus secretos de Streamlit.
 OPENROUTER_API_KEY = st.secrets["OPENROUTER_API_KEY"]
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "anthropic/claude-3.5-sonnet:beta"  # Asegúrate de que este es el nombre correcto del modelo
+MODEL = "openai/gpt-4o-mini"  # Actualizado al modelo solicitado
 
 # =====================
 # Funciones Auxiliares
 # =====================
 
 def generar_contenido(prompt, max_tokens=3000, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
+    """
+    Envía una solicitud a la API de OpenRouter para generar contenido basado en el prompt proporcionado.
+    """
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {OPENROUTER_API_KEY}"
@@ -42,6 +46,8 @@ def generar_contenido(prompt, max_tokens=3000, temperature=0.7, repetition_penal
     try:
         response = requests.post(API_URL, headers=headers, json=data, timeout=120)  # Aumentar timeout si es necesario
         response.raise_for_status()
+        # Dependiendo de la estructura de la respuesta de OpenRouter, ajusta la extracción del contenido
+        # Aquí se asume una estructura similar a OpenAI
         return response.json()["choices"][0]["message"]["content"]
     except requests.exceptions.Timeout:
         st.error("La solicitud a la API de OpenRouter ha excedido el tiempo de espera.")
@@ -61,6 +67,9 @@ def generar_contenido(prompt, max_tokens=3000, temperature=0.7, repetition_penal
         return ""
 
 def exportar_a_docx(contenido_novela):
+    """
+    Genera un archivo DOCX a partir del contenido proporcionado.
+    """
     doc = Document()
     try:
         # Configuración de la página
@@ -120,6 +129,9 @@ def exportar_a_docx(contenido_novela):
 
 @st.cache_data(show_spinner=False, ttl=3600)
 def generar_contenido_cache(tema, num_capitulos, num_escenas, max_tokens=3000, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
+    """
+    Genera la estructura inicial de la novela basada en el tema proporcionado.
+    """
     prompt_intro = (
         f"Crea un esquema para una novela de suspense de 35,000 palabras basada en el tema: '{tema}'. "
         f"El esquema debe especificar {num_capitulos} capítulos, cada uno con {num_escenas} escenas. "
@@ -140,6 +152,9 @@ def generar_contenido_cache(tema, num_capitulos, num_escenas, max_tokens=3000, t
 
 @st.cache_data(show_spinner=False, ttl=3600)
 def generar_contenido_generico(prompt, max_tokens=1500, temperature=0.5, repetition_penalty=1.0, frequency_penalty=0.0):
+    """
+    Genera contenido genérico basado en el prompt proporcionado.
+    """
     return generar_contenido(prompt, max_tokens, temperature, repetition_penalty, frequency_penalty)
 
 # =====================
@@ -147,6 +162,9 @@ def generar_contenido_generico(prompt, max_tokens=1500, temperature=0.5, repetit
 # =====================
 
 def validar_tema(tema):
+    """
+    Valida que el tema proporcionado cumpla con los requisitos.
+    """
     if not tema:
         return False, "El tema no puede estar vacío."
     if len(tema) < 5:
@@ -175,6 +193,9 @@ inicios_escena = [
 ]
 
 def obtener_inicio_escena():
+    """
+    Selecciona un inicio aleatorio para una escena.
+    """
     return random.choice(inicios_escena)
 
 # =====================
