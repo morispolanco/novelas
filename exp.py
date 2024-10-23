@@ -126,8 +126,11 @@ def generar_contenido_cache(tema, num_capitulos, num_escenas, max_tokens=3000, t
         f"Incluye puntos clave de la trama, desarrollo de personajes, descripciones del escenario e indicadores de ritmo. "
         f"Utiliza los siguientes pasos para estructurar el esquema:\n"
         f"1. Introducción: Define el tema principal y el escenario de la historia. Presenta al protagonista y personajes secundarios.\n"
-        f"2. Estructura de la Trama: Usa una estructura de tres actos para delinear la trama principal con los eventos clave y desafíos.\n"
-        f"3. Capítulos y Escenas: Desglosa la trama en capítulos y escenas, indicando transiciones y contribuciones al ritmo.\n"
+        f"2. Estructura de la Trama: Usa una estructura de tres actos para delinear la trama principal con los eventos clave y desafíos. "
+        f"Asegúrate de que la trama principal se mantenga enfocada y que no se introduzcan subtramas innecesarias que distraigan al lector. "
+        f"Todos los eventos deben contribuir al desarrollo de la historia central.\n"
+        f"3. Capítulos y Escenas: Desglosa la trama en capítulos y escenas, indicando transiciones y contribuciones al ritmo. "
+        f"Verifica que los desplazamientos de los personajes entre ubicaciones sean realistas y que el tiempo transcurrido entre eventos sea consistente.\n"
         f"4. Arcos de Personajes: Describe cómo evolucionan los personajes principales a lo largo de la historia.\n"
         f"5. Escenas Clímax: Detalla las escenas que conducen al clímax, asegurando que generen tensión.\n"
         f"6. Resolución: Asegúrate de que la historia cierre las líneas argumentales de forma satisfactoria.\n"
@@ -274,6 +277,7 @@ if 'contenido_inicial' in st.session_state and 'tema' in st.session_state:
 if 'aprobado' in st.session_state and st.session_state.aprobado:
     st.subheader("Información de Personajes y Resumen de la Trama")
     
+    # Mostrar personajes
     st.markdown("### Personajes Principales")
     if st.session_state.personajes:
         for personaje in st.session_state.personajes:
@@ -281,6 +285,7 @@ if 'aprobado' in st.session_state and st.session_state.aprobado:
     else:
         st.write("No se han definido personajes.")
 
+    # Mostrar resumen de la trama
     st.markdown("### Resumen de la Trama")
     trama_editable = st.text_area("Edita el resumen de la trama si es necesario:", st.session_state.trama_general, height=200)
     st.session_state.trama_general = trama_editable
@@ -343,6 +348,7 @@ if ('aprobado' in st.session_state and st.session_state.aprobado
     
     st.session_state.novela_generada = True
 
+# Paso 4: Exportar la novela
 if 'novela_generada' in st.session_state and st.session_state.novela_generada:
     st.subheader("Paso 4: Exportar Novela")
 
