@@ -341,7 +341,8 @@ if ('aprobado' in st.session_state and st.session_state.aprobado
             label="Descargar Novela en DOCX",
             data=buffer_docx,
             file_name="novela.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            key="download_docx_step3"  # Clave única asignada
         )
 
     st.success("Generación de la novela completada.")
@@ -358,7 +359,8 @@ if 'novela_generada' in st.session_state and st.session_state.novela_generada:
             label="Descargar Novela en DOCX",
             data=buffer_docx,
             file_name="novela.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            key="download_docx_final"  # Clave única asignada
         )
 
     st.success("Generación de la novela completada.")
