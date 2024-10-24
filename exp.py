@@ -16,7 +16,7 @@ import json
 # Asegúrate de que `OPENROUTER_API_KEY` esté configurado en tus secretos de Streamlit.
 OPENROUTER_API_KEY = st.secrets["OPENROUTER_API_KEY"]
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "openai/gpt-4o-mini"  # Actualizado al modelo solicitado
+MODEL = "google/gemini-flash-1.5-8b"  # Actualizado al modelo solicitado
 
 # =====================
 # Funciones Auxiliares
