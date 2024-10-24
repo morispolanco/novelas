@@ -171,7 +171,7 @@ def validar_tema(tema):
         return False, "El tema es demasiado corto. Por favor, introduce un tema más descriptivo."
     if len(tema) > 250:
         return False, "El tema es demasiado largo. Por favor, introduce un tema más corto."
-    if not re.match("^[a-zA-Z0-9\s\-.,áéíóúñüÁÉÍÓÚÑÜ]+$", tema):
+    if not re.match("^[a-zA-Z0-9\s\-.,áéíóúñüÁÉÍÓÚÑÜ¡!¿?]+$", tema):
         return False, "El tema contiene caracteres no permitidos."
     return True, ""
 
@@ -203,13 +203,75 @@ def obtener_inicio_escena():
 # =====================
 
 if 'personajes' not in st.session_state:
-    st.session_state.personajes = []  # Lista de personajes
+    st.session_state.personajes = []  # Lista de personajes con su evolución por capítulo
 if 'eventos' not in st.session_state:
     st.session_state.eventos = []      # Lista de eventos clave
 if 'trama_general' not in st.session_state:
     st.session_state.trama_general = ""  # Resumen de la trama
+if 'resumen_capitulos' not in st.session_state:
+    st.session_state.resumen_capitulos = []  # Lista de resúmenes por capítulo
 if 'novela_generada' not in st.session_state:
     st.session_state.novela_generada = False  # Bandera para evitar regeneración
+
+# =====================
+# Funciones de Mejora
+# =====================
+
+def generar_escena_con_referencias(capitulo_num, escena_num, titulo_capitulo, personajes, resumen_anterior):
+    """
+    Genera el contenido de una escena, haciendo referencia a eventos y personajes
+    de capítulos anteriores y potenciales eventos futuros.
+    """
+    inicio = obtener_inicio_escena()
+    
+    # Crear el prompt con referencias cruzadas
+    prompt_escena = (
+        f"{inicio} esta escena, escribe la escena {escena_num} del {titulo_capitulo} "
+        f"de la novela sobre '{st.session_state.tema}'. Debe ser un thriller con elementos de misterio y aventura. "
+        f"Asegúrate de que las motivaciones de los personajes sean claras y que no haya incoherencias en la trama. "
+        f"Referénciate en eventos y decisiones importantes ocurridos en los capítulos previos. "
+        f"Considera también el desarrollo futuro que podría influenciar las acciones de los personajes.\n\n"
+        f"Resumen de la trama hasta ahora:\n{st.session_state.trama_general}\n\n"
+        f"Resumen del capítulo anterior:\n{resumen_anterior}\n\n"
+        f"Información de los personajes y su desarrollo actual:\n"
+    )
+
+    # Añadir detalles de los personajes
+    for personaje in personajes:
+        prompt_escena += f"- **{personaje['nombre']}**: {personaje['descripcion']} (Desarrollo: {personaje.get('desarrollo', 'Sin cambios')})\n"
+
+    return generar_contenido_generico(prompt_escena, max_tokens=1500, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5)
+
+def actualizar_personajes_y_resumen(capitulo_num, contenido_escenas):
+    """
+    Actualiza el estado de los personajes basado en los eventos del capítulo,
+    y genera un resumen del capítulo para usar en el siguiente.
+    """
+    # Generar el resumen del capítulo
+    prompt_resumen = (
+        f"Resumen del capítulo {capitulo_num} basado en las siguientes escenas:\n\n"
+        f"{contenido_escenas}"
+    )
+    resumen_capitulo = generar_contenido_generico(prompt_resumen, max_tokens=500, temperature=0.5, repetition_penalty=1.0, frequency_penalty=0.0)
+
+    if resumen_capitulo:
+        st.session_state.resumen_capitulos.append(resumen_capitulo)
+    else:
+        resumen_capitulo = f"Resumen del capítulo {capitulo_num}: [Error al generar el resumen]"
+        st.session_state.resumen_capitulos.append(resumen_capitulo)
+
+    # Actualizar el desarrollo de personajes
+    for personaje in st.session_state.personajes:
+        prompt_desarrollo = (
+            f"Basado en los eventos del capítulo {capitulo_num}, actualiza el desarrollo del personaje "
+            f"**{personaje['nombre']}**. Describe cómo ha cambiado su perspectiva o motivaciones."
+        )
+        desarrollo_personaje = generar_contenido_generico(prompt_desarrollo, max_tokens=200, temperature=0.5, repetition_penalty=1.0, frequency_penalty=0.0)
+
+        if desarrollo_personaje:
+            personaje['desarrollo'] = desarrollo_personaje
+        else:
+            personaje['desarrollo'] = "Sin cambios significativos."
 
 # =====================
 # Interfaz de Usuario
@@ -259,6 +321,7 @@ if st.button("Enviar", key="enviar_tema"):
                 st.session_state.trama_general = ""
                 st.session_state.personajes = []
                 st.session_state.eventos = []
+                st.session_state.resumen_capitulos = []
                 st.session_state.novela_generada = False
                 st.success("Estructura de la novela generada exitosamente.")
 
@@ -275,7 +338,7 @@ if 'contenido_inicial' in st.session_state and 'tema' in st.session_state:
         # Extraer personajes y motivaciones desde el contenido aprobado
         with st.spinner("Extrayendo personajes y sus motivaciones..."):
             prompt_extraer_personajes = (
-                f"Del siguiente esquema de la novela, extrae una lista de personajes principales junto con sus características y motivaciones:\n\n"
+                f"Del siguiente esquema de la novela, extrae una lista de personajes principales junto con sus características y motivaciones en formato JSON:\n\n"
                 f"{st.session_state.contenido_final}"
             )
             personajes_info = generar_contenido_generico(prompt_extraer_personajes, max_tokens=1500, temperature=0.5, repetition_penalty=1.0, frequency_penalty=0.0)
@@ -283,6 +346,7 @@ if 'contenido_inicial' in st.session_state and 'tema' in st.session_state:
                 try:
                     personajes = json.loads(personajes_info)
                 except json.JSONDecodeError:
+                    # Intentar extraer personajes de forma manual
                     personajes = []
                     for linea in personajes_info.split('\n'):
                         if linea.strip().startswith("-"):
@@ -319,33 +383,26 @@ if 'aprobado' in st.session_state and st.session_state.aprobado:
 if ('aprobado' in st.session_state and st.session_state.aprobado 
     and not st.session_state.novela_generada):
     st.header("Paso 3: Generando la Novela Completa...")
-    contenido_novela = st.session_state.contenido_final + "\n\n"
 
-    progress_bar = st.progress(0)
-    status_text = st.empty()
+    contenido_novela = st.session_state.contenido_final + "\n\n"
+    resumen_anterior = ""
+
     total_tareas = (num_capitulos * num_escenas)
     tareas_completadas = 0
+    progress_bar = st.progress(0)
+    status_text = st.empty()
 
     for capitulo_num in range(1, num_capitulos + 1):
         titulo_capitulo = f"Capítulo {capitulo_num}: [Título del Capítulo {capitulo_num}]"
         contenido_novela += titulo_capitulo + "\n\n"
+        contenido_escenas = ""
 
         for escena_num in range(1, num_escenas + 1):
-            inicio = obtener_inicio_escena()
-            prompt_escena = (
-                f"{inicio} esta escena, escribe la escena {escena_num} del {titulo_capitulo} "
-                f"de la novela sobre {st.session_state.tema}. Debe ser un thriller con elementos de misterio y aventura. "
-                f"Asegúrate de que las motivaciones de los personajes sean claras y que no haya incoherencias en la trama. "
-                f"Utiliza la raya (—) para los diálogos y mantén la coherencia con los eventos anteriores de la novela.\n\n"
-                f"Resumen de la trama hasta ahora:\n{st.session_state.trama_general}\n\n"
-                f"Información de los personajes:\n"
-            )
-            for personaje in st.session_state.personajes:
-                prompt_escena += f"- **{personaje['nombre']}**: {personaje['descripcion']}\n"
-
-            contenido_escena = generar_contenido_generico(prompt_escena, max_tokens, temperature, repetition_penalty, frequency_penalty)
+            contenido_escena = generar_escena_con_referencias(capitulo_num, escena_num, titulo_capitulo, st.session_state.personajes, resumen_anterior)
             if contenido_escena:
                 contenido_novela += contenido_escena + "\n\n"
+                contenido_escenas += contenido_escena + "\n\n"
+                # Actualizar el resumen de la trama general
                 resumen_fragmento = contenido_escena[:150] + "..." if len(contenido_escena) > 150 else contenido_escena
                 st.session_state.trama_general += f"Escena {capitulo_num}.{escena_num}: {resumen_fragmento}\n"
                 st.session_state.eventos.append(f"Escena {capitulo_num}.{escena_num}: {resumen_fragmento}")
@@ -358,12 +415,17 @@ if ('aprobado' in st.session_state and st.session_state.aprobado
             status_text.text(f"Generada Escena {capitulo_num}.{escena_num}")
             progress_bar.progress(tareas_completadas / total_tareas)
 
+        # Actualizar resúmenes y personajes al final del capítulo
+        actualizar_personajes_y_resumen(capitulo_num, contenido_escenas)
+        if st.session_state.resumen_capitulos:
+            resumen_anterior = st.session_state.resumen_capitulos[-1]
+
     # **Actualizar el contenido_final con el contenido completo generado**
     st.session_state.contenido_final = contenido_novela
 
     st.session_state.novela_generada = True  # Marcar como generada
 
-    st.success("Generación de la novela completada. Puedes proceder a exportarla.")
+    st.success("Generación de la novela completada con continuidad mejorada.")
 
 # Paso 4: Exportar la novela
 if 'novela_generada' in st.session_state and st.session_state.novela_generada:
@@ -391,7 +453,7 @@ if 'novela_generada' in st.session_state and st.session_state.novela_generada:
         st.error("No se pudo generar el documento DOCX.")
 
     if st.button("Generar Nueva Novela", key="nueva_novela"):
-        for key in ['contenido_inicial', 'tema', 'aprobado', 'contenido_final', 'personajes', 'eventos', 'trama_general', 'novela_generada']:
+        for key in ['contenido_inicial', 'tema', 'aprobado', 'contenido_final', 'personajes', 'eventos', 'trama_general', 'resumen_capitulos', 'novela_generada']:
             if key in st.session_state:
                 del st.session_state[key]
         st.experimental_rerun()
