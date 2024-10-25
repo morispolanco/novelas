@@ -5,8 +5,8 @@ import re
 from docx import Document
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 import random
 import json
 
@@ -40,29 +40,6 @@ if 'novela' not in st.session_state:
 # =====================
 # Funciones Auxiliares
 # =====================
-
-def add_toc(paragraph):
-    """
-    Agrega una Tabla de Contenido (TOC) en el párrafo proporcionado.
-    """
-    run = paragraph.add_run()
-    fldChar_begin = OxmlElement('w:fldChar')
-    fldChar_begin.set(qn('w:fldCharType'), 'begin')
-    
-    instrText = OxmlElement('w:instrText')
-    instrText.set(qn('xml:space'), 'preserve')
-    instrText.text = 'TOC \\o "1-3" \\h \\z \\u'
-    
-    fldChar_separate = OxmlElement('w:fldChar')
-    fldChar_separate.set(qn('w:fldCharType'), 'separate')
-    
-    fldChar_end = OxmlElement('w:fldChar')
-    fldChar_end.set(qn('w:fldCharType'), 'end')
-    
-    run._r.append(fldChar_begin)
-    run._r.append(instrText)
-    run._r.append(fldChar_separate)
-    run._r.append(fldChar_end)
 
 def generar_contenido(prompt, max_tokens=1500, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
     """
@@ -108,6 +85,29 @@ def generar_contenido(prompt, max_tokens=1500, temperature=0.7, repetition_penal
         st.error(f"Ocurrió un error inesperado: {e}")
         return ""
 
+def add_table_of_contents(paragraph):
+    """
+    Inserta una Tabla de Contenido en el documento DOCX utilizando XML.
+    """
+    run = paragraph.add_run()
+    fldChar1 = OxmlElement('w:fldChar')
+    fldChar1.set(qn('w:fldCharType'), 'begin')
+
+    instrText = OxmlElement('w:instrText')
+    instrText.set(qn('xml:space'), 'preserve')
+    instrText.text = 'TOC \\o "1-3" \\h \\z \\u'
+
+    fldChar2 = OxmlElement('w:fldChar')
+    fldChar2.set(qn('w:fldCharType'), 'separate')
+
+    fldChar3 = OxmlElement('w:fldChar')
+    fldChar3.set(qn('w:fldCharType'), 'end')
+
+    run._r.append(fldChar1)
+    run._r.append(instrText)
+    run._r.append(fldChar2)
+    run._r.append(fldChar3)
+
 def exportar_a_docx(contenido_novela):
     """
     Genera un archivo DOCX a partir del contenido proporcionado.
@@ -124,7 +124,7 @@ def exportar_a_docx(contenido_novela):
             section.left_margin = Inches(0.7)
             section.right_margin = Inches(0.5)
 
-        # Configuración de la fuente predeterminada a Alegreya, tamaño 11
+        # Configuración de la fuente predeterminada a Alegreya, tamaño 12
         style_normal = doc.styles['Normal']
         font_normal = style_normal.font
         font_normal.name = 'Alegreya'
@@ -140,9 +140,8 @@ def exportar_a_docx(contenido_novela):
             style_heading.element.rPr.rFonts.set(qn('w:eastAsia'), 'Alegreya')
 
         # Añadir una Tabla de Contenido
-        doc.add_paragraph('Tabla de Contenido', style='Heading 1')
-        toc_paragraph = doc.add_paragraph()
-        add_toc(toc_paragraph)
+        toc_paragraph = doc.add_paragraph('Tabla de Contenido', style='Heading 1')
+        add_table_of_contents(toc_paragraph)
         doc.add_page_break()
 
         # Procesar el contenido
@@ -350,7 +349,7 @@ def generar_escena_con_referencias(capitulo_num, escena_num, titulo_capitulo, pe
     # Crear el prompt con referencias cruzadas
     prompt_escena = (
         f"{inicio} esta escena, escribe la escena {escena_num} del {titulo_capitulo} "
-        f"de la novela de género {genero} sobre '{st.session_state.novela['tema']}'. "
+        f"de la novela de género {genero.lower()} sobre '{st.session_state.novela['tema']}'. "
         f"Debe ser un {genero.lower()} con elementos de misterio y aventura. "
         f"Asegúrate de que las motivaciones de los personajes sean claras y que no haya incoherencias en la trama. "
         f"Referénciate en eventos y decisiones importantes ocurridos en los capítulos previos. "
@@ -633,10 +632,6 @@ if st.session_state.novela['novela_generada']:
             key="download_docx_final"  # Clave única asignada
         )
         st.success("La novela ha sido generada y está lista para ser descargada.")
-        st.info(
-            "Después de descargar y abrir el documento en Microsoft Word, **actualiza la Tabla de Contenido** "
-            "presionando `F9` o haciendo clic derecho sobre la Tabla de Contenido y seleccionando `Actualizar campo`."
-        )
     else:
         st.error("No se pudo generar el documento DOCX.")
 
