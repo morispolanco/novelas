@@ -8,8 +8,6 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 import random
 import json
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 # =====================
 # Configuración Inicial
@@ -30,7 +28,7 @@ if 'novela' not in st.session_state:
         'eventos': [],             # Lista de eventos clave
         'trama_general': "",       # Resumen de la trama
         'resumen_capitulos': [],   # Lista de resúmenes por capítulo
-        'contenido_inicial': "",   # Estructura inicial de la novela
+        'contenido_inicial': "",   # Sinopsis inicial de la novela
         'contenido_final': "",     # Contenido completo de la novela
         'aprobado': False,         # Bandera para aprobación de la estructura
         'novela_generada': False,  # Bandera para evitar regeneración
@@ -41,10 +39,9 @@ if 'novela' not in st.session_state:
 # Funciones Auxiliares
 # =====================
 
-def generar_contenido(prompt, max_tokens=1500, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5, retries=3):
+def generar_contenido(prompt, max_tokens=1500, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
     """
     Envía una solicitud a la API de OpenRouter para generar contenido basado en el prompt proporcionado.
-    Implementa reintentos en caso de fallos transitorios.
     """
     headers = {
         "Content-Type": "application/json",
@@ -63,20 +60,11 @@ def generar_contenido(prompt, max_tokens=1500, temperature=0.7, repetition_penal
         "repetition_penalty": repetition_penalty,
         "frequency_penalty": frequency_penalty
     }
-    
-    session = requests.Session()
-    retry = Retry(
-        total=retries,
-        backoff_factor=1,
-        status_forcelist=[500, 502, 503, 504],
-        allowed_methods=["POST"]
-    )
-    adapter = HTTPAdapter(max_retries=retry)
-    session.mount("https://", adapter)
-    
     try:
-        response = session.post(API_URL, headers=headers, json=data, timeout=120)
+        response = requests.post(API_URL, headers=headers, json=data, timeout=120)  # Aumentar timeout si es necesario
         response.raise_for_status()
+        # Dependiendo de la estructura de la respuesta de OpenRouter, ajusta la extracción del contenido
+        # Aquí se asume una estructura similar a OpenAI
         return response.json()["choices"][0]["message"]["content"]
     except requests.exceptions.Timeout:
         st.error("La solicitud a la API de OpenRouter ha excedido el tiempo de espera.")
@@ -111,20 +99,28 @@ def exportar_a_docx(contenido_novela):
             section.left_margin = Inches(0.7)
             section.right_margin = Inches(0.5)
 
-        # Configuración de la fuente predeterminada a Times New Roman, tamaño 12
+        # Configuración de la fuente predeterminada a Alegreya, tamaño 11
         style_normal = doc.styles['Normal']
         font_normal = style_normal.font
-        font_normal.name = 'Times New Roman'
+        font_normal.name = 'Alegreya'
         font_normal.size = Pt(12)
-        style_normal.element.rPr.rFonts.set(qn('w:eastAsia'), 'Times New Roman')
+        style_normal.element.rPr.rFonts.set(qn('w:eastAsia'), 'Alegreya')
 
         # Configurar fuentes para los estilos de encabezado
         for heading in ['Heading 1', 'Heading 2', 'Heading 3']:
             style_heading = doc.styles[heading]
             font_heading = style_heading.font
-            font_heading.name = 'Times New Roman'
+            font_heading.name = 'Alegreya'
             font_heading.size = Pt(16)
-            style_heading.element.rPr.rFonts.set(qn('w:eastAsia'), 'Times New Roman')
+            style_heading.element.rPr.rFonts.set(qn('w:eastAsia'), 'Alegreya')
+
+        # Añadir una Tabla de Contenido
+        doc.add_paragraph('Tabla de Contenido', style='Heading 1')
+        # Insertar campo de tabla de contenido
+        paragraph = doc.add_paragraph()
+        run = paragraph.add_run()
+        run.add_field('TOC \\o "1-3" \\h \\z \\u')
+        doc.add_page_break()
 
         # Procesar el contenido
         for linea in contenido_novela.split('\n'):
@@ -169,13 +165,7 @@ def validar_tema(tema):
     temas_genericos = ["amor", "aventura", "misterio", "suspense", "acción", "fantasía", "terror", "ciencia ficción"]
     if tema.lower() in temas_genericos:
         return False, "El tema es demasiado genérico. Por favor, introduce un tema más específico."
-    
-    # Lista negra de temas inapropiados
-    lista_negra = ["violencia extrema", "odio", "discriminación", "contenido para adultos"]  # Agrega más según sea necesario
-    for palabra in lista_negra:
-        if palabra in tema.lower():
-            return False, f"El tema contiene contenido no permitido: '{palabra}'. Por favor, elige otro tema."
-    
+
     return True, ""
 
 # Lista de inicios para escenas
@@ -203,7 +193,7 @@ def extraer_personajes(contenido):
     Extrae personajes del contenido proporcionado.
     """
     prompt = (
-        f"Del siguiente esquema de la novela, extrae una lista de personajes principales junto con sus características y motivaciones en formato JSON:\n\n"
+        f"Del siguiente texto, extrae una lista de personajes principales junto con sus características y motivaciones en formato JSON:\n\n"
         f"{contenido}"
     )
     personajes_info = generar_contenido(prompt, max_tokens=1500, temperature=0.5, repetition_penalty=1.0, frequency_penalty=0.0)
@@ -257,57 +247,82 @@ def actualizar_personajes_y_resumen(capitulo_num, contenido_escenas):
             personaje['desarrollo'] = "Sin cambios significativos."
 
 @st.cache_data(show_spinner=False, ttl=3600)
-def generar_contenido_cache(tema, num_capitulos, num_escenas, max_tokens=3000, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
+def generar_contenido_cache(tema, max_tokens=1500, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
     """
-    Genera la estructura inicial de la novela basada en el tema proporcionado.
+    Genera una sinopsis basada en el tema proporcionado.
     """
     prompt_intro = (
-        f"Escribe un thriller político.\n\n"
-        f"Su escritura debe centrarse en eliminar cualquier inconsistencia o incoherencia entre escenas, ofreciendo una narrativa sin fisuras. "
-        f"Desarrollar personajes con perfiles psicológicos profundos y motivaciones complejas. Asegúrate de que el ritmo sea rápido y atraiga al lector, "
-        f"animándolo a seguir pasando las páginas. Incluye descripciones vívidas y ricas para mejorar la experiencia inmersiva. "
-        f"Escribe diálogos que sean agudos y dinámicos. Evita a toda costa los clichés, las frases trilladas y los personajes increíbles.\n\n"
-        f"# Pasos\n\n"
-        f"- Desarrolla un esquema argumental fuerte y cautivador para el thriller político.\n"
-        f"- Crea personajes multidimensionales con historias de fondo que expliquen sus motivaciones.\n"
-        f"- Asegúrate de que las transiciones de escena sean lógicas y mantengan la coherencia en todo momento.\n"
-        f"- Utiliza un lenguaje descriptivo para crear imágenes y escenarios vívidos.\n"
-        f"- Construye diálogos que reflejen las personalidades y motivaciones de los personajes.\n"
-        f"- Mantén una narrativa de ritmo rápido que genere suspenso y emoción.\n\n"
-        f"# Formato de salida\n\n"
-        f"El resultado debe ser un texto narrativo, bien estructurado en capítulos, si es necesario. Cada escena debe contribuir a la trama y al desarrollo de los personajes, con descripciones vívidas y diálogos atractivos.\n\n"
-        f"# Ejemplos\n\n"
-        f"[Ejemplo de inicio]\n"
-        f"**Escena 1:**\n"
-        f"*Escenario*: La oficina tenuemente iluminada del senador James.\n"
-        f"*Personajes*: Senador James, su ayudante Lucy.\n"
-        f"*Descripción*: La tenue luz de la calle se derrama en la habitación, proyectando sombras sobre el escritorio de caoba. Los libros se alinean en una pared, sus títulos oscurecidos en la oscuridad.\n"
-        f"*Diálogo*:  \n"
-        f"El senador James dijo: \"Lucy, ¿has visto el último informe? Es condenatorio para nuestra campaña\".\n"
-        f"Lucy: \"Sí, senador, pero hay maneras en que podemos cambiar esto a nuestro favor\".\n"
-        f"*Desarrollo de la trama*: El senador James recibe noticias inesperadas que amenazan su carrera política. El tiempo avanza en su proceso de toma de decisiones.\n"
-        f"[Fin del ejemplo]\n\n"
-        f"(*En un thriller real, las escenas variarían en duración y detalle dependiendo de las necesidades narrativas.*)\n\n"
+        f"Escribe una sinopsis para un thriller político destacando los elementos clave de la trama, los personajes principales y el conflicto central. "
+        f"El thriller debe contener intriga, conspiraciones gubernamentales, espionaje y un protagonista que desentrañe un complot que amenaza la estabilidad política.\n\n"
+        f"# Detalles\n\n"
+        f"- Protagonista: Debe ser alguien inesperado, como un periodista o un funcionario subalterno, que descubre una trama mayor.\n"
+        f"- Antagonista: Un alto funcionario del gobierno con motivaciones ocultas.\n"
+        f"- Ambiente: Entornos políticos, reuniones secretas, y locaciones internacionales.\n"
+        f"- Tema: Corrupción, traición, y la búsqueda de la verdad.\n"
+        f"- Tono: Tenso y emocionante con giros inesperados.\n\n"
+        f"# Pasos \n\n"
+        f"1. Desarrolla un contexto de tensión política en un país imaginario o real.\n"
+        f"2. Introduce al protagonista y su conexión inicial con la trama.\n"
+        f"3. Detalla el descubrimiento que pone en marcha la trama.\n"
+        f"4. Describe los esfuerzos del protagonista para desenmascarar el complot.\n"
+        f"5. Incluye giros y dilemas éticos que el protagonista enfrenta.\n"
+        f"6. Concluye con un desenlace que resuelva (o complique) la situación.\n\n"
+        f"# Formato de Salida\n\n"
+        f"Descripción en forma de párrafo, entre 150 y 300 palabras.\n\n"
         f"# Notas\n\n"
-        f"- Presta atención a los temas políticos y asegúrate de que resuenen con los contextos globales o locales actuales.\n"
-        f"- Incorpora giros inesperados de la trama para mantener al lector interesado.\n"
-        f"- Utiliza elementos psicológicos para profundizar en el aspecto del thriller, haciendo que el lector se cuestione las motivaciones y prediga los acontecimientos.\n\n"
-        f"Crea un esquema para una novela de thriller político de 35,000 palabras basada en el tema: '{tema}'. "
-        f"El esquema debe especificar {num_capitulos} capítulos, cada uno con {num_escenas} escenas. "
-        f"Incluye puntos clave de la trama, desarrollo de personajes, descripciones del escenario e indicadores de ritmo. "
-        f"Utiliza los siguientes pasos para estructurar el esquema:\n"
-        f"1. Introducción: Define el tema principal y el escenario de la historia. Presenta al protagonista y personajes secundarios.\n"
-        f"2. Estructura de la Trama: Usa una estructura de tres actos para delinear la trama principal con los eventos clave y desafíos. "
-        f"Asegúrate de que la trama principal se mantenga enfocada y que no se introduzcan subtramas innecesarias que distraigan al lector. "
-        f"Todos los eventos deben contribuir al desarrollo de la historia central.\n"
-        f"3. Capítulos y Escenas: Desglosa la trama en capítulos y escenas, indicando transiciones y contribuciones al ritmo. "
-        f"Verifica que los desplazamientos de los personajes entre ubicaciones sean realistas y que el tiempo transcurrido entre eventos sea consistente.\n"
-        f"4. Arcos de Personajes: Describe cómo evolucionan los personajes principales a lo largo de la historia.\n"
-        f"5. Escenas Clímax: Detalla las escenas que conducen al clímax, asegurando que generen tensión.\n"
-        f"6. Resolución: Asegúrate de que la historia cierre las líneas argumentales de forma satisfactoria.\n"
-        f"7. Asignación de Palabras: Calcula la distribución aproximada de palabras para cada capítulo para un total de 35,000 palabras."
+        f"- Asegúrate de que el thriller tenga suficiente suspense y desarrollo de personajes.\n"
+        f"- Considera incluir dilemas morales y decisiones críticas.\n"
+        f"- Evita clichés comunes de thrillers políticos, buscando un enfoque original.\n\n"
+        f"# Tema\n\n"
+        f"{tema}\n"
     )
     return generar_contenido(prompt_intro, max_tokens, temperature, repetition_penalty, frequency_penalty)
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def generar_novela(tema, trama_general, personajes, max_tokens=3000, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
+    """
+    Genera la novela completa basada en la sinopsis y las instrucciones proporcionadas.
+    """
+    prompt_novela = (
+        f"Write a political thriller.\n\n"
+        f"Your writing should focus on eliminating any inconsistencies or incoherence between scenes, offering a seamless narrative. Develop characters with deep psychological profiles and complex motivations. Ensure the pacing is brisk and engages the reader, encouraging them to continue turning pages. Include vivid and rich descriptions to enhance the immersive experience. Write dialogues that are sharp and dynamic. Avoid clichés, hackneyed phrases, and unbelievable characters at all costs.\n\n"
+        f"# Steps\n\n"
+        f"- Develop a strong, captivating plot outline for the political thriller.\n"
+        f"- Craft multidimensional characters with backstories that explain their motivations.\n"
+        f"- Ensure scene transitions are logical and maintain consistency throughout.\n"
+        f"- Use descriptive language to create vivid imagery and settings.\n"
+        f"- Construct dialogues that reflect the characters' personalities and motivations.\n"
+        f"- Maintain a fast-paced narrative that builds suspense and excitement.\n\n"
+        f"# Output Format\n\n"
+        f"The output should be a narrative text, well-structured in chapters, if necessary. Each scene should contribute to the plot and character development, with vivid descriptions and engaging dialogue.\n\n"
+        f"# Examples\n\n"
+        f"[Example Start]\n"
+        f"**Scene 1:**\n"
+        f"*Setting*: The dimly-lit office of Senator James.\n"
+        f"*Characters*: Senator James, his aide Lucy.\n"
+        f"*Description*: Faint light from the street spills into the room, casting shadows on the mahogany desk. Books line one wall, their titles obscured in the darkness.\n"
+        f"*Dialogue*:  \n"
+        f"Senator James: \"Lucy, have you seen the latest report? It’s damning for our campaign.\"\n"
+        f"Lucy: \"Yes, Senator, but there are ways we can spin this in our favor.\"\n"
+        f"*Plot Development*: Senator James receives unexpected news threatening his political career. The clock ticks down on his decision-making process.\n"
+        f"[Example End]\n\n"
+        f"(*In an actual thriller, scenes would vary in length and detail depending on the narrative needs.*)\n\n"
+        f"# Notes\n\n"
+        f"- Pay attention to political themes and ensure they resonate with current global or local contexts.\n"
+        f"- Incorporate unexpected plot twists and turns to keep the reader engaged.\n"
+        f"- Use psychological elements to deepen the thriller aspect, making the reader question motivations and predict developments.\n\n"
+        f"# Tema\n\n"
+        f"{tema}\n\n"
+        f"# Trama General\n\n"
+        f"{trama_general}\n\n"
+        f"# Personajes\n\n"
+    )
+    
+    # Añadir detalles de los personajes
+    for personaje in personajes:
+        prompt_novela += f"- **{personaje['nombre']}**: {personaje['descripcion']} (Desarrollo: {personaje.get('desarrollo', 'Sin cambios')})\n"
+
+    return generar_contenido(prompt_novela, max_tokens, temperature, repetition_penalty, frequency_penalty)
 
 @st.cache_data(show_spinner=False, ttl=3600)
 def generar_contenido_generico(prompt, max_tokens=1500, temperature=0.5, repetition_penalty=1.0, frequency_penalty=0.0):
@@ -323,44 +338,14 @@ def generar_escena_con_referencias(capitulo_num, escena_num, titulo_capitulo, pe
     """
     inicio = obtener_inicio_escena()
     
-    # Crear el prompt con referencias cruzadas en español
+    # Crear el prompt con referencias cruzadas
     prompt_escena = (
-        f"Escribe un thriller político.\n\n"
-        f"Su escritura debe centrarse en eliminar cualquier inconsistencia o incoherencia entre escenas, ofreciendo una narrativa sin fisuras. "
-        f"Desarrollar personajes con perfiles psicológicos profundos y motivaciones complejas. Asegúrate de que el ritmo sea rápido y atraiga al lector, "
-        f"animándolo a seguir pasando las páginas. Incluye descripciones vívidas y ricas para mejorar la experiencia inmersiva. "
-        f"Escribe diálogos que sean agudos y dinámicos. Evita a toda costa los clichés, las frases trilladas y los personajes increíbles.\n\n"
-        f"# Pasos\n\n"
-        f"- Desarrolla un esquema argumental fuerte y cautivador para el thriller político.\n"
-        f"- Crea personajes multidimensionales con historias de fondo que expliquen sus motivaciones.\n"
-        f"- Asegúrate de que las transiciones de escena sean lógicas y mantengan la coherencia en todo momento.\n"
-        f"- Utiliza un lenguaje descriptivo para crear imágenes y escenarios vívidos.\n"
-        f"- Construye diálogos que reflejen las personalidades y motivaciones de los personajes.\n"
-        f"- Mantén una narrativa de ritmo rápido que genere suspenso y emoción.\n\n"
-        f"# Formato de salida\n\n"
-        f"El resultado debe ser un texto narrativo, bien estructurado en capítulos, si es necesario. Cada escena debe contribuir a la trama y al desarrollo de los personajes, con descripciones vívidas y diálogos atractivos.\n\n"
-        f"# Ejemplos\n\n"
-        f"[Ejemplo de inicio]\n"
-        f"**Escena 1:**\n"
-        f"*Escenario*: La oficina tenuemente iluminada del senador James.\n"
-        f"*Personajes*: Senador James, su ayudante Lucy.\n"
-        f"*Descripción*: La tenue luz de la calle se derrama en la habitación, proyectando sombras sobre el escritorio de caoba. Los libros se alinean en una pared, sus títulos oscurecidos en la oscuridad.\n"
-        f"*Diálogo*:  \n"
-        f"El senador James dijo: \"Lucy, ¿has visto el último informe? Es condenatorio para nuestra campaña\".\n"
-        f"Lucy: \"Sí, senador, pero hay maneras en que podemos cambiar esto a nuestro favor\".\n"
-        f"*Desarrollo de la trama*: El senador James recibe noticias inesperadas que amenazan su carrera política. El tiempo avanza en su proceso de toma de decisiones.\n"
-        f"[Fin del ejemplo]\n\n"
-        f"(*En un thriller real, las escenas variarían en duración y detalle dependiendo de las necesidades narrativas.*)\n\n"
-        f"# Notas\n\n"
-        f"- Presta atención a los temas políticos y asegúrate de que resuenen con los contextos globales o locales actuales.\n"
-        f"- Incorpora giros inesperados de la trama para mantener al lector interesado.\n"
-        f"- Utiliza elementos psicológicos para profundizar en el aspecto del thriller, haciendo que el lector se cuestione las motivaciones y prediga los acontecimientos.\n\n"
         f"{inicio} esta escena, escribe la escena {escena_num} del {titulo_capitulo} "
-        f"de la novela sobre '{st.session_state.novela['tema']}'. Debe ser un thriller político con elementos de misterio y aventura. "
+        f"de la novela sobre '{st.session_state.novela['tema']}'. Debe ser un thriller político con elementos de intriga y suspense. "
         f"Asegúrate de que las motivaciones de los personajes sean claras y que no haya incoherencias en la trama. "
-        f"Refiérase a eventos y decisiones importantes ocurridos en los capítulos previos. "
+        f"Referénciate en eventos y decisiones importantes ocurridos en los capítulos previos. "
         f"Considera también el desarrollo futuro que podría influenciar las acciones de los personajes.\n\n"
-        f"Resumen de la trama hasta ahora:\n{st.session_state.novela['trama_general']}\n\n"
+        f"Sinopsis de la trama hasta ahora:\n{st.session_state.novela['trama_general']}\n\n"
         f"Resumen del capítulo anterior:\n{resumen_anterior}\n\n"
         f"Información de los personajes y su desarrollo actual:\n"
     )
@@ -401,37 +386,37 @@ else:
 st.title("Generador de Novelas")
 
 # Paso 1: Solicitar el tema al usuario
-st.subheader("Paso 1: Introduce el Tema de la Novela")
-tema = st.text_input("Introduce el tema de la novela:")
+st.subheader("Paso 1: Introduce el País o Tema Central del Thriller Político")
+tema = st.text_input("Introduce el país o tema central:")
 
-# Botón "Enviar" para generar el contenido inicial
+# Botón "Enviar" para generar el contenido inicial (Sinopsis)
 if st.button("Enviar", key="enviar_tema"):
     tema_valido, mensaje_error = validar_tema(tema)
     if not tema_valido:
         st.error(mensaje_error)
     else:
-        with st.spinner("Generando la estructura de la novela..."):
-            contenido_inicial = generar_contenido_cache(tema, num_capitulos, num_escenas, max_tokens, temperature, repetition_penalty, frequency_penalty)
+        with st.spinner("Generando la sinopsis del thriller político..."):
+            contenido_inicial = generar_contenido_cache(tema, max_tokens, temperature, repetition_penalty, frequency_penalty)
             if contenido_inicial:
                 st.session_state.novela['contenido_inicial'] = contenido_inicial
                 st.session_state.novela['aprobado'] = False
                 st.session_state.novela['tema'] = tema
-                st.session_state.novela['trama_general'] = ""
+                st.session_state.novela['trama_general'] = contenido_inicial
                 st.session_state.novela['personajes'] = []
                 st.session_state.novela['eventos'] = []
                 st.session_state.novela['resumen_capitulos'] = []
                 st.session_state.novela['novela_generada'] = False
-                st.success("Estructura de la novela generada exitosamente.")
+                st.success("Sinopsis generada exitosamente.")
 
 # Mostrar el contenido generado y permitir aprobar y continuar
 if st.session_state.novela['contenido_inicial'] and st.session_state.novela['tema']:
-    st.subheader("Paso 2: Revisa la Estructura Generada")
-    contenido_editable = st.text_area("Edita la estructura si es necesario:", st.session_state.novela['contenido_inicial'], height=300)
+    st.subheader("Paso 2: Revisa la Sinopsis Generada")
+    contenido_editable = st.text_area("Edita la sinopsis si es necesario:", st.session_state.novela['contenido_inicial'], height=300)
 
     if st.button("Aprobar y Continuar", key="aprobar_continuar"):
         st.session_state.novela['aprobado'] = True
         st.session_state.novela['contenido_final'] = contenido_editable
-        st.success("Estructura aprobada y lista para la generación de la novela.")
+        st.success("Sinopsis aprobada y lista para la generación de la novela.")
 
         # Extraer personajes y motivaciones desde el contenido aprobado
         with st.spinner("Extrayendo personajes y sus motivaciones..."):
@@ -442,11 +427,11 @@ if st.session_state.novela['contenido_inicial'] and st.session_state.novela['tem
             else:
                 st.warning("No se pudieron extraer los personajes.")
 
-        st.session_state.novela['trama_general'] = "Resumen inicial de la trama:\n" + st.session_state.novela['contenido_final']
+        st.session_state.novela['trama_general'] = "Sinopsis de la trama:\n" + st.session_state.novela['contenido_final']
 
-# Visualizar y Editar Personajes y Resumen de la Trama
+# Visualizar y Editar Personajes y Sinopsis de la Trama
 if st.session_state.novela['aprobado']:
-    st.subheader("Información de Personajes y Resumen de la Trama")
+    st.subheader("Información de Personajes y Sinopsis de la Trama")
     
     # Mostrar personajes
     st.markdown("### Personajes Principales")
@@ -456,9 +441,9 @@ if st.session_state.novela['aprobado']:
     else:
         st.write("No se han definido personajes.")
 
-    # Mostrar resumen de la trama
-    st.markdown("### Resumen de la Trama")
-    trama_editable = st.text_area("Edita el resumen de la trama si es necesario:", st.session_state.novela['trama_general'], height=200)
+    # Mostrar sinopsis de la trama
+    st.markdown("### Sinopsis de la Trama")
+    trama_editable = st.text_area("Edita la sinopsis de la trama si es necesario:", st.session_state.novela['trama_general'], height=200)
     st.session_state.novela['trama_general'] = trama_editable
 
 # Paso 3: Generar el contenido de la novela
@@ -466,48 +451,23 @@ if (st.session_state.novela['aprobado']
     and not st.session_state.novela['novela_generada']):
     st.header("Paso 3: Generando la Novela Completa...")
 
-    contenido_novela = st.session_state.novela['contenido_final'] + "\n\n"
-    resumen_anterior = ""
-
-    total_tareas = (num_capitulos * num_escenas)
-    tareas_completadas = 0
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-
-    for capitulo_num in range(1, num_capitulos + 1):
-        titulo_capitulo = f"Capítulo {capitulo_num}: [Título del Capítulo {capitulo_num}]"
-        contenido_novela += titulo_capitulo + "\n\n"
-        contenido_escenas = ""
-
-        for escena_num in range(1, num_escenas + 1):
-            contenido_escena = generar_escena_con_referencias(capitulo_num, escena_num, titulo_capitulo, st.session_state.novela['personajes'], resumen_anterior)
-            if contenido_escena:
-                contenido_novela += contenido_escena + "\n\n"
-                contenido_escenas += contenido_escena + "\n\n"
-                # Actualizar el resumen de la trama general
-                resumen_fragmento = contenido_escena[:150] + "..." if len(contenido_escena) > 150 else contenido_escena
-                st.session_state.novela['trama_general'] += f"Escena {capitulo_num}.{escena_num}: {resumen_fragmento}\n"
-                st.session_state.novela['eventos'].append(f"Escena {capitulo_num}.{escena_num}: {resumen_fragmento}")
-            else:
-                contenido_novela += f"[Error al generar la escena {escena_num} del capítulo {capitulo_num}]\n\n"
-                st.session_state.novela['trama_general'] += f"Escena {capitulo_num}.{escena_num}: [Error al generar esta escena]\n"
-                st.session_state.novela['eventos'].append(f"Escena {capitulo_num}.{escena_num}: [Error al generar esta escena]")
-
-            tareas_completadas += 1
-            status_text.text(f"Generada Escena {capitulo_num}.{escena_num}")
-            progress_bar.progress(tareas_completadas / total_tareas)
-
-        # Actualizar resúmenes y personajes al final del capítulo
-        actualizar_personajes_y_resumen(capitulo_num, contenido_escenas)
-        if st.session_state.novela['resumen_capitulos']:
-            resumen_anterior = st.session_state.novela['resumen_capitulos'][-1]
-
-    # **Actualizar el contenido_final con el contenido completo generado**
-    st.session_state.novela['contenido_final'] = contenido_novela
-
-    st.session_state.novela['novela_generada'] = True  # Marcar como generada
-
-    st.success("Generación de la novela completada con continuidad mejorada.")
+    with st.spinner("Generando la novela completa..."):
+        contenido_novela = generar_novela(
+            tema=st.session_state.novela['tema'],
+            trama_general=st.session_state.novela['trama_general'],
+            personajes=st.session_state.novela['personajes'],
+            max_tokens=max_tokens,
+            temperature=temperature,
+            repetition_penalty=repetition_penalty,
+            frequency_penalty=frequency_penalty
+        )
+        
+        if contenido_novela:
+            st.session_state.novela['contenido_final'] = contenido_novela
+            st.session_state.novela['novela_generada'] = True
+            st.success("Generación de la novela completada con éxito.")
+        else:
+            st.error("No se pudo generar la novela completa.")
 
 # Paso 4: Exportar la novela
 if st.session_state.novela['novela_generada']:
@@ -534,7 +494,7 @@ if st.session_state.novela['novela_generada']:
     else:
         st.error("No se pudo generar el documento DOCX.")
 
-    if st.button("Generar Nueva Novela", key="nueva_novela"): 
+    if st.button("Generar Nueva Novela", key="nueva_novela"):
         st.session_state.novela = {
             'personajes': [],
             'eventos': [],
