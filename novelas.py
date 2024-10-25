@@ -534,7 +534,7 @@ if st.session_state.novela['novela_generada']:
     else:
         st.error("No se pudo generar el documento DOCX.")
 
-    if st.button("Generar Nueva Novela", key="nueva_novela"):
+    if st.button("Generar Nueva Novela", key="nueva_novela"): 
         st.session_state.novela = {
             'personajes': [],
             'eventos': [],
