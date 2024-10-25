@@ -199,4 +199,11 @@ if st.button("Generar Novela"):
         st.success("Novela generada con éxito.")
 
 if 'novela_generada' in st.session_state and st.session_state.novela_generada:
-    buffer_docx = exportar_a_docx(st.session
+    buffer_docx = exportar_a_docx(st.session_state.contenido_final)
+    if buffer_docx:
+        st.download_button(
+            label="Descargar Novela en DOCX",
+            data=buffer_docx,
+            file_name="novela.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
