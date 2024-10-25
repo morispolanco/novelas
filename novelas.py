@@ -13,25 +13,24 @@ tema = st.text_input("Introduce el tema de tu novela:")
 if tema:
     # Configurar los encabezados y datos para la solicitud API
     headers = {
-        "Authorization": f"Bearer {st.secrets['TOGETHER_API_KEY']}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
+        "HTTP-Referer": "tu_app_nombre",  # Reemplaza "tu_app_nombre" con el nombre de tu aplicación
+        "X-Title": "tu_app_titulo"        # Reemplaza "tu_app_titulo" con el título de tu aplicación
     }
 
-    # Función para llamar a la API de Together
-    def call_together_api(prompt, max_tokens=4000):
+    # Función para llamar a la API de OpenRouter
+    def call_openrouter_api(prompt, max_tokens=4000):
         data = {
-            "model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+            "model": "openai/gpt-4",
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": max_tokens,
             "temperature": 0.8,  # Aumentar ligeramente para mayor diversidad
-            "top_p": 0.9,        # Aumentar para permitir más opciones de palabras
-            "top_k": 50,
-            "repetition_penalty": 1.2,  # Incrementado para penalizar repeticiones
-            "stop": ["<|eot_id|>"],
-            "stream": False
+            "top_p": 0.9         # Aumentar para permitir más opciones de palabras
+            # Nota: Algunos parámetros como "repetition_penalty" pueden no ser compatibles
         }
         response = requests.post(
-            "https://api.together.xyz/v1/chat/completions",
+            "https://openrouter.ai/api/v1/chat/completions",
             headers=headers,
             data=json.dumps(data)
         )
@@ -58,7 +57,7 @@ Proporciona la información en formato estructurado.
 - Utiliza la raya (—) para indicar los diálogos entre personajes.
 - Evita repeticiones y redundancias en el texto.
 """
-    detalles = call_together_api(prompt_detalles)
+    detalles = call_openrouter_api(prompt_detalles)
     st.markdown(detalles)
 
     # Almacenar escenas previas para revisión y exportación
@@ -98,7 +97,7 @@ Ahora, escribe la siguiente escena (Capítulo {capitulo}, Escena {escena}). Aseg
 
 La escena debe ser narrativa y descriptiva, enfocándose en avanzar la trama y profundizar en los personajes.
 """
-            escena_actual = call_together_api(prompt_escena, max_tokens=4000)
+            escena_actual = call_openrouter_api(prompt_escena, max_tokens=4000)
             st.write(escena_actual)
 
             # Agregar la escena actual a la lista de escenas previas
@@ -174,7 +173,7 @@ Busca y señala:
 
 Proporciona sugerencias detalladas para mejorar la escena.
 """
-            revision = call_together_api(prompt_revision, max_tokens=1500)
+            revision = call_openrouter_api(prompt_revision, max_tokens=1500)
             st.write(revision)
 
             # Agregar la escena actual a las escenas previas
@@ -195,7 +194,7 @@ Basándote en las sugerencias anteriores, reescribe la escena {idx} mejorando lo
 
 La escena reescrita es:
 """
-                nueva_escena = call_together_api(prompt_regenerar, max_tokens=4000)
+                nueva_escena = call_openrouter_api(prompt_regenerar, max_tokens=4000)
                 st.write(nueva_escena)
 
                 # Actualizar la escena en la lista de escenas previas
