@@ -52,6 +52,8 @@ Basado en el tema: {tema}, genera el título, trama, personajes principales, amb
 - Tono: Tenso y emocionante con giros inesperados.
 
 Proporciona la información en formato estructurado.
+
+**Importante:** Utiliza la raya (—) para indicar los diálogos entre personajes.
 """
     detalles = call_together_api(prompt_detalles)
     st.markdown(detalles)
@@ -76,7 +78,7 @@ Ahora, escribe la siguiente escena (Capítulo {capitulo}, Escena {escena}). Aseg
 - Mantener coherencia y consistencia con las escenas anteriores.
 - Desarrollar bien los personajes y sus motivaciones.
 - Evitar clichés y frases hechas.
-- Utilizar la raya (—) en los diálogos.
+- **Utilizar la raya (—) en los diálogos.**
 - Cada escena debe tener al menos 1000 palabras.
 - Incluir giros y dilemas éticos que el protagonista enfrenta.
 - Seguir el tono tenso y emocionante con giros inesperados.
@@ -159,7 +161,7 @@ Busca y señala:
 - Mal desarrollo de los personajes y sus motivaciones.
 - Problemas de ritmo y trama.
 - Uso de clichés o frases hechas.
-- Verifica que los diálogos usen la raya (—) correctamente.
+- **Verifica que los diálogos usen la raya (—) correctamente.**
 - Asegúrate de que la escena tenga al menos 1000 palabras.
 
 Proporciona sugerencias detalladas para mejorar la escena.
@@ -179,7 +181,7 @@ Basándote en las sugerencias anteriores, reescribe la escena {idx} mejorando lo
 - Mantener coherencia con las escenas anteriores.
 - Desarrollar bien los personajes y sus motivaciones.
 - Evitar clichés y frases hechas.
-- Utilizar la raya (—) en los diálogos.
+- **Utilizar la raya (—) en los diálogos.**
 - La escena debe tener al menos 1000 palabras.
 - Mantener un tono tenso y emocionante con giros inesperados.
 
