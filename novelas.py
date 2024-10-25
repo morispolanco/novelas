@@ -40,10 +40,28 @@ class AppConfig:
     OPENROUTER_API_KEY: str
     API_URL: str = "https://openrouter.ai/api/v1/chat/completions"
     MODEL: str = "openai/gpt-4-mini"
-    DEFAULT_MAX_TOKENS: int = 3000
+    DEFAULT_MAX_TOKENS: int = 4000
     DEFAULT_TEMPERATURE: float = 0.7
     DEFAULT_REPETITION_PENALTY: float = 1.2
     DEFAULT_FREQUENCY_PENALTY: float = 0.5
+
+class NovelProposal:
+    def __init__(self):
+        self.titulo = ""
+        self.trama = ""
+        self.personajes = []
+        self.ambientacion = ""
+        self.tecnica_literaria = ""
+        self.aprobada = False
+
+    def to_dict(self):
+        return {
+            "título": self.titulo,
+            "trama": self.trama,
+            "personajes": self.personajes,
+            "ambientación": self.ambientacion,
+            "técnica_literaria": self.tecnica_literaria
+        }
 
 class NovelState:
     def __init__(self):
@@ -58,7 +76,9 @@ class NovelState:
                 'aprobado': False,
                 'novela_generada': False,
                 'tema': "",
-                'instrucciones_adicionales': ""
+                'instrucciones_adicionales': "",
+                'propuesta': None,
+                'propuesta_aprobada': False
             }
 
     @property
@@ -80,7 +100,9 @@ class NovelState:
             'aprobado': False,
             'novela_generada': False,
             'tema': "",
-            'instrucciones_adicionales': ""
+            'instrucciones_adicionales': "",
+            'propuesta': None,
+            'propuesta_aprobada': False
         }
 
 class APIHandler:
@@ -273,43 +295,112 @@ class NovelUI:
         
         return True, ""
 
-    def generar_estructura_inicial(self, tema: str, instrucciones: str) -> str:
+    def generar_propuesta(self, tema: str, instrucciones: str) -> Optional[NovelProposal]:
         prompt = f"""
-        Genera una estructura detallada para una novela de thriller político basada en el siguiente tema:
+        Basándote en el siguiente tema e instrucciones, genera una propuesta detallada para una novela:
+
+        TEMA:
         {tema}
 
-        Instrucciones adicionales:
+        INSTRUCCIONES ESPECÍFICAS:
         {instrucciones}
 
-        La estructura debe incluir:
-        1. Resumen general de la trama
-        2. Lista de personajes principales con sus características y motivaciones
-        3. Desarrollo de la historia por capítulos
-        4. Puntos de giro principales
-        5. Resolución final
+        La propuesta debe incluir:
 
-        Formato de salida:
-        TRAMA GENERAL:
-        [Resumen de la trama]
+        1. TÍTULO:
+        Un título atractivo y relevante para la novela.
 
-        PERSONAJES PRINCIPALES:
-        - [Nombre]: [Descripción y motivaciones]
+        2. TRAMA PRINCIPAL:
+        Un resumen conciso pero completo de la historia principal (250-300 palabras).
 
-        ESTRUCTURA DE CAPÍTULOS:
-        Capítulo 1: [Título]
-        - Escena 1: [Descripción breve]
-        - Escena 2: [Descripción breve]
-        [etc.]
+        3. PERSONAJES PRINCIPALES (3-5 personajes):
+        - Nombre completo y rol en la historia
+        - Descripción física y psicológica detallada
+        - Motivaciones y conflictos internos
+        - Arco de desarrollo previsto
+        - Relaciones con otros personajes
 
-        RESOLUCIÓN:
-        [Descripción del final]
+        4. AMBIENTACIÓN:
+        - Época y lugar específicos
+        - Contexto social, político y cultural
+        - Descripción del ambiente y atmósfera
+        - Elementos distintivos del escenario
+        - Detalles relevantes del mundo de la historia
+
+        5. TÉCNICA LITERARIA:
+        - Estilo narrativo principal
+        - Punto de vista y voz narrativa
+        - Recursos literarios a utilizar
+        - Estructura narrativa planificada
+        - Manejo del tiempo y ritmo narrativo
+
+        Formatea la respuesta de manera clara y organizada.
         """
-        
-        return self.api_handler.generar_contenido(
+
+        respuesta = self.api_handler.generar_contenido(
             prompt,
             max_tokens=3000,
             temperature=0.7
         )
+
+        if respuesta:
+            try:
+                propuesta = NovelProposal()
+                
+                # Extraer secciones
+                secciones = re.split(r'\n(?=TÍTULO:|TRAMA PRINCIPAL:|PERSONAJES PRINCIPALES:|AMBIENTACIÓN:|TÉCNICA LITERARIA:)', respuesta)
+                
+                for seccion in secciones:
+                    if seccion.startswith('TÍTULO:'):
+                        propuesta.titulo = seccion.replace('TÍTULO:', '').strip()
+                    elif seccion.startswith('TRAMA PRINCIPAL:'):
+                        propuesta.trama = seccion.replace('TRAMA PRINCIPAL:', '').strip()
+                    elif seccion.startswith('PERSONAJES PRINCIPALES:'):
+                        propuesta.personajes = [p.strip() for p in seccion.replace('PERSONAJES PRINCIPALES:', '').strip().split('\n') if p.strip()]
+                    elif seccion.startswith('AMBIENTACIÓN:'):
+                        propuesta.ambientacion = seccion.replace('AMBIENTACIÓN:', '').strip()
+                    elif seccion.startswith('TÉCNICA LITERARIA:'):
+                        propuesta.tecnica_literaria = seccion.replace('TÉCNICA LITERARIA:', '').strip()
+
+                return propuesta
+            except Exception as e:
+                logging.error(f"Error al procesar la propuesta: {str(e)}")
+                return None
+        return None
+
+    def mostrar_propuesta(self, propuesta: NovelProposal):
+        st.header("📚 Propuesta de Novela")
+        
+        # Título
+        st.markdown(f"## {propuesta.titulo}")
+        
+        # Trama
+        st.markdown("### 📖 Trama Principal")
+        st.write(propuesta.trama)
+        
+        # Personajes
+        st.markdown("### 👥 Personajes Principales")
+        for personaje in propuesta.personajes:
+            st.markdown(f"- {personaje}")
+        
+        # Ambientación
+        st.markdown("### 🌍 Ambientación")
+        st.write(propuesta.ambientacion)
+        
+        # Técnica Literaria
+        st.markdown("### ✍️ Técnica Literaria")
+        st.write(propuesta.tecnica_literaria)
+
+        # Botones de acción
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("✅ Aprobar y Continuar"):
+                self.state.actualizar_estado(propuesta_aprobada=True)
+                return True
+        with col2:
+            if st.button("🔄 Generar Nueva Propuesta"):
+                self.state.actualizar_estado(propuesta=None)
+                return False
 
     def generar_escena(self, capitulo: int, escena: int, contexto: str) -> str:
         inicio = random.choice(INICIOS_ESCENA)
@@ -320,33 +411,91 @@ class NovelUI:
         Genera la escena {escena} del capítulo {capitulo}.
         {inicio}
 
-        La escena debe:
-        - Ser detallada y envolvente
-        - Incluir diálogo cuando sea apropiado
-        - Mantener la coherencia con la trama general
-        - Contribuir al desarrollo de la historia
-        - Tener aproximadamente 500-800 palabras
+        REQUISITOS DE LA ESCENA:
+        1. Extensión:
+           - MÍNIMO 2000 palabras
+           - Desarrollo detallado y profundo
+           - Sin relleno innecesario
 
-        Usa un estilo narrativo profesional y mantén el tono de thriller político.
+        2. Elementos obligatorios:
+           - Descripción detallada del entorno y atmósfera
+           - Desarrollo de las motivaciones y pensamientos de los personajes
+           - Diálogos naturales y significativos
+           - Progresión clara de la acción
+           - Tensión narrativa sostenida
+
+        3. Estructura de la escena:
+           - Establecimiento del escenario (500 palabras)
+           - Desarrollo de la acción principal (1000 palabras)
+           - Conclusión y enlace con la siguiente escena (500 palabras)
+
+        4. Técnicas narrativas:
+           - Uso de descripciones sensoriales
+           - Monólogo interno cuando sea apropiado
+           - Manejo del tiempo narrativo
+           - Construcción de tensión dramática
+
+        FORMATO DE SALIDA:
+        [Escena completa con párrafos bien estructurados y transiciones suaves]
         """
 
-        return self.api_handler.generar_contenido(
+        contenido_escena = self.api_handler.generar_contenido(
             prompt,
-            max_tokens=1500,
+            max_tokens=4000,
             temperature=0.8
         )
+
+        if contenido_escena:
+            palabras = len(contenido_escena.split())
+            if palabras < 2000:
+                prompt_extension = f"""
+                Continúa la siguiente escena, añadiendo más detalles y desarrollo:
+
+                {contenido_escena}
+
+                REQUISITOS:
+                - Añadir al menos {2000 - palabras} palabras más
+                - Mantener la coherencia con lo ya escrito
+                - Profundizar en los elementos existentes
+                - No contradecir lo establecido
+                """
+
+                contenido_adicional = self.api_handler.generar_contenido(
+                    prompt_extension,
+                    max_tokens=3000,
+                    temperature=0.7
+                )
+
+                if contenido_adicional:
+                    contenido_escena = f"{contenido_escena}\n\n{contenido_adicional}"
+
+        return contenido_escena
+
+    def verificar_longitud_escena(self, contenido: str) -> Tuple[bool, int]:
+        palabras = len(contenido.split())
+        return palabras >= 2000, palabras
+
+    def mostrar_estadisticas_generacion(self, escena: str, capitulo: int, escena_num: int):
+        num_palabras = len(escena.split())
+        st.sidebar.markdown(f"""
+        ### Estadísticas de Generación
+        - **Capítulo:** {capitulo}
+        - **Escena:** {escena_num}
+        - **Palabras:** {num_palabras}
+        - **Estado:** {'✅ Completo' if num_palabras >= 2000 else '⚠️ Corto'}
+        """)
 
     def generar_novela(self, tema: str, instrucciones: str, num_capitulos: int, 
                       num_escenas: int, max_tokens: int, temperature: float):
         try:
             # Paso 1: Generar estructura inicial
             with st.spinner("Generando estructura de la novela..."):
-                estructura = self.generar_estructura_inicial(tema, instrucciones)
+                estructura = self.generar_propuesta(tema, instrucciones)
                 if not estructura:
                     return False, "Error al generar la estructura inicial"
                 
                 self.state.actualizar_estado(
-                    contenido_inicial=estructura,
+                    contenido_inicial=estructura.to_dict(),
                     tema=tema,
                     instrucciones_adicionales=instrucciones
                 )
@@ -365,11 +514,17 @@ class NovelUI:
                     contenido_escena = self.generar_escena(
                         capitulo,
                         escena,
-                        estructura
+                        json.dumps(estructura.to_dict())
                     )
                     
                     if contenido_escena:
+                        cumple_longitud, num_palabras = self.verificar_longitud_escena(contenido_escena)
+                        if not cumple_longitud:
+                            status_text.text(f"La escena {escena} del capítulo {capitulo} es muy corta ({num_palabras} palabras). Generando contenido adicional...")
+                            continue
+
                         contenido_final.append(contenido_escena + "\n")
+                        self.mostrar_estadisticas_generacion(contenido_escena, capitulo, escena)
                     else:
                         return False, f"Error al generar escena {escena} del capítulo {capitulo}"
                     
@@ -404,9 +559,28 @@ def main():
     num_capitulos, num_escenas, max_tokens, temperature = ui.mostrar_configuracion()
     tema, instrucciones = ui.mostrar_entrada()
     
-    if st.button("Generar Novela"):
+    if st.button("Generar Propuesta") and not state.estado_actual['propuesta_aprobada']:
         valido, mensaje = ui.validar_entrada(tema, instrucciones)
         if valido:
+            with st.spinner("Generando propuesta de novela..."):
+                propuesta = ui.generar_propuesta(tema, instrucciones)
+                if propuesta:
+                    state.actualizar_estado(propuesta=propuesta.to_dict())
+                    ui.mostrar_propuesta(propuesta)
+                else:
+                    st.error("Error al generar la propuesta")
+        else:
+            st.error(mensaje)
+    
+    # Mostrar propuesta existente si hay una
+    if state.estado_actual['propuesta'] and not state.estado_actual['propuesta_aprobada']:
+        propuesta = NovelProposal()
+        propuesta.__dict__.update(state.estado_actual['propuesta'])
+        ui.mostrar_propuesta(propuesta)
+    
+    # Si la propuesta está aprobada, mostrar el botón de generación de novela
+    if state.estado_actual['propuesta_aprobada']:
+        if st.button("Comenzar Generación de Novela"):
             with st.spinner("Generando tu novela..."):
                 exito, resultado = ui.generar_novela(
                     tema, instrucciones, num_capitulos, num_escenas,
@@ -428,8 +602,6 @@ def main():
                         )
                 else:
                     st.error(f"Error: {resultado}")
-        else:
-            st.error(mensaje)
 
 if __name__ == "__main__":
     main()
