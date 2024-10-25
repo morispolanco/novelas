@@ -2,6 +2,9 @@ import streamlit as st
 import requests
 import json
 import time
+from docx import Document
+from docx.shared import Inches, Pt
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 
 # Configuración de la página
 st.set_page_config(
@@ -13,9 +16,15 @@ st.set_page_config(
 # Título de la aplicación
 st.title("Generador de Novelas de Suspenso Político")
 st.write("""
-Esta aplicación genera una novela de 12 capítulos y 3 escenas por capítulo en el género de thriller político. 
-Ingrese un tema y deje que la inteligencia artificial cree una narrativa coherente y emocionante.
+Esta aplicación genera una novela en el género de thriller político.
+Ingrese un tema y personalice el número de capítulos y escenas para crear una narrativa coherente y emocionante.
 """)
+
+# Barra lateral para opciones de usuario
+st.sidebar.header("Configuración de la Novela")
+num_capitulos = st.sidebar.slider("Número de capítulos", min_value=3, max_value=15, value=12)
+num_escenas = st.sidebar.slider("Número de escenas por capítulo", min_value=3, max_value=7, value=3)
+theme = st.sidebar.text_input("Ingrese el tema para su thriller político:", "")
 
 # Función para llamar a la API de Together
 def call_together_api(prompt):
@@ -70,13 +79,14 @@ def generar_escena(capitulo, escena, trama, personajes, ambientacion, tecnica):
     Técnicas literarias: {tecnica}
 
     La escena debe tener al menos 2000 palabras, mantener la consistencia y coherencia, evitar clichés y frases hechas. 
+    Utiliza rayas (—) para las intervenciones de los personajes.
     Debe incluir descripciones vívidas, diálogos agudos y dinámicos, y contribuir al desarrollo de la trama y los personajes.
     """
     escena_texto = call_together_api(prompt)
     return escena_texto
 
 # Función para generar la novela completa
-def generar_novela(theme):
+def generar_novela(theme, num_capitulos, num_escenas):
     with st.spinner("Generando la estructura de la novela..."):
         estructura = generar_estructura(theme)
         if not estructura:
@@ -86,17 +96,7 @@ def generar_novela(theme):
     st.subheader("Estructura de la Novela")
     st.text(estructura)
 
-    # Aquí se podría parsear la estructura para extraer título, trama, etc.
-    # Para simplificar, asumiremos que la estructura viene en un formato reconocible.
-
-    # Por ejemplo, supongamos que la estructura está en formato de lista:
-    # Título: ...
-    # Trama: ...
-    # Personajes: ...
-    # Ambientación: ...
-    # Técnicas literarias: ...
-
-    # Dividir la estructura en líneas
+    # Procesar la estructura para extraer título, trama, etc.
     lineas = estructura.split('\n')
     titulo = ""
     trama = ""
@@ -133,34 +133,91 @@ def generar_novela(theme):
 
     novela = f"**{titulo}**\n\n"
 
-    for cap in range(1, 13):
+    # Generar cada capítulo y escena
+    for cap in range(1, num_capitulos + 1):
         novela += f"## Capítulo {cap}\n\n"
-        for esc in range(1, 4):
+        for esc in range(1, num_escenas + 1):
             with st.spinner(f"Generando Capítulo {cap}, Escena {esc}..."):
                 escena = generar_escena(cap, esc, trama, personajes, ambientacion, tecnica)
                 if not escena:
                     st.error(f"No se pudo generar la Escena {esc} del Capítulo {cap}.")
                     return None
             novela += f"### Escena {esc}\n\n{escena}\n\n"
-            # Para evitar exceder los límites de la API, podríamos agregar un pequeño retraso
+            # Retraso para evitar exceder los límites de la API
             time.sleep(1)
 
-    return novela
+    return titulo, trama, personajes, ambientacion, tecnica, novela
 
-# Interfaz de usuario
-theme = st.text_input("Ingrese el tema para su thriller político:", "")
+# Función para exportar la novela a un archivo de Word con el formato especificado
+def exportar_a_word(titulo, novela_completa):
+    document = Document()
 
+    # Configurar el tamaño de la página y márgenes
+    section = document.sections[0]
+    section.page_width = Inches(5)
+    section.page_height = Inches(8)
+    section.top_margin = Inches(0.7)
+    section.bottom_margin = Inches(0.7)
+    section.left_margin = Inches(0.7)
+    section.right_margin = Inches(0.7)
+
+    # Establecer el estilo normal con la fuente Alegreya, 12 pt
+    style = document.styles['Normal']
+    font = style.font
+    font.name = 'Alegreya'
+    font.size = Pt(12)
+
+    # Agregar el título
+    document.add_heading(titulo, level=0).alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+    # Separar la novela por capítulos
+    capítulos = novela_completa.split("## Capítulo")
+    for cap in capítulos:
+        if cap.strip() == "":
+            continue
+        cap_num, *cap_contenido = cap.split('\n', 1)
+        cap_num = cap_num.strip()
+        cap_text = cap_contenido[0].strip() if cap_contenido else ""
+        document.add_heading(f"Capítulo {cap_num}", level=1)
+
+        # Separar por escenas
+        escenas = cap_text.split("### Escena")
+        for esc in escenas:
+            if esc.strip() == "":
+                continue
+            esc_num, *esc_contenido = esc.split('\n', 1)
+            esc_num = esc_num.strip()
+            esc_text = esc_contenido[0].strip() if esc_contenido else ""
+            document.add_heading(f"Escena {esc_num}", level=2)
+            # Agregar el texto de la escena
+            paragraph = document.add_paragraph(esc_text)
+            paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+            paragraph_format = paragraph.paragraph_format
+            paragraph_format.line_spacing = 1.15
+            paragraph_format.space_after = Pt(6)
+
+    # Guardar el documento en memoria
+    from io import BytesIO
+    buffer = BytesIO()
+    document.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+# Interfaz de usuario para generar y descargar la novela
 if st.button("Generar Novela"):
     if not theme:
         st.error("Por favor, ingrese un tema.")
     else:
-        novela_completa = generar_novela(theme)
+        titulo, trama, personajes, ambientacion, tecnica, novela_completa = generar_novela(theme, num_capitulos, num_escenas)
         if novela_completa:
             st.success("Novela generada con éxito.")
+            # Exportar a Word
+            doc_buffer = exportar_a_word(titulo, novela_completa)
             st.download_button(
-                label="Descargar Novela",
-                data=novela_completa,
-                file_name=f"novela_thriller_politico_{int(time.time())}.txt",
-                mime="text/plain"
+                label="Descargar Novela en Word",
+                data=doc_buffer,
+                file_name=f"novela_thriller_politico_{int(time.time())}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
+            # Mostrar la novela en la interfaz
             st.text_area("Novela Generada:", novela_completa, height=600)
