@@ -18,7 +18,7 @@ if tema:
     }
 
     # Función para llamar a la API de Together
-    def call_together_api(prompt, max_tokens=4000):
+    def call_together_api(prompt, max_tokens=6000):
         data = {
             "model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
             "messages": [{"role": "user", "content": prompt}],
@@ -61,10 +61,19 @@ Proporciona la información en formato estructurado.
     # Almacenar escenas previas para revisión y exportación
     escenas_previas = []
 
-    # Generar novela capítulo por capítulo, escena por escena
+    # Generar novela capítulo por capítulo, escena por escena automáticamente
+    st.header("Generando novela...")
+    progress_text = "Generando escenas. Por favor espera..."
+    my_bar = st.progress(0, text=progress_text)
+    total_escenas = 12 * 3
+    escena_actual_num = 0
+
     for capitulo in range(1, 13):
         st.header(f"Capítulo {capitulo}")
         for escena in range(1, 4):
+            escena_actual_num += 1
+            # Actualizar barra de progreso
+            my_bar.progress(escena_actual_num / total_escenas, text=progress_text)
             st.subheader(f"Escena {escena}")
             # Repasar lo ya escrito
             resumen_previas = " ".join(escenas_previas)
@@ -85,16 +94,11 @@ Ahora, escribe la siguiente escena (Capítulo {capitulo}, Escena {escena}). Aseg
 
 La escena debe ser narrativa y descriptiva, enfocándose en avanzar la trama y profundizar en los personajes.
 """
-            escena_actual = call_together_api(prompt_escena, max_tokens=4000)
+            escena_actual = call_together_api(prompt_escena, max_tokens=6000)
             st.write(escena_actual)
 
             # Agregar la escena actual a la lista de escenas previas
             escenas_previas.append(f"Capítulo {capitulo}, Escena {escena}\n{escena_actual}\n")
-
-            # Botón para continuar a la siguiente escena
-            continuar = st.button("Continuar a la siguiente escena", key=f"{capitulo}-{escena}")
-            if not continuar:
-                st.stop()
 
     st.success("¡Novela completada!")
 
@@ -187,7 +191,7 @@ Basándote en las sugerencias anteriores, reescribe la escena {idx} mejorando lo
 
 La escena reescrita es:
 """
-                nueva_escena = call_together_api(prompt_regenerar, max_tokens=4000)
+                nueva_escena = call_together_api(prompt_regenerar, max_tokens=6000)
                 st.write(nueva_escena)
 
                 # Actualizar la escena en la lista de escenas previas
