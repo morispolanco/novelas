@@ -146,6 +146,21 @@ def ajustar_prompt_por_genero(prompt, genero):
         prompt += "\nUsa un tono oscuro y enfócate en los conflictos internos y dilemas éticos."
     return prompt
 
+def obtener_inicio_escena():
+    inicios_escena = [
+        "La escena comienza con",
+        "En esta parte de la historia,",
+        "De repente,",
+        "Mientras tanto,",
+        "En un giro inesperado,",
+        "El ambiente se tensa cuando",
+        "Con determinación,",
+        "Sorprendentemente,",
+        "En medio del caos,",
+        "Silenciosamente,"
+    ]
+    return random.choice(inicios_escena)
+
 # =====================
 # Interfaz de Usuario
 # =====================
@@ -163,28 +178,25 @@ st.title("Generador de Novelas")
 # Solicitar el tema de la novela
 tema = st.text_input("Introduce el tema de la novela:")
 
-if st.button("Enviar"):
+if st.button("Generar Novela"):
     if tema:
         st.session_state.tema = tema
         st.session_state.personajes = []
         st.session_state.eventos = []
         st.session_state.resumen_capitulos = []
+        st.session_state.contenido_final = ""
         st.session_state.novela_generada = False
 
-        # Generar y cachear contenido inicial
-        prompt_intro = f"Crea un esquema para una novela de {genero.lower()} basada en el tema: '{tema}'..."
-        contenido_inicial = generar_contenido_cache(prompt_intro)
-        st.write(contenido_inicial)
-    else:
-        st.error("El tema no puede estar vacío.")
+        for capitulo_num in range(1, num_capitulos + 1):
+            titulo_capitulo = f"Capítulo {capitulo_num}"
+            contenido_escenas = generar_escenas_batch(capitulo_num, titulo_capitulo, st.session_state.personajes, "", num_escenas)
+            st.session_state.contenido_final += f"{titulo_capitulo}\n{contenido_escenas}\n"
+            actualizar_detalles_personajes(capitulo_num, contenido_escenas)
+            resumen_capitulo = generar_resumen_capitulo(capitulo_num, contenido_escenas)
+            st.session_state.resumen_capitulos.append(resumen_capitulo)
 
-# Paso para exportar la novela en DOCX
+        st.session_state.novela_generada = True
+        st.success("Novela generada con éxito.")
+
 if 'novela_generada' in st.session_state and st.session_state.novela_generada:
-    buffer_docx = exportar_a_docx(st.session_state.contenido_final)
-    if buffer_docx:
-        st.download_button(
-            label="Descargar Novela en DOCX",
-            data=buffer_docx,
-            file_name="novela.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        ) 
+    buffer_docx = exportar_a_docx(st.session
