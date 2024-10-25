@@ -6,6 +6,7 @@ from docx import Document
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
 import random
 import json
 
@@ -39,6 +40,29 @@ if 'novela' not in st.session_state:
 # =====================
 # Funciones Auxiliares
 # =====================
+
+def add_toc(paragraph):
+    """
+    Agrega una Tabla de Contenido (TOC) en el párrafo proporcionado.
+    """
+    run = paragraph.add_run()
+    fldChar_begin = OxmlElement('w:fldChar')
+    fldChar_begin.set(qn('w:fldCharType'), 'begin')
+    
+    instrText = OxmlElement('w:instrText')
+    instrText.set(qn('xml:space'), 'preserve')
+    instrText.text = 'TOC \\o "1-3" \\h \\z \\u'
+    
+    fldChar_separate = OxmlElement('w:fldChar')
+    fldChar_separate.set(qn('w:fldCharType'), 'separate')
+    
+    fldChar_end = OxmlElement('w:fldChar')
+    fldChar_end.set(qn('w:fldCharType'), 'end')
+    
+    run._r.append(fldChar_begin)
+    run._r.append(instrText)
+    run._r.append(fldChar_separate)
+    run._r.append(fldChar_end)
 
 def generar_contenido(prompt, max_tokens=1500, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
     """
@@ -117,10 +141,8 @@ def exportar_a_docx(contenido_novela):
 
         # Añadir una Tabla de Contenido
         doc.add_paragraph('Tabla de Contenido', style='Heading 1')
-        # Insertar campo de tabla de contenido
-        paragraph = doc.add_paragraph()
-        run = paragraph.add_run()
-        run.add_field('TOC \\o "1-3" \\h \\z \\u')
+        toc_paragraph = doc.add_paragraph()
+        add_toc(toc_paragraph)
         doc.add_page_break()
 
         # Procesar el contenido
@@ -283,7 +305,14 @@ def generar_capitulo(capitulo_num, num_escenas, personajes, resumen_anterior, ge
     contenido_escenas = ""
 
     for escena_num in range(1, num_escenas + 1):
-        contenido_escena = generar_escena_con_referencias(capitulo_num, escena_num, titulo_capitulo, personajes, resumen_anterior, genero)
+        contenido_escena = generar_escena_con_referencias(
+            capitulo_num,
+            escena_num,
+            titulo_capitulo,
+            personajes,
+            resumen_anterior,
+            genero
+        )
         if contenido_escena:
             # Evaluar coherencia antes de añadir
             evaluacion = evaluar_coherencia(contenido_capitulo + contenido_escena)
@@ -604,6 +633,10 @@ if st.session_state.novela['novela_generada']:
             key="download_docx_final"  # Clave única asignada
         )
         st.success("La novela ha sido generada y está lista para ser descargada.")
+        st.info(
+            "Después de descargar y abrir el documento en Microsoft Word, **actualiza la Tabla de Contenido** "
+            "presionando `F9` o haciendo clic derecho sobre la Tabla de Contenido y seleccionando `Actualizar campo`."
+        )
     else:
         st.error("No se pudo generar el documento DOCX.")
 
