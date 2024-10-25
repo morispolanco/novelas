@@ -15,27 +15,35 @@ if tema:
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
-        "HTTP-Referer": "tu_app_nombre",  # Reemplaza "tu_app_nombre" con el nombre de tu aplicación
-        "X-Title": "tu_app_titulo"        # Reemplaza "tu_app_titulo" con el título de tu aplicación
+        "X-Title": "Generador de Novelas",
+        "X-Reference-Id": "GeneradorNovelasApp"
     }
 
     # Función para llamar a la API de OpenRouter
     def call_openrouter_api(prompt, max_tokens=4000):
         data = {
-            "model": "openai/gpt-4",
+            "model": "openai/gpt-4o-mini",  # Puedes cambiar a "openai/gpt-4" si tienes acceso
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": max_tokens,
-            "temperature": 0.8,  # Aumentar ligeramente para mayor diversidad
-            "top_p": 0.9         # Aumentar para permitir más opciones de palabras
-            # Nota: Algunos parámetros como "repetition_penalty" pueden no ser compatibles
+            "temperature": 0.8,
+            "top_p": 0.9
         }
-        response = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers=headers,
-            data=json.dumps(data)
-        )
-        result = response.json()
-        return result['choices'][0]['message']['content']
+        try:
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                data=json.dumps(data)
+            )
+            # Verificar si la respuesta es exitosa
+            if response.status_code == 200:
+                result = response.json()
+                return result['choices'][0]['message']['content']
+            else:
+                st.error(f"Error {response.status_code}: {response.text}")
+                return None
+        except Exception as e:
+            st.error(f"Ocurrió un error al llamar a la API: {e}")
+            return None
 
     # Generar título, trama, personajes, ambientación y técnica literaria
     st.header("Generando detalles de la novela...")
@@ -58,7 +66,10 @@ Proporciona la información en formato estructurado.
 - Evita repeticiones y redundancias en el texto.
 """
     detalles = call_openrouter_api(prompt_detalles)
-    st.markdown(detalles)
+    if detalles:
+        st.markdown(detalles)
+    else:
+        st.stop()
 
     # Almacenar escenas previas para revisión y exportación
     escenas_previas = []
@@ -97,11 +108,14 @@ Ahora, escribe la siguiente escena (Capítulo {capitulo}, Escena {escena}). Aseg
 
 La escena debe ser narrativa y descriptiva, enfocándose en avanzar la trama y profundizar en los personajes.
 """
-            escena_actual = call_openrouter_api(prompt_escena, max_tokens=4000)
-            st.write(escena_actual)
-
-            # Agregar la escena actual a la lista de escenas previas
-            escenas_previas.append(f"Capítulo {capitulo}, Escena {escena}\n{escena_actual}\n")
+            escena_actual = call_openrouter_api(prompt_escena, max_tokens=2000)
+            if escena_actual:
+                st.write(escena_actual)
+                # Agregar la escena actual a la lista de escenas previas
+                escenas_previas.append(f"Capítulo {capitulo}, Escena {escena}\n{escena_actual}\n")
+            else:
+                st.error("No se pudo generar la escena. Deteniendo la generación.")
+                st.stop()
 
     st.success("¡Novela completada!")
 
@@ -174,10 +188,13 @@ Busca y señala:
 Proporciona sugerencias detalladas para mejorar la escena.
 """
             revision = call_openrouter_api(prompt_revision, max_tokens=1500)
-            st.write(revision)
-
-            # Agregar la escena actual a las escenas previas
-            escenas_previas.append(escena)
+            if revision:
+                st.write(revision)
+                # Agregar la escena actual a las escenas previas
+                escenas_previas.append(escena)
+            else:
+                st.error("No se pudo revisar la escena.")
+                continue
 
             # Botón para regenerar la escena
             regenerar = st.button("Regenerar esta escena", key=f"regenerar-{idx}")
@@ -194,11 +211,13 @@ Basándote en las sugerencias anteriores, reescribe la escena {idx} mejorando lo
 
 La escena reescrita es:
 """
-                nueva_escena = call_openrouter_api(prompt_regenerar, max_tokens=4000)
-                st.write(nueva_escena)
-
-                # Actualizar la escena en la lista de escenas previas
-                escenas_previas[-1] = nueva_escena
+                nueva_escena = call_openrouter_api(prompt_regenerar, max_tokens=2000)
+                if nueva_escena:
+                    st.write(nueva_escena)
+                    # Actualizar la escena en la lista de escenas previas
+                    escenas_previas[-1] = nueva_escena
+                else:
+                    st.error("No se pudo regenerar la escena.")
 
         # Botón para exportar la novela revisada
         exportar_revisada = st.button("Exportar novela revisada")
