@@ -196,7 +196,7 @@ class NovelUI:
         self.state = state
         self.api_handler = api_handler
 
-    def mostrar_configuracion(self):
+    def _configuracion(self):
         st.sidebar.title("Configuración")
         num_capitulos = st.sidebar.slider(
             "Número de Capítulos",
@@ -211,7 +211,7 @@ class NovelUI:
             value=5
         )
         
-        if st.sidebar.checkbox("Mostrar configuración avanzada"):
+        if st.sidebar.checkbox(" configuración avanzada"):
             max_tokens = st.sidebar.number_input(
                 "Máximo de tokens",
                 min_value=500,
@@ -368,6 +368,9 @@ class NovelUI:
                 return None
         return None
 
+    class NovelUI:
+    # ... (otros métodos permanecen igual)
+
     def mostrar_propuesta(self, propuesta: NovelProposal):
         st.header("📚 Propuesta de Novela")
         
@@ -391,161 +394,26 @@ class NovelUI:
         st.markdown("### ✍️ Técnica Literaria")
         st.write(propuesta.tecnica_literaria)
 
-        # Botones de acción
+        # Botones de acción con claves únicas
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("✅ Aprobar y Continuar"):
+            aprobar = st.button(
+                "✅ Aprobar y Continuar",
+                key="btn_aprobar_propuesta"
+            )
+            if aprobar:
                 self.state.actualizar_estado(propuesta_aprobada=True)
                 return True
         with col2:
-            if st.button("🔄 Generar Nueva Propuesta"):
+            nueva = st.button(
+                "🔄 Generar Nueva Propuesta",
+                key="btn_nueva_propuesta"
+            )
+            if nueva:
                 self.state.actualizar_estado(propuesta=None)
                 return False
-
-    def generar_escena(self, capitulo: int, escena: int, contexto: str) -> str:
-        inicio = random.choice(INICIOS_ESCENA)
-        prompt = f"""
-        Basándote en el siguiente contexto de la historia:
-        {contexto}
-
-        Genera la escena {escena} del capítulo {capitulo}.
-        {inicio}
-
-        REQUISITOS DE LA ESCENA:
-        1. Extensión:
-           - MÍNIMO 2000 palabras
-           - Desarrollo detallado y profundo
-           - Sin relleno innecesario
-
-        2. Elementos obligatorios:
-           - Descripción detallada del entorno y atmósfera
-           - Desarrollo de las motivaciones y pensamientos de los personajes
-           - Diálogos naturales y significativos
-           - Progresión clara de la acción
-           - Tensión narrativa sostenida
-
-        3. Estructura de la escena:
-           - Establecimiento del escenario (500 palabras)
-           - Desarrollo de la acción principal (1000 palabras)
-           - Conclusión y enlace con la siguiente escena (500 palabras)
-
-        4. Técnicas narrativas:
-           - Uso de descripciones sensoriales
-           - Monólogo interno cuando sea apropiado
-           - Manejo del tiempo narrativo
-           - Construcción de tensión dramática
-
-        FORMATO DE SALIDA:
-        [Escena completa con párrafos bien estructurados y transiciones suaves]
-        """
-
-        contenido_escena = self.api_handler.generar_contenido(
-            prompt,
-            max_tokens=4000,
-            temperature=0.8
-        )
-
-        if contenido_escena:
-            palabras = len(contenido_escena.split())
-            if palabras < 2000:
-                prompt_extension = f"""
-                Continúa la siguiente escena, añadiendo más detalles y desarrollo:
-
-                {contenido_escena}
-
-                REQUISITOS:
-                - Añadir al menos {2000 - palabras} palabras más
-                - Mantener la coherencia con lo ya escrito
-                - Profundizar en los elementos existentes
-                - No contradecir lo establecido
-                """
-
-                contenido_adicional = self.api_handler.generar_contenido(
-                    prompt_extension,
-                    max_tokens=3000,
-                    temperature=0.7
-                )
-
-                if contenido_adicional:
-                    contenido_escena = f"{contenido_escena}\n\n{contenido_adicional}"
-
-        return contenido_escena
-
-    def verificar_longitud_escena(self, contenido: str) -> Tuple[bool, int]:
-        palabras = len(contenido.split())
-        return palabras >= 2000, palabras
-
-    def mostrar_estadisticas_generacion(self, escena: str, capitulo: int, escena_num: int):
-        num_palabras = len(escena.split())
-        st.sidebar.markdown(f"""
-        ### Estadísticas de Generación
-        - **Capítulo:** {capitulo}
-        - **Escena:** {escena_num}
-        - **Palabras:** {num_palabras}
-        - **Estado:** {'✅ Completo' if num_palabras >= 2000 else '⚠️ Corto'}
-        """)
-
-    def generar_novela(self, tema: str, instrucciones: str, num_capitulos: int, 
-                      num_escenas: int, max_tokens: int, temperature: float):
-        try:
-            # Paso 1: Generar estructura inicial
-            with st.spinner("Generando estructura de la novela..."):
-                estructura = self.generar_propuesta(tema, instrucciones)
-                if not estructura:
-                    return False, "Error al generar la estructura inicial"
-                
-                self.state.actualizar_estado(
-                    contenido_inicial=estructura.to_dict(),
-                    tema=tema,
-                    instrucciones_adicionales=instrucciones
-                )
-
-            # Paso 2: Generar el contenido completo
-            contenido_final = []
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            
-            for capitulo in range(1, num_capitulos + 1):
-                contenido_final.append(f"\nCapítulo {capitulo}\n")
-                
-                for escena in range(1, num_escenas + 1):
-                    status_text.text(f"Generando Capítulo {capitulo}, Escena {escena}...")
-                    
-                    contenido_escena = self.generar_escena(
-                        capitulo,
-                        escena,
-                        json.dumps(estructura.to_dict())
-                    )
-                    
-                    if contenido_escena:
-                        cumple_longitud, num_palabras = self.verificar_longitud_escena(contenido_escena)
-                        if not cumple_longitud:
-                            status_text.text(f"La escena {escena} del capítulo {capitulo} es muy corta ({num_palabras} palabras). Generando contenido adicional...")
-                            continue
-
-                        contenido_final.append(contenido_escena + "\n")
-                        self.mostrar_estadisticas_generacion(contenido_escena, capitulo, escena)
-                    else:
-                        return False, f"Error al generar escena {escena} del capítulo {capitulo}"
-                    
-                    progress = (((capitulo - 1) * num_escenas + escena) / 
-                              (num_capitulos * num_escenas))
-                    progress_bar.progress(progress)
-
-            # Unir todo el contenido
-            novela_completa = "\n".join(contenido_final)
-            
-            # Actualizar estado
-            self.state.actualizar_estado(
-                contenido_final=novela_completa,
-                novela_generada=True
-            )
-            
-            return True, novela_completa
-            
-        except Exception as e:
-            logging.error(f"Error en la generación de la novela: {str(e)}")
-            return False, str(e)
+        
+        return None
 
 def main():
     config = AppConfig(
@@ -559,14 +427,14 @@ def main():
     num_capitulos, num_escenas, max_tokens, temperature = ui.mostrar_configuracion()
     tema, instrucciones = ui.mostrar_entrada()
     
-    if st.button("Generar Propuesta") and not state.estado_actual['propuesta_aprobada']:
+    # Botón para generar propuesta con clave única
+    if st.button("Generar Propuesta", key="btn_generar_propuesta") and not state.estado_actual['propuesta_aprobada']:
         valido, mensaje = ui.validar_entrada(tema, instrucciones)
         if valido:
             with st.spinner("Generando propuesta de novela..."):
                 propuesta = ui.generar_propuesta(tema, instrucciones)
                 if propuesta:
                     state.actualizar_estado(propuesta=propuesta.to_dict())
-                    ui.mostrar_propuesta(propuesta)
                 else:
                     st.error("Error al generar la propuesta")
         else:
@@ -580,7 +448,7 @@ def main():
     
     # Si la propuesta está aprobada, mostrar el botón de generación de novela
     if state.estado_actual['propuesta_aprobada']:
-        if st.button("Comenzar Generación de Novela"):
+        if st.button("Comenzar Generación de Novela", key="btn_generar_novela"):
             with st.spinner("Generando tu novela..."):
                 exito, resultado = ui.generar_novela(
                     tema, instrucciones, num_capitulos, num_escenas,
@@ -598,7 +466,8 @@ def main():
                             label="Descargar como DOCX",
                             data=buffer,
                             file_name="novela.docx",
-                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            key="btn_descargar_docx"
                         )
                 else:
                     st.error(f"Error: {resultado}")
