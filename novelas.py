@@ -18,15 +18,15 @@ if tema:
     }
 
     # Función para llamar a la API de Together
-    def call_together_api(prompt, max_tokens=6000):
+    def call_together_api(prompt, max_tokens=4000):
         data = {
             "model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": max_tokens,
-            "temperature": 0.7,
-            "top_p": 0.7,
+            "temperature": 0.8,  # Aumentar ligeramente para mayor diversidad
+            "top_p": 0.9,        # Aumentar para permitir más opciones de palabras
             "top_k": 50,
-            "repetition_penalty": 1,
+            "repetition_penalty": 1.2,  # Incrementado para penalizar repeticiones
             "stop": ["<|eot_id|>"],
             "stream": False
         }
@@ -53,7 +53,10 @@ Basado en el tema: {tema}, genera el título, trama, personajes principales, amb
 
 Proporciona la información en formato estructurado.
 
-**Importante:** Utiliza la raya (—) para indicar los diálogos entre personajes.
+**Importante:**
+
+- Utiliza la raya (—) para indicar los diálogos entre personajes.
+- Evita repeticiones y redundancias en el texto.
 """
     detalles = call_together_api(prompt_detalles)
     st.markdown(detalles)
@@ -86,15 +89,16 @@ Ahora, escribe la siguiente escena (Capítulo {capitulo}, Escena {escena}). Aseg
 
 - Mantener coherencia y consistencia con las escenas anteriores.
 - Desarrollar bien los personajes y sus motivaciones.
-- Evitar clichés y frases hechas.
+- Evitar clichés, repeticiones y frases hechas.
 - **Utilizar la raya (—) en los diálogos.**
 - Cada escena debe tener al menos 1000 palabras.
 - Incluir giros y dilemas éticos que el protagonista enfrenta.
 - Seguir el tono tenso y emocionante con giros inesperados.
+- Utilizar un lenguaje variado y evitar redundancias.
 
 La escena debe ser narrativa y descriptiva, enfocándose en avanzar la trama y profundizar en los personajes.
 """
-            escena_actual = call_together_api(prompt_escena, max_tokens=6000)
+            escena_actual = call_together_api(prompt_escena, max_tokens=4000)
             st.write(escena_actual)
 
             # Agregar la escena actual a la lista de escenas previas
@@ -164,7 +168,7 @@ Busca y señala:
 - Incoherencias e inconsistencias con escenas anteriores.
 - Mal desarrollo de los personajes y sus motivaciones.
 - Problemas de ritmo y trama.
-- Uso de clichés o frases hechas.
+- Uso de clichés, repeticiones o frases hechas.
 - **Verifica que los diálogos usen la raya (—) correctamente.**
 - Asegúrate de que la escena tenga al menos 1000 palabras.
 
@@ -184,14 +188,14 @@ Basándote en las sugerencias anteriores, reescribe la escena {idx} mejorando lo
 
 - Mantener coherencia con las escenas anteriores.
 - Desarrollar bien los personajes y sus motivaciones.
-- Evitar clichés y frases hechas.
+- Evitar clichés, repeticiones y frases hechas.
 - **Utilizar la raya (—) en los diálogos.**
 - La escena debe tener al menos 1000 palabras.
 - Mantener un tono tenso y emocionante con giros inesperados.
 
 La escena reescrita es:
 """
-                nueva_escena = call_together_api(prompt_regenerar, max_tokens=6000)
+                nueva_escena = call_together_api(prompt_regenerar, max_tokens=4000)
                 st.write(nueva_escena)
 
                 # Actualizar la escena en la lista de escenas previas
