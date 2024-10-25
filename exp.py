@@ -77,16 +77,16 @@ def exportar_a_docx(contenido_novela):
         for section in sections:
             section.page_width = Inches(5)
             section.page_height = Inches(8)
-            section.top_margin = Inches(0.6)
-            section.bottom_margin = Inches(0.6)
-            section.left_margin = Inches(0.6)
-            section.right_margin = Inches(0.6)
+            section.top_margin = Inches(0.7)
+            section.bottom_margin = Inches(0.5)
+            section.left_margin = Inches(0.7)
+            section.right_margin = Inches(0.5)
 
         # Configuración de la fuente predeterminada a Alegreya, tamaño 11
         style_normal = doc.styles['Normal']
         font_normal = style_normal.font
         font_normal.name = 'Alegreya'
-        font_normal.size = Pt(11)
+        font_normal.size = Pt(12)
         style_normal.element.rPr.rFonts.set(qn('w:eastAsia'), 'Alegreya')
 
         # Configurar fuentes para los estilos de encabezado
@@ -94,7 +94,7 @@ def exportar_a_docx(contenido_novela):
             style_heading = doc.styles[heading]
             font_heading = style_heading.font
             font_heading.name = 'Alegreya'
-            font_heading.size = Pt(14)
+            font_heading.size = Pt(16)
             style_heading.element.rPr.rFonts.set(qn('w:eastAsia'), 'Alegreya')
 
         # Procesar el contenido
@@ -107,12 +107,12 @@ def exportar_a_docx(contenido_novela):
                 p = doc.add_heading(linea, level=2)
                 p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                 p.paragraph_format.line_spacing = 1.15
-                p.paragraph_format.space_after = Pt(6)
+                p.paragraph_format.space_after = Pt(120)
             else:
                 p = doc.add_paragraph(linea, style='Normal')
                 p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                 p.paragraph_format.line_spacing = 1.15
-                p.paragraph_format.space_after = Pt(6)
+                p.paragraph_format.space_after = Pt(9)
 
         buffer = BytesIO()
         doc.save(buffer)
