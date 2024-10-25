@@ -371,106 +371,106 @@ class NovelUI:
         class NovelUI:
         # ... (otros métodos permanecen igual)
     
-        def mostrar_propuesta(self, propuesta: NovelProposal):
-            st.header("📚 Propuesta de Novela")
-            
-            # Título
-            st.markdown(f"## {propuesta.titulo}")
-            
-            # Trama
-            st.markdown("### 📖 Trama Principal")
-            st.write(propuesta.trama)
-            
-            # Personajes
-            st.markdown("### 👥 Personajes Principales")
-            for personaje in propuesta.personajes:
-                st.markdown(f"- {personaje}")
-            
-            # Ambientación
-            st.markdown("### 🌍 Ambientación")
-            st.write(propuesta.ambientacion)
-            
-            # Técnica Literaria
-            st.markdown("### ✍️ Técnica Literaria")
-            st.write(propuesta.tecnica_literaria)
-    
-            # Botones de acción con claves únicas
-            col1, col2 = st.columns(2)
-            with col1:
-                aprobar = st.button(
-                    "✅ Aprobar y Continuar",
-                    key="btn_aprobar_propuesta"
-                )
-                if aprobar:
-                    self.state.actualizar_estado(propuesta_aprobada=True)
-                    return True
-            with col2:
-                nueva = st.button(
-                    "🔄 Generar Nueva Propuesta",
-                    key="btn_nueva_propuesta"
-                )
-                if nueva:
-                    self.state.actualizar_estado(propuesta=None)
-                    return False
-            
-            return None
-    
-    def main():
-        config = AppConfig(
-            OPENROUTER_API_KEY=st.secrets["OPENROUTER_API_KEY"]
-        )
+            def mostrar_propuesta(self, propuesta: NovelProposal):
+                st.header("📚 Propuesta de Novela")
+                
+                # Título
+                st.markdown(f"## {propuesta.titulo}")
+                
+                # Trama
+                st.markdown("### 📖 Trama Principal")
+                st.write(propuesta.trama)
+                
+                # Personajes
+                st.markdown("### 👥 Personajes Principales")
+                for personaje in propuesta.personajes:
+                    st.markdown(f"- {personaje}")
+                
+                # Ambientación
+                st.markdown("### 🌍 Ambientación")
+                st.write(propuesta.ambientacion)
+                
+                # Técnica Literaria
+                st.markdown("### ✍️ Técnica Literaria")
+                st.write(propuesta.tecnica_literaria)
         
-        state = NovelState()
-        api_handler = APIHandler(config)
-        ui = NovelUI(state, api_handler)
-        
-        num_capitulos, num_escenas, max_tokens, temperature = ui.mostrar_configuracion()
-        tema, instrucciones = ui.mostrar_entrada()
-        
-        # Botón para generar propuesta con clave única
-        if st.button("Generar Propuesta", key="btn_generar_propuesta") and not state.estado_actual['propuesta_aprobada']:
-            valido, mensaje = ui.validar_entrada(tema, instrucciones)
-            if valido:
-                with st.spinner("Generando propuesta de novela..."):
-                    propuesta = ui.generar_propuesta(tema, instrucciones)
-                    if propuesta:
-                        state.actualizar_estado(propuesta=propuesta.to_dict())
-                    else:
-                        st.error("Error al generar la propuesta")
-            else:
-                st.error(mensaje)
-        
-        # Mostrar propuesta existente si hay una
-        if state.estado_actual['propuesta'] and not state.estado_actual['propuesta_aprobada']:
-            propuesta = NovelProposal()
-            propuesta.__dict__.update(state.estado_actual['propuesta'])
-            ui.mostrar_propuesta(propuesta)
-        
-        # Si la propuesta está aprobada, mostrar el botón de generación de novela
-        if state.estado_actual['propuesta_aprobada']:
-            if st.button("Comenzar Generación de Novela", key="btn_generar_novela"):
-                with st.spinner("Generando tu novela..."):
-                    exito, resultado = ui.generar_novela(
-                        tema, instrucciones, num_capitulos, num_escenas,
-                        max_tokens, temperature
+                # Botones de acción con claves únicas
+                col1, col2 = st.columns(2)
+                with col1:
+                    aprobar = st.button(
+                        "✅ Aprobar y Continuar",
+                        key="btn_aprobar_propuesta"
                     )
-                    if exito:
-                        st.success("¡Novela generada exitosamente!")
-                        
-                        with st.expander("Ver contenido de la novela", expanded=True):
-                            st.write(resultado)
-                        
-                        buffer = NovelExporter.exportar_a_docx(resultado)
-                        if buffer:
-                            st.download_button(
-                                label="Descargar como DOCX",
-                                data=buffer,
-                                file_name="novela.docx",
-                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                key="btn_descargar_docx"
-                            )
-                    else:
-                        st.error(f"Error: {resultado}")
-    
-    if __name__ == "__main__":
-        main()
+                    if aprobar:
+                        self.state.actualizar_estado(propuesta_aprobada=True)
+                        return True
+                with col2:
+                    nueva = st.button(
+                        "🔄 Generar Nueva Propuesta",
+                        key="btn_nueva_propuesta"
+                    )
+                    if nueva:
+                        self.state.actualizar_estado(propuesta=None)
+                        return False
+                
+                return None
+        
+        def main():
+            config = AppConfig(
+                OPENROUTER_API_KEY=st.secrets["OPENROUTER_API_KEY"]
+            )
+            
+            state = NovelState()
+            api_handler = APIHandler(config)
+            ui = NovelUI(state, api_handler)
+            
+            num_capitulos, num_escenas, max_tokens, temperature = ui.mostrar_configuracion()
+            tema, instrucciones = ui.mostrar_entrada()
+            
+            # Botón para generar propuesta con clave única
+            if st.button("Generar Propuesta", key="btn_generar_propuesta") and not state.estado_actual['propuesta_aprobada']:
+                valido, mensaje = ui.validar_entrada(tema, instrucciones)
+                if valido:
+                    with st.spinner("Generando propuesta de novela..."):
+                        propuesta = ui.generar_propuesta(tema, instrucciones)
+                        if propuesta:
+                            state.actualizar_estado(propuesta=propuesta.to_dict())
+                        else:
+                            st.error("Error al generar la propuesta")
+                else:
+                    st.error(mensaje)
+            
+            # Mostrar propuesta existente si hay una
+            if state.estado_actual['propuesta'] and not state.estado_actual['propuesta_aprobada']:
+                propuesta = NovelProposal()
+                propuesta.__dict__.update(state.estado_actual['propuesta'])
+                ui.mostrar_propuesta(propuesta)
+            
+            # Si la propuesta está aprobada, mostrar el botón de generación de novela
+            if state.estado_actual['propuesta_aprobada']:
+                if st.button("Comenzar Generación de Novela", key="btn_generar_novela"):
+                    with st.spinner("Generando tu novela..."):
+                        exito, resultado = ui.generar_novela(
+                            tema, instrucciones, num_capitulos, num_escenas,
+                            max_tokens, temperature
+                        )
+                        if exito:
+                            st.success("¡Novela generada exitosamente!")
+                            
+                            with st.expander("Ver contenido de la novela", expanded=True):
+                                st.write(resultado)
+                            
+                            buffer = NovelExporter.exportar_a_docx(resultado)
+                            if buffer:
+                                st.download_button(
+                                    label="Descargar como DOCX",
+                                    data=buffer,
+                                    file_name="novela.docx",
+                                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                    key="btn_descargar_docx"
+                                )
+                        else:
+                            st.error(f"Error: {resultado}")
+        
+        if __name__ == "__main__":
+            main()
