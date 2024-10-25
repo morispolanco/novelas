@@ -17,7 +17,7 @@ import json
 # Asegúrate de que `OPENROUTER_API_KEY` esté configurado en tus secretos de Streamlit.
 OPENROUTER_API_KEY = st.secrets["OPENROUTER_API_KEY"]
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "openai/gpt-4o-mini"  # Actualizado al modelo solicitado
+MODEL = "openai/gpt-4"  # Puedes ajustar el modelo según tus necesidades
 
 # =====================
 # Inicialización de Variables de Sesión
@@ -59,14 +59,14 @@ def generar_contenido(prompt, max_tokens=1500, temperature=0.7, repetition_penal
         ],
         "max_tokens": max_tokens,
         "temperature": temperature,
-        "repetition_penalty": repetition_penalty,
-        "frequency_penalty": frequency_penalty
+        "top_p": 1.0,
+        "n": 1,
+        "stop": None
     }
     try:
         response = requests.post(API_URL, headers=headers, json=data, timeout=120)  # Aumentar timeout si es necesario
         response.raise_for_status()
-        # Dependiendo de la estructura de la respuesta de OpenRouter, ajusta la extracción del contenido
-        # Aquí se asume una estructura similar a OpenAI
+        # Ajusta la extracción del contenido según la estructura de la respuesta de OpenRouter
         return response.json()["choices"][0]["message"]["content"]
     except requests.exceptions.Timeout:
         st.error("La solicitud a la API de OpenRouter ha excedido el tiempo de espera.")
@@ -90,23 +90,22 @@ def add_table_of_contents(paragraph):
     Inserta una Tabla de Contenido en el documento DOCX utilizando XML.
     """
     run = paragraph.add_run()
-    fldChar1 = OxmlElement('w:fldChar')
-    fldChar1.set(qn('w:fldCharType'), 'begin')
+    fldChar_begin = OxmlElement('w:fldChar')
+    fldChar_begin.set(qn('w:fldCharType'), 'begin')
 
     instrText = OxmlElement('w:instrText')
-    instrText.set(qn('xml:space'), 'preserve')
     instrText.text = 'TOC \\o "1-3" \\h \\z \\u'
 
-    fldChar2 = OxmlElement('w:fldChar')
-    fldChar2.set(qn('w:fldCharType'), 'separate')
+    fldChar_separate = OxmlElement('w:fldChar')
+    fldChar_separate.set(qn('w:fldCharType'), 'separate')
 
-    fldChar3 = OxmlElement('w:fldChar')
-    fldChar3.set(qn('w:fldCharType'), 'end')
+    fldChar_end = OxmlElement('w:fldChar')
+    fldChar_end.set(qn('w:fldCharType'), 'end')
 
-    run._r.append(fldChar1)
+    run._r.append(fldChar_begin)
     run._r.append(instrText)
-    run._r.append(fldChar2)
-    run._r.append(fldChar3)
+    run._r.append(fldChar_separate)
+    run._r.append(fldChar_end)
 
 def exportar_a_docx(contenido_novela):
     """
@@ -140,7 +139,7 @@ def exportar_a_docx(contenido_novela):
             style_heading.element.rPr.rFonts.set(qn('w:eastAsia'), 'Alegreya')
 
         # Añadir una Tabla de Contenido
-        toc_paragraph = doc.add_paragraph('Tabla de Contenido', style='Heading 1')
+        toc_paragraph = doc.add_paragraph('', style='Normal')
         add_table_of_contents(toc_paragraph)
         doc.add_page_break()
 
@@ -152,9 +151,9 @@ def exportar_a_docx(contenido_novela):
 
             if linea.startswith("Capítulo"):
                 p = doc.add_heading(linea, level=2)
-                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
                 p.paragraph_format.line_spacing = 1.15
-                p.paragraph_format.space_after = Pt(120)
+                p.paragraph_format.space_after = Pt(12)
             else:
                 p = doc.add_paragraph(linea, style='Normal')
                 p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
@@ -182,7 +181,7 @@ def validar_tema(tema):
         return False, "El tema es demasiado largo. Por favor, introduce un tema más corto."
     if not re.match("^[a-zA-Z0-9\s\-.,áéíóúñüÁÉÍÓÚÑÜ¡!¿?]+$", tema):
         return False, "El tema contiene caracteres no permitidos."
-    
+
     # Validación adicional: evitar temas demasiado genéricos
     temas_genericos = ["amor", "aventura", "misterio", "suspense", "acción", "fantasía", "terror", "ciencia ficción"]
     if tema.lower() in temas_genericos:
@@ -219,7 +218,7 @@ def extraer_personajes(contenido):
         f"Incluye campos para 'nombre', 'descripcion', 'decisiones', 'emociones' y 'eventos_clave'.\n\n"
         f"{contenido}"
     )
-    personajes_info = generar_contenido(prompt, max_tokens=1500, temperature=0.5, repetition_penalty=1.0, frequency_penalty=0.0)
+    personajes_info = generar_contenido(prompt, max_tokens=1500, temperature=0.5)
     if personajes_info:
         # Asegurar que la respuesta es un JSON válido
         try:
@@ -259,7 +258,7 @@ def actualizar_personajes_y_resumen(capitulo_num, contenido_escenas):
         f"Genera un resumen coherente y bien estructurado del capítulo {capitulo_num} basado en las siguientes escenas:\n\n"
         f"{contenido_escenas}"
     )
-    resumen_capitulo = generar_contenido(prompt_resumen, max_tokens=500, temperature=0.5, repetition_penalty=1.0, frequency_penalty=0.0)
+    resumen_capitulo = generar_contenido(prompt_resumen, max_tokens=500, temperature=0.5)
 
     if resumen_capitulo:
         st.session_state.novela['resumen_capitulos'].append(resumen_capitulo)
@@ -273,11 +272,10 @@ def actualizar_personajes_y_resumen(capitulo_num, contenido_escenas):
             f"Basado en los eventos del capítulo {capitulo_num}, actualiza el desarrollo del personaje "
             f"**{personaje['nombre']}**. Describe sus decisiones, emociones y eventos clave ocurridos en este capítulo."
         )
-        desarrollo_personaje = generar_contenido(prompt_desarrollo, max_tokens=300, temperature=0.5, repetition_penalty=1.0, frequency_penalty=0.0)
+        desarrollo_personaje = generar_contenido(prompt_desarrollo, max_tokens=300, temperature=0.5)
 
         if desarrollo_personaje:
             # Asumimos que la respuesta es una descripción que se puede agregar a los campos respectivos
-            # Aquí simplificamos agregando todo en 'eventos_clave'
             personaje['eventos_clave'] += desarrollo_personaje + " "
         else:
             personaje['eventos_clave'] += "Sin cambios significativos. "
@@ -292,7 +290,7 @@ def evaluar_coherencia(contenido):
         f"Contenido:\n{contenido}\n\n"
         f"Devuelve 'Coherente' si todo está en orden, o proporciona una lista de inconsistencias encontradas."
     )
-    evaluacion = generar_contenido(prompt_coherencia, max_tokens=500, temperature=0.3, repetition_penalty=1.0, frequency_penalty=0.0)
+    evaluacion = generar_contenido(prompt_coherencia, max_tokens=500, temperature=0.3)
     return evaluacion.strip()
 
 def generar_capitulo(capitulo_num, num_escenas, personajes, resumen_anterior, genero):
@@ -345,20 +343,20 @@ def generar_escena_con_referencias(capitulo_num, escena_num, titulo_capitulo, pe
     de capítulos anteriores y potenciales eventos futuros.
     """
     inicio = obtener_inicio_escena()
-    
+
     # Crear el prompt con referencias cruzadas
     prompt_escena = (
         f"{inicio} esta escena, escribe la escena {escena_num} del {titulo_capitulo} "
         f"de la novela de género {genero.lower()} sobre '{st.session_state.novela['tema']}'. "
         f"Debe ser un {genero.lower()} con elementos de misterio y aventura. "
         f"Asegúrate de que las motivaciones de los personajes sean claras y que no haya incoherencias en la trama. "
-        f"Referénciate en eventos y decisiones importantes ocurridos en los capítulos previos. "
+        f"Refiérete a eventos y decisiones importantes ocurridos en los capítulos previos. "
         f"Considera también el desarrollo futuro que podría influenciar las acciones de los personajes.\n\n"
         f"Resumen de la trama hasta ahora:\n{st.session_state.novela['trama_general']}\n\n"
         f"Resumen del capítulo anterior:\n{resumen_anterior}\n\n"
         f"Información detallada de los personajes y su desarrollo actual:\n"
     )
-    
+
     # Añadir detalles de los personajes
     for personaje in personajes:
         prompt_escena += (
@@ -368,30 +366,14 @@ def generar_escena_con_referencias(capitulo_num, escena_num, titulo_capitulo, pe
             f"Eventos Clave: {personaje.get('eventos_clave', 'Ninguno')})\n"
         )
 
-    return generar_contenido(prompt_escena, max_tokens=1500, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5)
-
-def generar_resumen_genero(genero):
-    """
-    Genera un prompt base dependiendo del género seleccionado.
-    """
-    prompts_genero = {
-        "Suspense": "suspense",
-        "Ciencia Ficción": "ciencia ficción",
-        "Romance": "romance",
-        "Fantasía Oscura": "fantasía oscura",
-        "Terror": "terror",
-        "Aventura": "aventura",
-        "Acción": "acción",
-        "Misterio": "misterio"
-    }
-    return prompts_genero.get(genero, "suspense")
+    return generar_contenido(prompt_escena, max_tokens=1500, temperature=0.7)
 
 # =====================
 # Cacheo de Funciones
 # =====================
 
 @st.cache_data(show_spinner=False, ttl=3600)
-def generar_contenido_cache(tema, num_capitulos, num_escenas, genero, max_tokens=3000, temperature=0.7, repetition_penalty=1.2, frequency_penalty=0.5):
+def generar_contenido_cache(tema, num_capitulos, num_escenas, genero, max_tokens=3000, temperature=0.7):
     """
     Genera la estructura inicial de la novela basada en el tema proporcionado.
     """
@@ -411,61 +393,14 @@ def generar_contenido_cache(tema, num_capitulos, num_escenas, genero, max_tokens
         f"6. Resolución: Asegúrate de que la historia cierre las líneas argumentales de forma satisfactoria.\n"
         f"7. Asignación de Palabras: Calcula la distribución aproximada de palabras para cada capítulo para un total de 35,000 palabras."
     )
-    return generar_contenido(prompt_intro, max_tokens, temperature, repetition_penalty, frequency_penalty)
+    return generar_contenido(prompt_intro, max_tokens, temperature)
 
 @st.cache_data(show_spinner=False, ttl=3600)
-def generar_contenido_generico(prompt, max_tokens=1500, temperature=0.5, repetition_penalty=1.0, frequency_penalty=0.0):
+def generar_contenido_generico(prompt, max_tokens=1500, temperature=0.5):
     """
     Genera contenido genérico basado en el prompt proporcionado.
     """
-    return generar_contenido(prompt, max_tokens, temperature, repetition_penalty, frequency_penalty)
-
-# =====================
-# Funciones de Mejora
-# =====================
-
-def pre_cache_batch_generation(capitulo_num, num_escenas, titulo_capitulo, personajes, resumen_anterior, genero):
-    """
-    Genera un lote de escenas para un capítulo específico.
-    """
-    contenido_capitulo = f"Capítulo {capitulo_num}: [Título del Capítulo {capitulo_num}]\n\n"
-    contenido_escenas = ""
-
-    for escena_num in range(1, num_escenas + 1):
-        contenido_escena = generar_escena_con_referencias(
-            capitulo_num,
-            escena_num,
-            titulo_capitulo,
-            personajes,
-            resumen_anterior,
-            genero
-        )
-        if contenido_escena:
-            # Evaluar coherencia antes de añadir
-            evaluacion = evaluar_coherencia(contenido_capitulo + contenido_escena)
-            if evaluacion.lower() == "coherente":
-                contenido_capitulo += contenido_escena + "\n\n"
-                contenido_escenas += contenido_escena + "\n\n"
-                # Actualizar el resumen de la trama general
-                resumen_fragmento = contenido_escena[:150] + "..." if len(contenido_escena) > 150 else contenido_escena
-                st.session_state.novela['trama_general'] += f"Escena {capitulo_num}.{escena_num}: {resumen_fragmento}\n"
-                st.session_state.novela['eventos'].append(f"Escena {capitulo_num}.{escena_num}: {resumen_fragmento}")
-            else:
-                st.warning(f"Inconsistencias encontradas en la escena {capitulo_num}.{escena_num}: {evaluacion}")
-                contenido_capitulo += f"[Inconsistencias encontradas en la escena {escena_num} del capítulo {capitulo_num}]\n\n"
-                st.session_state.novela['trama_general'] += f"Escena {capitulo_num}.{escena_num}: [Inconsistencias encontradas]\n"
-                st.session_state.novela['eventos'].append(f"Escena {capitulo_num}.{escena_num}: [Inconsistencias encontradas]")
-        else:
-            contenido_capitulo += f"[Error al generar la escena {escena_num} del capítulo {capitulo_num}]\n\n"
-            st.session_state.novela['trama_general'] += f"Escena {capitulo_num}.{escena_num}: [Error al generar esta escena]\n"
-            st.session_state.novela['eventos'].append(f"Escena {capitulo_num}.{escena_num}: [Error al generar esta escena]")
-
-    # Generar resumen coherente del capítulo
-    actualizar_personajes_y_resumen(capitulo_num, contenido_escenas)
-    if st.session_state.novela['resumen_capitulos']:
-        resumen_anterior = st.session_state.novela['resumen_capitulos'][-1]
-
-    return contenido_capitulo
+    return generar_contenido(prompt, max_tokens, temperature)
 
 # =====================
 # Interfaz de Usuario
@@ -490,13 +425,9 @@ modo_avanzado = st.sidebar.checkbox("Modo Avanzado")
 if modo_avanzado:
     max_tokens = st.sidebar.number_input("Máximo de Tokens por Solicitud", min_value=500, max_value=10000, value=3000, step=100)
     temperature = st.sidebar.slider("Temperature", min_value=0.0, max_value=1.0, value=0.7, step=0.1)
-    repetition_penalty = st.sidebar.slider("Repetition Penalty", min_value=1.0, max_value=2.0, value=1.2, step=0.1)
-    frequency_penalty = st.sidebar.slider("Frequency Penalty", min_value=0.0, max_value=2.0, value=0.5, step=0.1)
 else:
     max_tokens = 3000
     temperature = 0.7
-    repetition_penalty = 1.2
-    frequency_penalty = 0.5
 
 # Título principal
 st.title("Generador de Novelas")
@@ -513,14 +444,12 @@ if st.button("Enviar", key="enviar_tema"):
     else:
         with st.spinner("Generando la estructura de la novela..."):
             contenido_inicial = generar_contenido_cache(
-                tema, 
-                num_capitulos, 
-                num_escenas, 
-                genero_seleccionado, 
-                max_tokens, 
-                temperature, 
-                repetition_penalty, 
-                frequency_penalty
+                tema,
+                num_capitulos,
+                num_escenas,
+                genero_seleccionado,
+                max_tokens,
+                temperature
             )
             if contenido_inicial:
                 st.session_state.novela['contenido_inicial'] = contenido_inicial
@@ -557,7 +486,7 @@ if st.session_state.novela['contenido_inicial'] and st.session_state.novela['tem
 # Visualizar y Editar Personajes y Resumen de la Trama
 if st.session_state.novela['aprobado']:
     st.subheader("Información de Personajes y Resumen de la Trama")
-    
+
     # Mostrar personajes
     st.markdown("### Personajes Principales")
     if st.session_state.novela['personajes']:
@@ -575,7 +504,7 @@ if st.session_state.novela['aprobado']:
     st.session_state.novela['trama_general'] = trama_editable
 
 # Paso 3: Generar el contenido de la novela
-if (st.session_state.novela['aprobado'] 
+if (st.session_state.novela['aprobado']
     and not st.session_state.novela['novela_generada']):
     st.header("Paso 3: Generando la Novela Completa...")
 
@@ -589,9 +518,9 @@ if (st.session_state.novela['aprobado']
 
     for capitulo_num in range(1, num_capitulos + 1):
         contenido_capitulo = generar_capitulo(
-            capitulo_num, 
-            num_escenas, 
-            st.session_state.novela['personajes'], 
+            capitulo_num,
+            num_escenas,
+            st.session_state.novela['personajes'],
             resumen_anterior,
             genero_seleccionado
         )
