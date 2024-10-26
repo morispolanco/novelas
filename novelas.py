@@ -272,64 +272,47 @@ def mostrar_aprobacion():
     st.subheader("Técnicas Literarias")
     st.write(st.session_state.tecnica)
 
-    # Centrar los botones utilizando columnas
-    col1, col2, col3 = st.columns([1, 1, 1])
+    # Alinear los botones a la izquierda sin columnas
+    aprobar = st.button("Aprobar y Generar Novela", key="aprobar")
+    if aprobar:
+        st.session_state.etapa = "generacion"
 
-    with col1:
-        pass  # Espacio vacío
-
-    with col2:
-        aprobar = st.button("Aprobar y Generar Novela", key="aprobar")
-        if aprobar:
-            st.session_state.etapa = "generacion"
-
-    with col3:
-        rechazar = st.button("Rechazar y Regenerar Estructura", key="rechazar")
-        if rechazar:
-            # Reiniciamos los valores
-            st.session_state.estructura = None
-            st.session_state.titulo = ""
-            st.session_state.trama = ""
-            st.session_state.personajes = ""
-            st.session_state.ambientacion = ""
-            st.session_state.tecnica = ""
-            st.session_state.etapa = "inicio"
+    rechazar = st.button("Rechazar y Regenerar Estructura", key="rechazar")
+    if rechazar:
+        # Reiniciamos los valores
+        st.session_state.estructura = None
+        st.session_state.titulo = ""
+        st.session_state.trama = ""
+        st.session_state.personajes = ""
+        st.session_state.ambientacion = ""
+        st.session_state.tecnica = ""
+        st.session_state.etapa = "inicio"
 
 # Interfaz de usuario principal
 st.write(f"**Etapa actual:** {st.session_state.etapa}")  # Depuración
 
 if st.session_state.etapa == "inicio":
-    # Centrar el campo de entrada para el tema en el cuerpo principal
-    col1, col2, col3 = st.columns([1, 2, 1])
+    st.header("Generación de Elementos Iniciales")
+    theme = st.text_input("Ingrese el tema para su thriller político:", "")
 
-    with col1:
-        pass  # Espacio vacío
-
-    with col2:
-        st.header("Generación de Elementos Iniciales")
-        theme = st.text_input("Ingrese el tema para su thriller político:", "")
-
-        if st.button("Generar Elementos Iniciales"):
-            if not theme:
-                st.error("Por favor, ingrese un tema.")
-            else:
-                with st.spinner("Generando la estructura inicial..."):
-                    estructura = generar_estructura(theme)
-                    if estructura:
-                        titulo, trama, personajes, ambientacion, tecnica = extraer_elementos(estructura)
-                        # Guardar en el estado de la sesión
-                        st.session_state.estructura = estructura
-                        st.session_state.titulo = titulo
-                        st.session_state.trama = trama
-                        st.session_state.personajes = personajes
-                        st.session_state.ambientacion = ambientacion
-                        st.session_state.tecnica = tecnica
-                        st.session_state.etapa = "aprobacion"
-                    else:
-                        st.error("No se pudo generar la estructura inicial. Por favor, intente nuevamente.")
-
-    with col3:
-        pass  # Espacio vacío
+    if st.button("Generar Elementos Iniciales"):
+        if not theme:
+            st.error("Por favor, ingrese un tema.")
+        else:
+            with st.spinner("Generando la estructura inicial..."):
+                estructura = generar_estructura(theme)
+                if estructura:
+                    titulo, trama, personajes, ambientacion, tecnica = extraer_elementos(estructura)
+                    # Guardar en el estado de la sesión
+                    st.session_state.estructura = estructura
+                    st.session_state.titulo = titulo
+                    st.session_state.trama = trama
+                    st.session_state.personajes = personajes
+                    st.session_state.ambientacion = ambientacion
+                    st.session_state.tecnica = tecnica
+                    st.session_state.etapa = "aprobacion"
+                else:
+                    st.error("No se pudo generar la estructura inicial. Por favor, intente nuevamente.")
 
 if st.session_state.etapa == "aprobacion":
     mostrar_aprobacion()
