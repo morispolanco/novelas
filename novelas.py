@@ -7,8 +7,10 @@ from docx.shared import Inches, Pt
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from io import BytesIO
 import re
+import random
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+import matplotlib.pyplot as plt
 
 # Configuración de la página
 st.set_page_config(
@@ -49,7 +51,7 @@ if 'tecnica' not in st.session_state:
     st.session_state.tecnica = ""
 
 # Función para llamar a la API de OpenRouter con reintentos
-def call_openrouter_api(prompt):
+def call_openrouter_api(prompt, max_tokens=3000):
     api_url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
@@ -59,7 +61,7 @@ def call_openrouter_api(prompt):
         "model": "openai/gpt-4o-mini",
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.7,
-        "max_tokens": 3000,
+        "max_tokens": max_tokens,
         "top_p": 0.7,
         "top_k": 50,
         "repetition_penalty": 1,
@@ -133,7 +135,9 @@ def extraer_elementos(estructura):
     return titulo, trama, personajes, ambientacion, tecnica
 
 # Función para generar cada escena
-def generar_escena(capitulo, escena, trama, personajes, ambientacion, tecnica):
+def generar_escena(capitulo, escena, trama, personajes, ambientacion, tecnica, palabras):
+    # Estimar tokens: 1 palabra ≈ 1.3 tokens
+    max_tokens = int(palabras * 1.3)
     prompt = f"""
 Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso político con las siguientes características:
 
@@ -142,11 +146,11 @@ Personajes: {personajes}
 Ambientación: {ambientacion}
 Técnicas literarias: {tecnica}
 
-La escena debe tener al menos 1500 palabras, mantener la consistencia y coherencia, evitar clichés y frases hechas. 
+La escena debe tener aproximadamente {palabras} palabras, mantener la consistencia y coherencia, evitar clichés y frases hechas. 
 Utiliza rayas (—) para las intervenciones de los personajes.
 Debe incluir descripciones vívidas, diálogos agudos y dinámicos, y contribuir al desarrollo de la trama y los personajes.
 """
-    escena_texto = call_openrouter_api(prompt)
+    escena_texto = call_openrouter_api(prompt, max_tokens=max_tokens)
     return escena_texto
 
 # Función para generar la novela completa después de la aprobación
@@ -157,36 +161,76 @@ def generar_novela_completa(num_capitulos, num_escenas):
     ambientacion = st.session_state.ambientacion
     tecnica = st.session_state.tecnica
 
+    total_palabras = 40000
+    total_escenas = num_capitulos * num_escenas
+    palabras_por_escena_base = total_palabras // total_escenas
+    palabras_restantes = total_palabras - (palabras_por_escena_base * total_escenas)
+
+    # Crear una lista de palabras por escena con variación del ±10%
+    palabras_por_escena = []
+    for _ in range(total_escenas):
+        variacion = random.randint(-100, 100)  # Ajusta según la preferencia
+        palabras = palabras_por_escena_base + variacion
+        # Asegurar que cada escena tenga al menos 500 palabras
+        palabras = max(500, palabras)
+        palabras_por_escena.append(palabras)
+
+    # Ajustar las palabras restantes
+    for i in range(palabras_restantes):
+        palabras_por_escena[i % total_escenas] += 1
+
     novela = f"**{titulo}**\n\n"
 
     # Inicializar la barra de progreso
-    total = num_capitulos * num_escenas
     progress_bar = st.progress(0)
     progress_text = st.empty()
     current = 0
+
+    escena_index = 0  # Índice para acceder a palabras_por_escena
+    palabras_por_capitulo = {cap: [] for cap in range(1, num_capitulos + 1)}  # Para la gráfica
 
     # Generar cada capítulo y escena
     for cap in range(1, num_capitulos + 1):
         novela += f"## Capítulo {cap}\n\n"
         for esc in range(1, num_escenas + 1):
-            with st.spinner(f"Generando Capítulo {cap}, Escena {esc}..."):
-                escena = generar_escena(cap, esc, trama, personajes, ambientacion, tecnica)
+            palabras_escena = palabras_por_escena[escena_index]
+            palabras_por_capitulo[cap].append(palabras_escena)
+            with st.spinner(f"Generando Capítulo {cap}, Escena {esc} ({palabras_escena} palabras)..."):
+                escena = generar_escena(cap, esc, trama, personajes, ambientacion, tecnica, palabras_escena)
                 if not escena:
                     st.error(f"No se pudo generar la Escena {esc} del Capítulo {cap}.")
                     return None
                 # Limpiar saltos de línea manuales, reemplazándolos por saltos de párrafo
                 escena = escena.replace('\r\n', '\n').replace('\n', '\n\n')
                 novela += f"### Escena {esc}\n\n{escena}\n\n"
+                # Contar palabras generadas (estimación simple)
+                # Puedes mejorar esto con un conteo más preciso si lo deseas
+                # total_palabras_generadas += len(escena.split())
                 # Actualizar la barra de progreso
                 current += 1
-                progress_bar.progress(current / total)
-                progress_text.text(f"Progreso: {current}/{total} escenas generadas.")
+                progress_bar.progress(current / total_escenas)
+                progress_text.text(f"Progreso: {current}/{total_escenas} escenas generadas.")
+                escena_index += 1
                 # Retraso para evitar exceder los límites de la API
                 time.sleep(1)
 
     # Ocultar la barra de progreso y el texto de progreso
     progress_bar.empty()
     progress_text.empty()
+
+    # Mostrar el total de palabras generadas estimadas
+    total_palabras_generadas = len(novela.split())
+    st.write(f"**Total de palabras generadas estimadas:** {total_palabras_generadas}")
+
+    # Graficar la distribución de palabras por capítulo
+    fig, ax = plt.subplots(figsize=(10, 6))
+    for cap in palabras_por_capitulo:
+        ax.plot(range(1, num_escenas + 1), palabras_por_capitulo[cap], marker='o', label=f'Capítulo {cap}')
+    ax.set_xlabel('Escena')
+    ax.set_ylabel('Palabras')
+    ax.set_title('Distribución de Palabras por Escena en Cada Capítulo')
+    ax.legend()
+    st.pyplot(fig)
 
     st.session_state.novela_completa = novela
     st.session_state.etapa = "completado"
@@ -201,20 +245,24 @@ def exportar_a_word(titulo, novela_completa):
     section = document.sections[0]
     section.page_width = Inches(6)
     section.page_height = Inches(9)
-    section.top_margin = Inches(0.9)
-    section.bottom_margin = Inches(0.5)
-    section.left_margin = Inches(0.6)
-    section.right_margin = Inches(0.6)
+    section.top_margin = Inches(0.7)
+    section.bottom_margin = Inches(0.7)
+    section.left_margin = Inches(0.7)
+    section.right_margin = Inches(0.7)
 
-    # Establecer el estilo normal con la fuente Alegreya, 12 pt
+    # Establecer el estilo normal con una fuente común
     style = document.styles['Normal']
     font = style.font
-    font.name = 'Alegreya'
-    font.size = Pt(11)
+    font.name = 'Times New Roman'  # Cambiado a una fuente común
+    font.size = Pt(12)
 
     # Agregar el título
     titulo_paragraph = document.add_heading(titulo, level=0)
     titulo_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+    # Agregar la tabla de contenidos
+    agregar_tabla_de_contenidos(document)
+    document.add_page_break()
 
     # Separar la novela por capítulos
     capítulos = novela_completa.split("## Capítulo")
@@ -252,11 +300,33 @@ def exportar_a_word(titulo, novela_completa):
                     paragraph_format.line_spacing = 1.15
                     paragraph_format.space_after = Pt(6)
 
+    # Agregar el conteo total de palabras al final del documento
+    total_palabras = len(novela_completa.split())
+    document.add_page_break()
+    document.add_paragraph(f"**Total de palabras generadas:** {total_palabras}", style='Intense Quote')
+
     # Guardar el documento en memoria
     buffer = BytesIO()
     document.save(buffer)
     buffer.seek(0)
     return buffer
+
+# Función para agregar una tabla de contenidos automática
+def agregar_tabla_de_contenidos(document):
+    paragraph = document.add_paragraph()
+    run = paragraph.add_run()
+    fldChar1 = OxmlElement('w:fldChar')
+    fldChar1.set(qn('w:fldCharType'), 'begin')
+    instrText = OxmlElement('w:instrText')
+    instrText.text = 'TOC \\o "1-3" \\h \\z \\u'
+    fldChar2 = OxmlElement('w:fldChar')
+    fldChar2.set(qn('w:fldCharType'), 'separate')
+    fldChar3 = OxmlElement('w:fldChar')
+    fldChar3.set(qn('w:fldCharType'), 'end')
+    run._r.append(fldChar1)
+    run._r.append(instrText)
+    run._r.append(fldChar2)
+    run._r.append(fldChar3)
 
 # Interfaz de usuario para aprobar la estructura inicial
 def mostrar_aprobacion():
