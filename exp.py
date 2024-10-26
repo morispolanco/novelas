@@ -136,7 +136,285 @@ def extraer_elementos(estructura):
 
     return titulo, trama, subtramas, personajes, ambientacion, tecnica
 
-# Aquí continúan las demás funciones y el código principal...
+# Función para generar cada escena con subtramas y técnicas avanzadas de escritura
+def generar_escena(capitulo, escena, trama, subtramas, personajes, ambientacion, tecnica, palabras_trama, palabras_subtramas):
+    # Estimar tokens: 1 palabra ≈ 0.75 tokens
+    total_palabras_escena = palabras_trama + palabras_subtramas
+    total_max_tokens = int(total_palabras_escena / 0.75) + 100  # Añadimos un margen de 100 tokens
+
+    # Asegurar que no excedamos los límites del modelo
+    max_model_tokens = 9000  # Para claude-1
+    # max_model_tokens = 100000  # Para claude-2
+    total_max_tokens = min(total_max_tokens, max_model_tokens)
+
+    prompt = f"""
+Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso político de alta calidad con las siguientes características:
+
+- **Trama Principal**: {trama}
+- **Subtramas**: {subtramas}
+- **Personajes**: {personajes}
+- **Ambientación**: {ambientacion}
+- **Técnicas Literarias**: {tecnica}
+
+### Requisitos de la Escena:
+1. **Trama**: Desarrolla la trama principal con profundidad y añade giros inesperados que mantengan al lector intrigado.
+2. **Subtramas**: Integra las subtramas de manera que complementen y enriquezcan la trama principal, asegurando que cada una contribuya al desarrollo de los personajes y al avance de la historia.
+3. **Desarrollo de Personajes**: Asegúrate de que las interacciones entre personajes muestren sus arcos de desarrollo y relaciones complejas.
+4. **Ritmo**: Mantén un ritmo dinámico que equilibre la acción, el suspense y el desarrollo emocional.
+5. **Descripciones**: Utiliza descripciones vívidas y detalladas que permitan al lector visualizar claramente las escenas y sentir las emociones de los personajes.
+6. **Calidad Literaria**: Emplea técnicas literarias avanzadas como metáforas, simbolismo y foreshadowing para enriquecer la narrativa.
+7. **Coherencia y Cohesión**: Asegúrate de que los eventos y desarrollos sean lógicos y estén bien conectados con el resto de la historia.
+
+### Distribución de Palabras:
+- **Trama Principal**: Aproximadamente {palabras_trama} palabras.
+- **Subtramas**: Aproximadamente {palabras_subtramas} palabras.
+
+### Formato:
+- Utiliza rayas (—) para las intervenciones de los personajes.
+- Estructura el texto con párrafos claros y bien organizados.
+- Evita clichés y frases hechas, enfocándote en originalidad y frescura.
+
+Asegúrate de mantener la coherencia y la cohesión en toda la escena, contribuyendo significativamente al desarrollo general de la novela.
+"""
+    escena_texto = call_anthropic_api(prompt, max_tokens=total_max_tokens)
+    return escena_texto
+
+# Función para generar la novela completa después de la aprobación
+def generar_novela_completa(num_capitulos, num_escenas):
+    titulo = st.session_state.titulo
+    trama = st.session_state.trama
+    subtramas = st.session_state.subtramas
+    personajes = st.session_state.personajes
+    ambientacion = st.session_state.ambientacion
+    tecnica = st.session_state.tecnica
+
+    total_palabras = 20000  # Ajustado a 20,000 palabras
+    total_escenas = num_capitulos * num_escenas
+
+    # Distribuir las palabras entre trama principal y subtramas
+    porcentaje_trama_principal_decimal = porcentaje_trama_principal / 100  # Convertir a decimal
+    porcentaje_subtramas_decimal = porcentaje_subtramas / 100
+
+    palabras_trama_principal_total = int(total_palabras * porcentaje_trama_principal_decimal)
+    palabras_subtramas_total = total_palabras - palabras_trama_principal_total
+
+    # Distribuir palabras por escena para trama principal
+    palabras_por_escena_trama = palabras_trama_principal_total // total_escenas
+    palabras_restantes_trama = palabras_trama_principal_total - (palabras_por_escena_trama * total_escenas)
+
+    # Distribuir palabras por escena para subtramas
+    palabras_por_escena_subtramas = palabras_subtramas_total // total_escenas
+    palabras_restantes_subtramas = palabras_subtramas_total - (palabras_por_escena_subtramas * total_escenas)
+
+    # Crear listas de palabras por escena con variación del ±100 palabras para trama y ±50 para subtramas
+    palabras_por_escena_trama_lista = []
+    palabras_por_escena_subtramas_lista = []
+    for _ in range(total_escenas):
+        variacion_trama = random.randint(-100, 100)
+        palabras_trama = palabras_por_escena_trama + variacion_trama
+        palabras_trama = max(400, palabras_trama)  # Mínimo 400 palabras por escena de trama principal
+        palabras_por_escena_trama_lista.append(palabras_trama)
+
+        variacion_subtramas = random.randint(-50, 50)
+        palabras_subtramas = palabras_por_escena_subtramas + variacion_subtramas
+        palabras_subtramas = max(200, palabras_subtramas)  # Mínimo 200 palabras por escena de subtramas
+        palabras_por_escena_subtramas_lista.append(palabras_subtramas)
+
+    # Ajustar las palabras restantes
+    for i in range(palabras_restantes_trama):
+        palabras_por_escena_trama_lista[i % total_escenas] += 1
+
+    for i in range(palabras_restantes_subtramas):
+        palabras_por_escena_subtramas_lista[i % total_escenas] += 1
+
+    novela = f"**{titulo}**\n\n"
+
+    # Inicializar la barra de progreso
+    progress_bar = st.progress(0)
+    progress_text = st.empty()
+    current = 0
+
+    escena_index = 0  # Índice para acceder a las listas de palabras
+    palabras_por_capitulo = {cap: [] for cap in range(1, num_capitulos + 1)}  # Para la gráfica
+
+    # Generar cada capítulo y escena
+    for cap in range(1, num_capitulos + 1):
+        novela += f"## Capítulo {cap}\n\n"
+        for esc in range(1, num_escenas + 1):
+            palabras_trama_escena = palabras_por_escena_trama_lista[escena_index]
+            palabras_subtramas_escena = palabras_por_escena_subtramas_lista[escena_index]
+            total_palabras_escena = palabras_trama_escena + palabras_subtramas_escena
+
+            palabras_por_capitulo[cap].append(total_palabras_escena)
+            with st.spinner(f"Generando Capítulo {cap}, Escena {esc} ({total_palabras_escena} palabras)..."):
+                escena = generar_escena(cap, esc, trama, subtramas, personajes, ambientacion, tecnica,
+                                        palabras_trama_escena, palabras_subtramas_escena)
+                if not escena:
+                    st.error(f"No se pudo generar la Escena {esc} del Capítulo {cap}.")
+                    return None
+                # Limpiar saltos de línea manuales, reemplazándolos por saltos de párrafo
+                escena = escena.replace('\r\n', '\n').replace('\n', '\n\n')
+                novela += f"### Escena {esc}\n\n{escena}\n\n"
+                # Actualizar la barra de progreso
+                current += 1
+                progress_bar.progress(current / total_escenas)
+                progress_text.text(f"Progreso: {current}/{total_escenas} escenas generadas.")
+                escena_index += 1
+                # Retraso para evitar exceder los límites de la API
+                time.sleep(1)
+
+    # Ocultar la barra de progreso y el texto de progreso
+    progress_bar.empty()
+    progress_text.empty()
+
+    # Mostrar el total de palabras generadas estimadas
+    total_palabras_generadas = len(novela.split())
+    st.write(f"**Total de palabras generadas estimadas:** {total_palabras_generadas}")
+
+    # Graficar la distribución de palabras por capítulo
+    fig, ax = plt.subplots(figsize=(10, 6))
+    for cap in palabras_por_capitulo:
+        ax.plot(range(1, num_escenas + 1), palabras_por_capitulo[cap], marker='o', label=f'Capítulo {cap}')
+    ax.set_xlabel('Escena')
+    ax.set_ylabel('Palabras')
+    ax.set_title('Distribución de Palabras por Escena en Cada Capítulo')
+    ax.legend()
+    st.pyplot(fig)
+
+    st.session_state.novela_completa = novela
+    st.session_state.etapa = "completado"
+
+    return novela
+
+# Función para exportar la novela a un archivo de Word con el formato especificado
+def exportar_a_word(titulo, novela_completa):
+    document = Document()
+
+    # Configurar el tamaño de la página y márgenes
+    section = document.sections[0]
+    section.page_width = Inches(6)
+    section.page_height = Inches(9)
+    section.top_margin = Inches(0.7)
+    section.bottom_margin = Inches(0.7)
+    section.left_margin = Inches(0.7)
+    section.right_margin = Inches(0.7)
+
+    # Establecer el estilo normal con una fuente común
+    style = document.styles['Normal']
+    font = style.font
+    font.name = 'Times New Roman'  # Cambiado a una fuente común
+    font.size = Pt(12)
+
+    # Agregar el título
+    titulo_paragraph = document.add_heading(titulo, level=0)
+    titulo_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+    # Agregar la tabla de contenidos
+    agregar_tabla_de_contenidos(document)
+    document.add_paragraph("\n*Nota: Después de abrir el documento en Word, actualiza la tabla de contenidos seleccionándola y presionando F9 para actualizarla.*")
+    document.add_page_break()
+
+    # Separar la novela por capítulos
+    capítulos = novela_completa.split("## Capítulo")
+    for cap in capítulos:
+        cap = cap.strip()
+        if not cap:
+            continue
+        cap_num_match = re.match(r"(\d+)", cap)
+        cap_num = cap_num_match.group(1) if cap_num_match else "Sin número"
+        cap_content = cap.split('\n', 1)[1].strip() if '\n' in cap else ""
+
+        # Agregar el capítulo
+        document.add_heading(f"Capítulo {cap_num}", level=1)
+
+        # Separar por escenas
+        escenas = cap_content.split("### Escena")
+        for esc in escenas:
+            esc = esc.strip()
+            if not esc:
+                continue
+            esc_num_match = re.match(r"(\d+)", esc)
+            esc_num = esc_num_match.group(1) if esc_num_match else "Sin número"
+            esc_text = esc.split('\n', 1)[1].strip() if '\n' in esc else ""
+
+            # Agregar la escena
+            document.add_heading(f"Escena {esc_num}", level=2)
+
+            # Agregar el texto de la escena con saltos de párrafo
+            for paragraph_text in esc_text.split('\n\n'):
+                paragraph_text = paragraph_text.strip()
+                if paragraph_text:
+                    paragraph = document.add_paragraph(paragraph_text)
+                    paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+                    paragraph_format = paragraph.paragraph_format
+                    paragraph_format.line_spacing = 1.15
+                    paragraph_format.space_after = Pt(6)
+
+    # Agregar el conteo total de palabras al final del documento
+    total_palabras = len(novela_completa.split())
+    document.add_page_break()
+    document.add_paragraph(f"**Total de palabras generadas:** {total_palabras}", style='Intense Quote')
+
+    # Guardar el documento en memoria
+    buffer = BytesIO()
+    document.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+# Función para agregar una tabla de contenidos automática
+def agregar_tabla_de_contenidos(document):
+    paragraph = document.add_paragraph()
+    run = paragraph.add_run()
+    fldChar1 = OxmlElement('w:fldChar')
+    fldChar1.set(qn('w:fldCharType'), 'begin')
+    instrText = OxmlElement('w:instrText')
+    instrText.text = 'TOC \\o "1-3" \\h \\z \\u'
+    fldChar2 = OxmlElement('w:fldChar')
+    fldChar2.set(qn('w:fldCharType'), 'separate')
+    fldChar3 = OxmlElement('w:fldChar')
+    fldChar3.set(qn('w:fldCharType'), 'end')
+    run._r.append(fldChar1)
+    run._r.append(instrText)
+    run._r.append(fldChar2)
+    run._r.append(fldChar3)
+
+# Interfaz de usuario para aprobar la estructura inicial
+def mostrar_aprobacion():
+    st.header("Aprobación de Elementos Iniciales")
+    st.subheader("Título")
+    st.write(st.session_state.titulo)
+
+    st.subheader("Trama Principal")
+    st.write(st.session_state.trama)
+
+    st.subheader("Subtramas")
+    st.write(st.session_state.subtramas)
+
+    st.subheader("Personajes")
+    st.write(st.session_state.personajes)
+
+    st.subheader("Ambientación")
+    st.write(st.session_state.ambientacion)
+
+    st.subheader("Técnicas Literarias")
+    st.write(st.session_state.tecnica)
+
+    # Alinear los botones a la izquierda sin columnas
+    aprobar = st.button("Aprobar y Generar Novela", key="aprobar")
+    if aprobar:
+        st.session_state.etapa = "generacion"
+
+    rechazar = st.button("Rechazar y Regenerar Estructura", key="rechazar")
+    if rechazar:
+        # Reiniciamos los valores
+        st.session_state.estructura = None
+        st.session_state.titulo = ""
+        st.session_state.trama = ""
+        st.session_state.subtramas = ""
+        st.session_state.personajes = ""
+        st.session_state.ambientacion = ""
+        st.session_state.tecnica = ""
+        st.session_state.etapa = "inicio"
 
 # Interfaz de usuario principal
 st.write(f"**Etapa actual:** {st.session_state.etapa}")  # Depuración
@@ -164,10 +442,6 @@ if st.session_state.etapa == "inicio":
                     st.session_state.etapa = "aprobacion"
                 else:
                     st.error("No se pudo generar la estructura inicial. Por favor, intente nuevamente.")
-
-# Continúa con el resto del código...
-
-
 
 if st.session_state.etapa == "aprobacion":
     mostrar_aprobacion()
