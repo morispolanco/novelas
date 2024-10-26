@@ -4,3 +4,4 @@ python-docx
 markdown
 markdown2
 beautifulsoup4
+matplotlib
