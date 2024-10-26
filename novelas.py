@@ -265,7 +265,6 @@ def mostrar_aprobacion():
         aprobar = st.button("Aprobar y Generar Novela", key="aprobar")
         if aprobar:
             st.session_state.etapa = "generacion"
-            st.experimental_rerun()
 
     with col2:
         rechazar = st.button("Rechazar y Regenerar Estructura", key="rechazar")
@@ -278,7 +277,6 @@ def mostrar_aprobacion():
             st.session_state.ambientacion = ""
             st.session_state.tecnica = ""
             st.session_state.etapa = "inicio"
-            st.experimental_rerun()
 
 # Interfaz de usuario principal
 st.write(f"**Etapa actual:** {st.session_state.etapa}")  # Depuración
@@ -301,7 +299,6 @@ if st.session_state.etapa == "inicio":
                     st.session_state.ambientacion = ambientacion
                     st.session_state.tecnica = tecnica
                     st.session_state.etapa = "aprobacion"
-                    st.experimental_rerun()  # Forzar reejecución para pasar a la etapa de aprobación
                 else:
                     st.error("No se pudo generar la estructura inicial. Por favor, intente nuevamente.")
 
@@ -313,9 +310,6 @@ if st.session_state.etapa == "generacion":
         novela_completa = generar_novela_completa(num_capitulos, num_escenas)
         if novela_completa:
             st.session_state.etapa = "completado"
-            st.experimental_rerun()
-        else:
-            st.error("No se pudo generar la novela completa.")
 
 if st.session_state.etapa == "completado":
     if st.session_state.novela_completa:
