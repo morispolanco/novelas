@@ -59,8 +59,8 @@ if 'ambientacion' not in st.session_state:
 if 'tecnica' not in st.session_state:
     st.session_state.tecnica = ""
 
-# Función para llamar a la API de OpenRouter con reintentos
-def call_openrouter_api(prompt, max_tokens=3000):
+# Función para llamar a la API de OpenRouter con reintentos y parámetros ajustables
+def call_openrouter_api(prompt, max_tokens=3000, temperature=0.7, top_p=0.9, top_k=50, repetition_penalty=1.2):
     api_url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
@@ -69,11 +69,11 @@ def call_openrouter_api(prompt, max_tokens=3000):
     payload = {
         "model": "openai/gpt-4o-mini",
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.7,
+        "temperature": temperature,
         "max_tokens": max_tokens,
-        "top_p": 0.7,
-        "top_k": 50,
-        "repetition_penalty": 1,
+        "top_p": top_p,
+        "top_k": top_k,
+        "repetition_penalty": repetition_penalty,
         "stop": ["[\"<|eot_id|>\"]"],
         "stream": False
     }
@@ -96,20 +96,33 @@ def call_openrouter_api(prompt, max_tokens=3000):
         st.error(f"Error en la llamada a la API: {e}")
         return None
 
-# Función para generar la estructura inicial de la novela con subtramas
+# Función para generar la estructura inicial de la novela con subtramas y técnicas avanzadas
 def generar_estructura(theme):
     prompt = f"""
-Basado en el tema proporcionado, genera lo siguiente para una novela de suspenso político:
-- Título
-- Trama Principal
-- Subtramas (incluyendo nombres, descripciones, motivaciones)
-- Personajes (incluyendo nombres, descripciones, motivaciones)
-- Ambientación
-- Técnicas literarias a utilizar
+Basado en el tema proporcionado, genera una estructura detallada para una novela de suspenso político de alta calidad. Asegúrate de que la novela obtenga una calificación de 10 sobre 10 en los siguientes aspectos:
+- **Trama**: Compleja, bien desarrollada y llena de giros inesperados.
+- **Originalidad**: Ideas frescas y únicas que distinguen la novela de otras en el mismo género.
+- **Desarrollo de Personajes**: Personajes profundos, multidimensionales y realistas con arcos de desarrollo claros.
+- **Ritmo**: Fluido y bien equilibrado, manteniendo el interés del lector en todo momento.
+- **Descripciones**: Vivas y detalladas que permiten al lector visualizar escenas y emociones con claridad.
+- **Calidad General**: Cohesión, coherencia y excelencia literaria en todo momento.
+- **Técnicas Avanzadas de Escritura**:
+    - **Foreshadowing**: Introduce pistas sutiles sobre eventos futuros.
+    - **Metáforas y Simbolismo**: Utiliza figuras retóricas para enriquecer la narrativa.
+    - **Show, Don't Tell**: Enfócate en mostrar acciones y emociones en lugar de simplemente describirlas.
 
-Tema: {theme}
+### Estructura Requerida:
+1. **Título**
+2. **Trama Principal**
+3. **Subtramas** (incluyendo nombres, descripciones detalladas, motivaciones y cómo afectan a los personajes y la trama principal)
+4. **Personajes** (incluyendo nombres, descripciones físicas y psicológicas, motivaciones, y arcos de desarrollo)
+5. **Ambientación** (detallada y relevante para la trama)
+6. **Técnicas Literarias a Utilizar** (como metáforas, simbolismo, foreshadowing, etc.)
 
-Asegúrate de que todo sea coherente y adecuado para un thriller político.
+### Tema:
+{theme}
+
+Asegúrate de que toda la información generada sea coherente y adecuada para un thriller político de alta calidad.
 """
     estructura = call_openrouter_api(prompt)
     return estructura
@@ -147,7 +160,7 @@ def extraer_elementos(estructura):
 
     return titulo, trama, subtramas, personajes, ambientacion, tecnica
 
-# Función para generar cada escena con subtramas
+# Función para generar cada escena con subtramas y técnicas avanzadas de escritura
 def generar_escena(capitulo, escena, trama, subtramas, personajes, ambientacion, tecnica, palabras_trama, palabras_subtramas):
     # Estimar tokens: 1 palabra ≈ 1.3 tokens
     max_tokens_trama = int(palabras_trama * 1.3)
@@ -155,23 +168,35 @@ def generar_escena(capitulo, escena, trama, subtramas, personajes, ambientacion,
     total_max_tokens = max_tokens_trama + max_tokens_subtramas
 
     prompt = f"""
-Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso político con las siguientes características:
+Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso político de alta calidad con las siguientes características:
 
-Trama Principal: {trama}
-Subtramas: {subtramas}
-Personajes: {personajes}
-Ambientación: {ambientacion}
-Técnicas literarias: {tecnica}
+- **Trama Principal**: {trama}
+- **Subtramas**: {subtramas}
+- **Personajes**: {personajes}
+- **Ambientación**: {ambientacion}
+- **Técnicas Literarias**: {tecnica}
 
-La escena debe tener aproximadamente {palabras_trama + palabras_subtramas} palabras, distribuidas de la siguiente manera:
-- {palabras_trama} palabras para la trama principal.
-- {palabras_subtramas} palabras para las subtramas.
+### Requisitos de la Escena:
+1. **Trama**: Desarrolla la trama principal con profundidad y añade giros inesperados que mantengan al lector intrigado.
+2. **Subtramas**: Integra las subtramas de manera que complementen y enriquezcan la trama principal, asegurando que cada una contribuya al desarrollo de los personajes y al avance de la historia.
+3. **Desarrollo de Personajes**: Asegúrate de que las interacciones entre personajes muestren sus arcos de desarrollo y relaciones complejas.
+4. **Ritmo**: Mantén un ritmo dinámico que equilibre la acción, el suspense y el desarrollo emocional.
+5. **Descripciones**: Utiliza descripciones vívidas y detalladas que permitan al lector visualizar claramente las escenas y sentir las emociones de los personajes.
+6. **Calidad Literaria**: Emplea técnicas literarias avanzadas como metáforas, simbolismo y foreshadowing para enriquecer la narrativa.
+7. **Coherencia y Cohesión**: Asegúrate de que los eventos y desarrollos sean lógicos y estén bien conectados con el resto de la historia.
 
-Mantener la consistencia y coherencia, evitar clichés y frases hechas. 
-Utiliza rayas (—) para las intervenciones de los personajes.
-Debe incluir descripciones vívidas, diálogos agudos y dinámicos, y contribuir al desarrollo de la trama y los personajes, así como de las subtramas.
+### Distribución de Palabras:
+- **Trama Principal**: Aproximadamente {palabras_trama} palabras.
+- **Subtramas**: Aproximadamente {palabras_subtramas} palabras.
+
+### Formato:
+- Utiliza rayas (—) para las intervenciones de los personajes.
+- Estructura el texto con párrafos claros y bien organizados.
+- Evita clichés y frases hechas, enfocándote en originalidad y frescura.
+
+Asegúrate de mantener la coherencia y la cohesión en toda la escena, contribuyendo significativamente al desarrollo general de la novela.
 """
-    escena_texto = call_openrouter_api(prompt, max_tokens=total_max_tokens)
+    escena_texto = call_openrouter_api(prompt, max_tokens=total_max_tokens, temperature=0.7, top_p=0.9, top_k=50, repetition_penalty=1.2)
     return escena_texto
 
 # Función para generar la novela completa después de la aprobación
