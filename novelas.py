@@ -187,10 +187,10 @@ def generar_novela_completa(num_capitulos, num_escenas):
     total_escenas = num_capitulos * num_escenas
 
     # Distribuir las palabras entre trama principal y subtramas
-    porcentaje_trama_principal_decimal = porcentaje_trama_principal / 100  # Convertir a decimal
-    porcentaje_subtramas_decimal = porcentaje_subtramas / 100
+    porcentaje_trama_principal = porcentaje_trama_principal / 100  # Convertir a decimal
+    porcentaje_subtramas = porcentaje_subtramas / 100
 
-    palabras_trama_principal_total = int(total_palabras * porcentaje_trama_principal_decimal)
+    palabras_trama_principal_total = int(total_palabras * porcentaje_trama_principal)
     palabras_subtramas_total = total_palabras - palabras_trama_principal_total
 
     # Distribuir palabras por escena para trama principal
