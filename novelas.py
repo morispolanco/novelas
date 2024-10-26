@@ -44,9 +44,7 @@ if 'ambientacion' not in st.session_state:
 if 'tecnica' not in st.session_state:
     st.session_state.tecnica = ""
 if 'etapa' not in st.session_state:
-    st.session_state.etapa = "inicio"  # etapas: inicio, aprobacion, generacion
-if 'accion' not in st.session_state:
-    st.session_state.accion = None  # acciones: generar_estructura, aprobar, rechazar
+    st.session_state.etapa = "inicio"  # etapas: inicio, aprobacion, generacion, completado
 
 # Función para llamar a la API de Together
 def call_together_api(prompt):
@@ -110,7 +108,7 @@ def extraer_elementos(estructura):
     patrones = {
         'titulo': r"(?:Título|Titulo):\s*(.*)",
         'trama': r"Trama:\s*(.*)",
-        'personajes': r"Personajes:\s*((?:.|\n)*?)\n(?:Ambientación|Tecnicas|Técnicas literarias|$)",
+        'personajes': r"Personajes:\s*((?:.|\n)*?)\n(?:Ambientación|Ambientacion|Técnicas literarias|$)",
         'ambientacion': r"Ambientación:\s*((?:.|\n)*?)\n(?:Técnicas literarias|$)",
         'tecnica': r"Técnicas literarias(?: a utilizar)?:\s*((?:.|\n)*)"
     }
@@ -173,7 +171,7 @@ def generar_novela_completa(num_capitulos, num_escenas):
                 time.sleep(1)
 
     st.session_state.novela_completa = novela
-    st.session_state.etapa = "generacion"
+    st.session_state.etapa = "completado"
 
     return novela
 
@@ -265,12 +263,9 @@ def mostrar_aprobacion():
     with col1:
         if st.button("Aprobar y Generar Novela"):
             st.session_state.etapa = "generacion"
-            st.session_state.accion = "aprobar"
 
     with col2:
         if st.button("Rechazar y Regenerar Estructura"):
-            st.session_state.accion = "rechazar"
-            st.session_state.etapa = "inicio"
             # Reiniciamos los valores
             st.session_state.estructura = None
             st.session_state.titulo = ""
@@ -278,6 +273,7 @@ def mostrar_aprobacion():
             st.session_state.personajes = ""
             st.session_state.ambientacion = ""
             st.session_state.tecnica = ""
+            st.session_state.etapa = "inicio"
 
 # Interfaz de usuario principal
 if st.session_state.etapa == "inicio":
@@ -300,37 +296,35 @@ if st.session_state.etapa == "inicio":
                     st.session_state.etapa = "aprobacion"
                 else:
                     st.error("No se pudo generar la estructura inicial. Por favor, intente nuevamente.")
+
 elif st.session_state.etapa == "aprobacion":
     mostrar_aprobacion()
-    if st.session_state.accion == "aprobar":
-        with st.spinner("Generando la novela completa..."):
-            novela_completa = generar_novela_completa(num_capitulos, num_escenas)
-            if novela_completa:
-                st.success("Novela generada con éxito.")
-                # Exportar a Word
-                doc_buffer = exportar_a_word(st.session_state.titulo, novela_completa)
-                st.download_button(
-                    label="Descargar Novela en Word",
-                    data=doc_buffer,
-                    file_name=f"novela_thriller_politico_{int(time.time())}.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                )
-                # Mostrar la novela en la interfaz
-                st.text_area("Novela Generada:", st.session_state.novela_completa, height=600)
-        st.session_state.accion = None  # Reiniciar la acción
-    elif st.session_state.accion == "rechazar":
-        st.session_state.accion = None  # Reiniciar la acción
-        # La etapa ya se ha establecido en "inicio" en la función mostrar_aprobacion
+
 elif st.session_state.etapa == "generacion":
-    if st.session_state.novela_completa:
-        st.success("Novela generada con éxito.")
-        # Exportar a Word
-        doc_buffer = exportar_a_word(st.session_state.titulo, st.session_state.novela_completa)
-        st.download_button(
-            label="Descargar Novela en Word",
-            data=doc_buffer,
-            file_name=f"novela_thriller_politico_{int(time.time())}.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        )
-        # Mostrar la novela en la interfaz
-        st.text_area("Novela Generada:", st.session_state.novela_completa, height=600)
+    with st.spinner("Generando la novela completa..."):
+        novela_completa = generar_novela_completa(num_capitulos, num_escenas)
+        if novela_completa:
+            st.success("Novela generada con éxito.")
+            # Exportar a Word
+            doc_buffer = exportar_a_word(st.session_state.titulo, novela_completa)
+            st.download_button(
+                label="Descargar Novela en Word",
+                data=doc_buffer,
+                file_name=f"novela_thriller_politico_{int(time.time())}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
+            # Mostrar la novela en la interfaz
+            st.text_area("Novela Generada:", st.session_state.novela_completa, height=600)
+
+elif st.session_state.etapa == "completado":
+    st.success("Novela generada con éxito.")
+    # Exportar a Word
+    doc_buffer = exportar_a_word(st.session_state.titulo, st.session_state.novela_completa)
+    st.download_button(
+        label="Descargar Novela en Word",
+        data=doc_buffer,
+        file_name=f"novela_thriller_politico_{int(time.time())}.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    # Mostrar la novela en la interfaz
+    st.text_area("Novela Generada:", st.session_state.novela_completa, height=600)
