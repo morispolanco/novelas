@@ -26,7 +26,6 @@ Ingrese un tema y personalice el número de capítulos y escenas para crear una 
 st.sidebar.header("Configuración de la Novela")
 num_capitulos = st.sidebar.slider("Número de capítulos", min_value=3, max_value=15, value=12)
 num_escenas = st.sidebar.slider("Número de escenas por capítulo", min_value=3, max_value=7, value=3)
-theme = st.sidebar.text_input("Ingrese el tema para su thriller político:", "")
 
 # Inicializar el estado de la aplicación
 if 'etapa' not in st.session_state:
@@ -57,7 +56,7 @@ def call_together_api(prompt):
     payload = {
         "model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
         "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 3500,
+        "max_tokens": 2500,
         "temperature": 0.7,
         "top_p": 0.7,
         "top_k": 50,
@@ -156,6 +155,12 @@ def generar_novela_completa(num_capitulos, num_escenas):
 
     novela = f"**{titulo}**\n\n"
 
+    # Inicializar la barra de progreso
+    total = num_capitulos * num_escenas
+    progress_bar = st.progress(0)
+    progress_text = st.empty()
+    current = 0
+
     # Generar cada capítulo y escena
     for cap in range(1, num_capitulos + 1):
         novela += f"## Capítulo {cap}\n\n"
@@ -168,8 +173,16 @@ def generar_novela_completa(num_capitulos, num_escenas):
                 # Limpiar saltos de línea manuales, reemplazándolos por saltos de párrafo
                 escena = escena.replace('\r\n', '\n').replace('\n', '\n\n')
                 novela += f"### Escena {esc}\n\n{escena}\n\n"
+                # Actualizar la barra de progreso
+                current += 1
+                progress_bar.progress(current / total)
+                progress_text.text(f"Progreso: {current}/{total} escenas generadas.")
                 # Retraso para evitar exceder los límites de la API
                 time.sleep(1)
+
+    # Ocultar la barra de progreso y el texto de progreso
+    progress_bar.empty()
+    progress_text.empty()
 
     st.session_state.novela_completa = novela
     st.session_state.etapa = "completado"
@@ -182,8 +195,8 @@ def exportar_a_word(titulo, novela_completa):
 
     # Configurar el tamaño de la página y márgenes
     section = document.sections[0]
-    section.page_width = Inches(5)
-    section.page_height = Inches(8)
+    section.page_width = Inches(6)
+    section.page_height = Inches(9)
     section.top_margin = Inches(0.7)
     section.bottom_margin = Inches(0.7)
     section.left_margin = Inches(0.7)
@@ -259,14 +272,18 @@ def mostrar_aprobacion():
     st.subheader("Técnicas Literarias")
     st.write(st.session_state.tecnica)
 
-    col1, col2 = st.columns(2)
+    # Centrar los botones utilizando columnas
+    col1, col2, col3 = st.columns([1, 1, 1])
 
     with col1:
+        pass  # Espacio vacío
+
+    with col2:
         aprobar = st.button("Aprobar y Generar Novela", key="aprobar")
         if aprobar:
             st.session_state.etapa = "generacion"
 
-    with col2:
+    with col3:
         rechazar = st.button("Rechazar y Regenerar Estructura", key="rechazar")
         if rechazar:
             # Reiniciamos los valores
@@ -282,25 +299,37 @@ def mostrar_aprobacion():
 st.write(f"**Etapa actual:** {st.session_state.etapa}")  # Depuración
 
 if st.session_state.etapa == "inicio":
-    st.header("Generación de Elementos Iniciales")
-    if st.button("Generar Elementos Iniciales"):
-        if not theme:
-            st.error("Por favor, ingrese un tema.")
-        else:
-            with st.spinner("Generando la estructura inicial..."):
-                estructura = generar_estructura(theme)
-                if estructura:
-                    titulo, trama, personajes, ambientacion, tecnica = extraer_elementos(estructura)
-                    # Guardar en el estado de la sesión
-                    st.session_state.estructura = estructura
-                    st.session_state.titulo = titulo
-                    st.session_state.trama = trama
-                    st.session_state.personajes = personajes
-                    st.session_state.ambientacion = ambientacion
-                    st.session_state.tecnica = tecnica
-                    st.session_state.etapa = "aprobacion"
-                else:
-                    st.error("No se pudo generar la estructura inicial. Por favor, intente nuevamente.")
+    # Centrar el campo de entrada para el tema en el cuerpo principal
+    col1, col2, col3 = st.columns([1, 2, 1])
+
+    with col1:
+        pass  # Espacio vacío
+
+    with col2:
+        st.header("Generación de Elementos Iniciales")
+        theme = st.text_input("Ingrese el tema para su thriller político:", "")
+
+        if st.button("Generar Elementos Iniciales"):
+            if not theme:
+                st.error("Por favor, ingrese un tema.")
+            else:
+                with st.spinner("Generando la estructura inicial..."):
+                    estructura = generar_estructura(theme)
+                    if estructura:
+                        titulo, trama, personajes, ambientacion, tecnica = extraer_elementos(estructura)
+                        # Guardar en el estado de la sesión
+                        st.session_state.estructura = estructura
+                        st.session_state.titulo = titulo
+                        st.session_state.trama = trama
+                        st.session_state.personajes = personajes
+                        st.session_state.ambientacion = ambientacion
+                        st.session_state.tecnica = tecnica
+                        st.session_state.etapa = "aprobacion"
+                    else:
+                        st.error("No se pudo generar la estructura inicial. Por favor, intente nuevamente.")
+
+    with col3:
+        pass  # Espacio vacío
 
 if st.session_state.etapa == "aprobacion":
     mostrar_aprobacion()
