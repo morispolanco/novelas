@@ -56,7 +56,7 @@ def call_together_api(prompt):
     payload = {
         "model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
         "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 4000,
+        "max_tokens": 3000,
         "temperature": 0.7,
         "top_p": 0.7,
         "top_k": 50,
@@ -138,7 +138,7 @@ Personajes: {personajes}
 Ambientación: {ambientacion}
 Técnicas literarias: {tecnica}
 
-La escena debe tener al menos 2000 palabras, mantener la consistencia y coherencia, evitar clichés y frases hechas. 
+La escena debe tener al menos 1500 palabras, mantener la consistencia y coherencia, evitar clichés y frases hechas. 
 Utiliza rayas (—) para las intervenciones de los personajes.
 Debe incluir descripciones vívidas, diálogos agudos y dinámicos, y contribuir al desarrollo de la trama y los personajes.
 """
