@@ -10,7 +10,7 @@ import re
 import random
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  
 
 # Configuración de la página
 st.set_page_config(
