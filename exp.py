@@ -59,23 +59,23 @@ if 'ambientacion' not in st.session_state:
 if 'tecnica' not in st.session_state:
     st.session_state.tecnica = ""
 
-# Función para llamar a la API de Together con reintentos y parámetros ajustables
-def call_together_api(prompt, max_tokens=1200, temperature=0.7, top_p=0.7, top_k=50, repetition_penalty=1):
-    api_url = "https://api.together.xyz/v1/chat/completions"
+# Función para llamar a la API de Anthropic con reintentos y parámetros ajustables
+def call_anthropic_api(prompt, max_tokens=1024, model="claude-3-5", temperature=0.7, top_p=0.7, top_k=50):
+    api_url = "https://api.anthropic.com/v1/messages"
     headers = {
-        "Authorization": f"Bearer {st.secrets['TOGETHER_API_KEY']}",
-        "Content-Type": "application/json"
+        "x-api-key": st.secrets['ANTHROPIC_API_KEY'],
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json"
     }
     payload = {
-        "model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
-        "messages": [{"role": "user", "content": prompt}],
+        "model": model,
+        "max_tokens_to_sample": max_tokens,
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
         "temperature": temperature,
-        "max_tokens": max_tokens,
         "top_p": top_p,
-        "top_k": top_k,
-        "repetition_penalty": repetition_penalty,
-        "stop": ["<|eot_id|>"],
-        "stream": False
+        "top_k": top_k
     }
     
     session = requests.Session()
@@ -83,13 +83,13 @@ def call_together_api(prompt, max_tokens=1200, temperature=0.7, top_p=0.7, top_k
     session.mount('https://', HTTPAdapter(max_retries=retries))
     
     try:
-        response = session.post(api_url, headers=headers, data=json.dumps(payload))
+        response = session.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
         response_json = response.json()
-        if 'choices' in response_json and len(response_json['choices']) > 0:
-            return response_json['choices'][0]['message']['content']
+        if 'completion' in response_json:
+            return response_json['completion']
         else:
-            st.error("La respuesta de la API no contiene 'choices'.")
+            st.error("La respuesta de la API no contiene 'completion'.")
             st.write("Respuesta completa de la API:", response_json)
             return None
     except requests.exceptions.RequestException as e:
@@ -124,7 +124,7 @@ Basado en el tema proporcionado, genera una estructura detallada para una novela
 
 Asegúrate de que toda la información generada sea coherente y adecuada para un thriller político de alta calidad.
 """
-    estructura = call_together_api(prompt)
+    estructura = call_anthropic_api(prompt)
     return estructura
 
 # Función para extraer los elementos de la estructura usando expresiones regulares
@@ -165,7 +165,7 @@ def generar_escena(capitulo, escena, trama, subtramas, personajes, ambientacion,
     # Estimar tokens: 1 palabra ≈ 1.3 tokens
     max_tokens_trama = int(palabras_trama * 1.3)
     max_tokens_subtramas = int(palabras_subtramas * 1.3)
-    total_max_tokens = min(max_tokens_trama + max_tokens_subtramas, 1200)  # Asegurar que no exceda 1200
+    total_max_tokens = min(max_tokens_trama + max_tokens_subtramas, 1024)  # Asegurar que no exceda 1024
 
     prompt = f"""
 Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso político de alta calidad con las siguientes características:
@@ -196,7 +196,7 @@ Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso po
 
 Asegúrate de mantener la coherencia y la cohesión en toda la escena, contribuyendo significativamente al desarrollo general de la novela.
 """
-    escena_texto = call_together_api(prompt, max_tokens=total_max_tokens, temperature=0.7, top_p=0.7, top_k=50, repetition_penalty=1)
+    escena_texto = call_anthropic_api(prompt, max_tokens=total_max_tokens, temperature=0.7, top_p=0.7, top_k=50)
     return escena_texto
 
 # Función para generar la novela completa después de la aprobación
