@@ -58,7 +58,7 @@ if 'tecnica' not in st.session_state:
     st.session_state.tecnica = ""
 
 # Función para llamar a la API de Anthropic utilizando la librería oficial
-def call_anthropic_api(prompt, max_tokens, model="claude-2"):
+def call_anthropic_api(prompt, max_tokens, model="anthropic/claude-3.5-sonnet:beta"):
     client = anthropic.Client(api_key=st.secrets['ANTHROPIC_API_KEY'])
     try:
         response = client.completions.create(
