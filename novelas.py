@@ -262,11 +262,14 @@ def mostrar_aprobacion():
     col1, col2 = st.columns(2)
 
     with col1:
-        if st.button("Aprobar y Generar Novela"):
+        aprobar = st.button("Aprobar y Generar Novela", key="aprobar")
+        if aprobar:
             st.session_state.etapa = "generacion"
+            st.experimental_rerun()
 
     with col2:
-        if st.button("Rechazar y Regenerar Estructura"):
+        rechazar = st.button("Rechazar y Regenerar Estructura", key="rechazar")
+        if rechazar:
             # Reiniciamos los valores
             st.session_state.estructura = None
             st.session_state.titulo = ""
@@ -275,8 +278,11 @@ def mostrar_aprobacion():
             st.session_state.ambientacion = ""
             st.session_state.tecnica = ""
             st.session_state.etapa = "inicio"
+            st.experimental_rerun()
 
 # Interfaz de usuario principal
+st.write(f"**Etapa actual:** {st.session_state.etapa}")  # Depuración
+
 if st.session_state.etapa == "inicio":
     st.header("Generación de Elementos Iniciales")
     if st.button("Generar Elementos Iniciales"):
@@ -295,23 +301,23 @@ if st.session_state.etapa == "inicio":
                     st.session_state.ambientacion = ambientacion
                     st.session_state.tecnica = tecnica
                     st.session_state.etapa = "aprobacion"
+                    st.experimental_rerun()  # Forzar reejecución para pasar a la etapa de aprobación
                 else:
                     st.error("No se pudo generar la estructura inicial. Por favor, intente nuevamente.")
 
-elif st.session_state.etapa == "aprobacion":
+if st.session_state.etapa == "aprobacion":
     mostrar_aprobacion()
 
-    if st.session_state.etapa == "generacion":
-        with st.spinner("Generando la novela completa..."):
-            novela_completa = generar_novela_completa(num_capitulos, num_escenas)
-            if novela_completa:
-                st.session_state.etapa = "completado"
+if st.session_state.etapa == "generacion":
+    with st.spinner("Generando la novela completa..."):
+        novela_completa = generar_novela_completa(num_capitulos, num_escenas)
+        if novela_completa:
+            st.session_state.etapa = "completado"
+            st.experimental_rerun()
+        else:
+            st.error("No se pudo generar la novela completa.")
 
-elif st.session_state.etapa == "generacion":
-    # Esta etapa ahora no debería ser accesible directamente
-    pass
-
-elif st.session_state.etapa == "completado":
+if st.session_state.etapa == "completado":
     if st.session_state.novela_completa:
         st.success("Novela generada con éxito.")
         # Exportar a Word
