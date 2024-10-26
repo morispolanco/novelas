@@ -67,7 +67,14 @@ def call_together_api(prompt):
     try:
         response = requests.post(api_url, headers=headers, data=json.dumps(payload))
         if response.status_code == 200:
-            return response.json().get("choices")[0].get("message").get("content")
+            # Verificar si la respuesta contiene 'choices'
+            response_json = response.json()
+            if 'choices' in response_json and len(response_json['choices']) > 0:
+                return response_json['choices'][0]['message']['content']
+            else:
+                st.error("La respuesta de la API no contiene 'choices'.")
+                st.write("Respuesta completa de la API:", response_json)
+                return None
         else:
             st.error(f"Error en la API: {response.status_code} - {response.text}")
             return None
@@ -78,27 +85,40 @@ def call_together_api(prompt):
 # Función para generar la estructura inicial de la novela
 def generar_estructura(theme):
     prompt = f"""
-    Basado en el tema proporcionado, genera lo siguiente para una novela de suspenso político:
-    - Título
-    - Trama
-    - Personajes (incluyendo nombres, descripciones, motivaciones)
-    - Ambientación
-    - Técnicas literarias a utilizar
+Basado en el tema proporcionado, genera lo siguiente para una novela de suspenso político:
+- Título
+- Trama
+- Personajes (incluyendo nombres, descripciones, motivaciones)
+- Ambientación
+- Técnicas literarias a utilizar
 
-    Tema: {theme}
+Tema: {theme}
 
-    Asegúrate de que todo sea coherente y adecuado para un thriller político.
-    """
+Asegúrate de que todo sea coherente y adecuado para un thriller político.
+"""
     estructura = call_together_api(prompt)
     return estructura
 
 # Función para extraer los elementos de la estructura usando expresiones regulares
 def extraer_elementos(estructura):
-    titulo = re.search(r"Título:\s*(.*)", estructura, re.IGNORECASE)
-    trama = re.search(r"Trama:\s*(.*)", estructura, re.IGNORECASE)
-    personajes = re.search(r"Personajes:\s*(.*)", estructura, re.IGNORECASE | re.DOTALL)
-    ambientacion = re.search(r"Ambientación:\s*(.*)", estructura, re.IGNORECASE | re.DOTALL)
-    tecnica = re.search(r"Técnicas literarias:\s*(.*)", estructura, re.IGNORECASE | re.DOTALL)
+    # Mostrar la estructura completa para depuración
+    st.write("Estructura generada por la API:")
+    st.write(estructura)
+
+    # Patrón mejorado para extraer los elementos
+    patrones = {
+        'titulo': r"(?:Título|Titulo):\s*(.*)",
+        'trama': r"Trama:\s*(.*)",
+        'personajes': r"Personajes:\s*((?:.|\n)*?)\n(?:Ambientación|Tecnicas|Técnicas literarias|$)",
+        'ambientacion': r"Ambientación:\s*((?:.|\n)*?)\n(?:Técnicas literarias|$)",
+        'tecnica': r"Técnicas literarias(?: a utilizar)?:\s*((?:.|\n)*)"
+    }
+
+    titulo = re.search(patrones['titulo'], estructura, re.IGNORECASE)
+    trama = re.search(patrones['trama'], estructura, re.IGNORECASE)
+    personajes = re.search(patrones['personajes'], estructura, re.IGNORECASE)
+    ambientacion = re.search(patrones['ambientacion'], estructura, re.IGNORECASE)
+    tecnica = re.search(patrones['tecnica'], estructura, re.IGNORECASE)
 
     # Extraer el contenido, manejando posibles espacios y formatos
     titulo = titulo.group(1).strip() if titulo else "Sin título"
@@ -112,17 +132,17 @@ def extraer_elementos(estructura):
 # Función para generar cada escena
 def generar_escena(capitulo, escena, trama, personajes, ambientacion, tecnica):
     prompt = f"""
-    Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso político con las siguientes características:
+Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso político con las siguientes características:
 
-    Trama: {trama}
-    Personajes: {personajes}
-    Ambientación: {ambientacion}
-    Técnicas literarias: {tecnica}
+Trama: {trama}
+Personajes: {personajes}
+Ambientación: {ambientacion}
+Técnicas literarias: {tecnica}
 
-    La escena debe tener al menos 2000 palabras, mantener la consistencia y coherencia, evitar clichés y frases hechas. 
-    Utiliza rayas (—) para las intervenciones de los personajes.
-    Debe incluir descripciones vívidas, diálogos agudos y dinámicos, y contribuir al desarrollo de la trama y los personajes.
-    """
+La escena debe tener al menos 2000 palabras, mantener la consistencia y coherencia, evitar clichés y frases hechas. 
+Utiliza rayas (—) para las intervenciones de los personajes.
+Debe incluir descripciones vívidas, diálogos agudos y dinámicos, y contribuir al desarrollo de la trama y los personajes.
+"""
     escena_texto = call_together_api(prompt)
     return escena_texto
 
@@ -257,7 +277,7 @@ def mostrar_aprobacion():
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                     )
                     # Mostrar la novela en la interfaz
-                    st.text_area("Novela Generada:", novela_completa, height=600)
+                    st.text_area("Novela Generada:", st.session_state.novela_completa, height=600)
 
     with col2:
         if st.button("Rechazar y Regenerar Estructura"):
@@ -277,18 +297,21 @@ if st.session_state.etapa == "inicio":
         if not theme:
             st.error("Por favor, ingrese un tema.")
         else:
-            estructura = generar_estructura(theme)
-            if estructura:
-                titulo, trama, personajes, ambientacion, tecnica = extraer_elementos(estructura)
-                # Guardar en el estado de la sesión
-                st.session_state.estructura = estructura
-                st.session_state.titulo = titulo
-                st.session_state.trama = trama
-                st.session_state.personajes = personajes
-                st.session_state.ambientacion = ambientacion
-                st.session_state.tecnica = tecnica
-                st.session_state.etapa = "aprobacion"
-                st.experimental_rerun()
+            with st.spinner("Generando la estructura inicial..."):
+                estructura = generar_estructura(theme)
+                if estructura:
+                    titulo, trama, personajes, ambientacion, tecnica = extraer_elementos(estructura)
+                    # Guardar en el estado de la sesión
+                    st.session_state.estructura = estructura
+                    st.session_state.titulo = titulo
+                    st.session_state.trama = trama
+                    st.session_state.personajes = personajes
+                    st.session_state.ambientacion = ambientacion
+                    st.session_state.tecnica = tecnica
+                    st.session_state.etapa = "aprobacion"
+                    st.experimental_rerun()
+                else:
+                    st.error("No se pudo generar la estructura inicial. Por favor, intente nuevamente.")
 elif st.session_state.etapa == "aprobacion":
     mostrar_aprobacion()
 elif st.session_state.etapa == "generacion":
