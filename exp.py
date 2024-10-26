@@ -67,7 +67,7 @@ def call_anthropic_api(prompt, max_tokens=1000, model="claude-1"):
             temperature=0.7,
             prompt=f"{anthropic.HUMAN_PROMPT}{prompt}{anthropic.AI_PROMPT}"
         )
-        return response['completion'].strip()
+        return response.completion.strip()
     except Exception as e:
         st.error(f"Error en la llamada a la API de Anthropic: {e}")
         return None
