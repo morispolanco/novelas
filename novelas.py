@@ -47,6 +47,8 @@ if 'titulo' not in st.session_state:
     st.session_state.titulo = ""
 if 'trama' not in st.session_state:
     st.session_state.trama = ""
+if 'subtramas' not in st.session_state:
+    st.session_state.subtramas = ""
 if 'personajes' not in st.session_state:
     st.session_state.personajes = ""
 if 'ambientacion' not in st.session_state:
@@ -91,12 +93,13 @@ def call_openrouter_api(prompt, max_tokens=3000):
         st.error(f"Error en la llamada a la API: {e}")
         return None
 
-# Función para generar la estructura inicial de la novela
+# Función para generar la estructura inicial de la novela con subtramas
 def generar_estructura(theme):
     prompt = f"""
 Basado en el tema proporcionado, genera lo siguiente para una novela de suspenso político:
 - Título
-- Trama
+- Trama Principal
+- Subtramas (incluyendo nombres, descripciones, motivaciones)
 - Personajes (incluyendo nombres, descripciones, motivaciones)
 - Ambientación
 - Técnicas literarias a utilizar
@@ -114,10 +117,11 @@ def extraer_elementos(estructura):
     st.write("### Estructura generada por la API:")
     st.write(estructura)
 
-    # Patrón mejorado para extraer los elementos
+    # Patrón mejorado para extraer los elementos, incluyendo subtramas
     patrones = {
         'titulo': r"(?:Título|Titulo):\s*(.*)",
-        'trama': r"Trama:\s*(.*)",
+        'trama': r"Trama Principal:\s*((?:.|\n)*?)\n(?:Subtramas|Subtrama)",
+        'subtramas': r"Subtramas?:\s*((?:.|\n)*?)\n(?:Personajes|Ambientación|Ambientacion|Técnicas literarias|$)",
         'personajes': r"Personajes:\s*((?:.|\n)*?)\n(?:Ambientación|Ambientacion|Técnicas literarias|$)",
         'ambientacion': r"Ambientación:\s*((?:.|\n)*?)\n(?:Técnicas literarias|$)",
         'tecnica': r"Técnicas literarias(?: a utilizar)?:\s*((?:.|\n)*)"
@@ -125,63 +129,95 @@ def extraer_elementos(estructura):
 
     titulo = re.search(patrones['titulo'], estructura, re.IGNORECASE)
     trama = re.search(patrones['trama'], estructura, re.IGNORECASE)
+    subtramas = re.search(patrones['subtramas'], estructura, re.IGNORECASE)
     personajes = re.search(patrones['personajes'], estructura, re.IGNORECASE)
     ambientacion = re.search(patrones['ambientacion'], estructura, re.IGNORECASE)
     tecnica = re.search(patrones['tecnica'], estructura, re.IGNORECASE)
 
     # Extraer el contenido, manejando posibles espacios y formatos
     titulo = titulo.group(1).strip() if titulo else "Sin título"
-    trama = trama.group(1).strip() if trama else "Sin trama"
+    trama = trama.group(1).strip() if trama else "Sin trama principal"
+    subtramas = subtramas.group(1).strip() if subtramas else "Sin subtramas"
     personajes = personajes.group(1).strip() if personajes else "Sin personajes"
     ambientacion = ambientacion.group(1).strip() if ambientacion else "Sin ambientación"
     tecnica = tecnica.group(1).strip() if tecnica else "Sin técnicas literarias"
 
-    return titulo, trama, personajes, ambientacion, tecnica
+    return titulo, trama, subtramas, personajes, ambientacion, tecnica
 
-# Función para generar cada escena
-def generar_escena(capitulo, escena, trama, personajes, ambientacion, tecnica, palabras):
+# Función para generar cada escena con subtramas
+def generar_escena(capitulo, escena, trama, subtramas, personajes, ambientacion, tecnica, palabras_trama, palabras_subtramas):
     # Estimar tokens: 1 palabra ≈ 1.3 tokens
-    max_tokens = int(palabras * 1.3)
+    max_tokens_trama = int(palabras_trama * 1.3)
+    max_tokens_subtramas = int(palabras_subtramas * 1.3)
+    total_max_tokens = max_tokens_trama + max_tokens_subtramas
+
     prompt = f"""
 Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso político con las siguientes características:
 
-Trama: {trama}
+Trama Principal: {trama}
+Subtramas: {subtramas}
 Personajes: {personajes}
 Ambientación: {ambientacion}
 Técnicas literarias: {tecnica}
 
-La escena debe tener aproximadamente {palabras} palabras, mantener la consistencia y coherencia, evitar clichés y frases hechas. 
+La escena debe tener aproximadamente {palabras_trama + palabras_subtramas} palabras, distribuidas de la siguiente manera:
+- {palabras_trama} palabras para la trama principal.
+- {palabras_subtramas} palabras para las subtramas.
+
+Mantener la consistencia y coherencia, evitar clichés y frases hechas. 
 Utiliza rayas (—) para las intervenciones de los personajes.
-Debe incluir descripciones vívidas, diálogos agudos y dinámicos, y contribuir al desarrollo de la trama y los personajes.
+Debe incluir descripciones vívidas, diálogos agudos y dinámicos, y contribuir al desarrollo de la trama y los personajes, así como de las subtramas.
 """
-    escena_texto = call_openrouter_api(prompt, max_tokens=max_tokens)
+    escena_texto = call_openrouter_api(prompt, max_tokens=total_max_tokens)
     return escena_texto
 
 # Función para generar la novela completa después de la aprobación
 def generar_novela_completa(num_capitulos, num_escenas):
     titulo = st.session_state.titulo
     trama = st.session_state.trama
+    subtramas = st.session_state.subtramas
     personajes = st.session_state.personajes
     ambientacion = st.session_state.ambientacion
     tecnica = st.session_state.tecnica
 
-    total_palabras = 40000
+    total_palabras = 25000  # Ajustado a 25,000 palabras
     total_escenas = num_capitulos * num_escenas
-    palabras_por_escena_base = total_palabras // total_escenas
-    palabras_restantes = total_palabras - (palabras_por_escena_base * total_escenas)
 
-    # Crear una lista de palabras por escena con variación del ±100 palabras
-    palabras_por_escena = []
+    # Distribuir las palabras entre trama principal y subtramas
+    porcentaje_trama_principal = 0.7  # 70% para trama principal
+    porcentaje_subtramas = 0.3       # 30% para subtramas
+
+    palabras_trama_principal_total = int(total_palabras * porcentaje_trama_principal)
+    palabras_subtramas_total = total_palabras - palabras_trama_principal_total
+
+    # Distribuir palabras por escena para trama principal
+    palabras_por_escena_trama = palabras_trama_principal_total // total_escenas
+    palabras_restantes_trama = palabras_trama_principal_total - (palabras_por_escena_trama * total_escenas)
+
+    # Distribuir palabras por escena para subtramas
+    palabras_por_escena_subtramas = palabras_subtramas_total // total_escenas
+    palabras_restantes_subtramas = palabras_subtramas_total - (palabras_por_escena_subtramas * total_escenas)
+
+    # Crear listas de palabras por escena con variación del ±50 palabras
+    palabras_por_escena_trama_lista = []
+    palabras_por_escena_subtramas_lista = []
     for _ in range(total_escenas):
-        variacion = random.randint(-100, 100)  # Ajusta según la preferencia
-        palabras = palabras_por_escena_base + variacion
-        # Asegurar que cada escena tenga al menos 500 palabras
-        palabras = max(500, palabras)
-        palabras_por_escena.append(palabras)
+        variacion_trama = random.randint(-50, 50)
+        palabras_trama = palabras_por_escena_trama + variacion_trama
+        palabras_trama = max(300, palabras_trama)  # Mínimo 300 palabras por escena de trama principal
+        palabras_por_escena_trama_lista.append(palabras_trama)
+
+        variacion_subtramas = random.randint(-30, 30)
+        palabras_subtramas = palabras_por_escena_subtramas + variacion_subtramas
+        palabras_subtramas = max(150, palabras_subtramas)  # Mínimo 150 palabras por escena de subtramas
+        palabras_por_escena_subtramas_lista.append(palabras_subtramas)
 
     # Ajustar las palabras restantes
-    for i in range(palabras_restantes):
-        palabras_por_escena[i % total_escenas] += 1
+    for i in range(palabras_restantes_trama):
+        palabras_por_escena_trama_lista[i % total_escenas] += 1
+
+    for i in range(palabras_restantes_subtramas):
+        palabras_por_escena_subtramas_lista[i % total_escenas] += 1
 
     novela = f"**{titulo}**\n\n"
 
@@ -190,26 +226,27 @@ def generar_novela_completa(num_capitulos, num_escenas):
     progress_text = st.empty()
     current = 0
 
-    escena_index = 0  # Índice para acceder a palabras_por_escena
+    escena_index = 0  # Índice para acceder a las listas de palabras
     palabras_por_capitulo = {cap: [] for cap in range(1, num_capitulos + 1)}  # Para la gráfica
 
     # Generar cada capítulo y escena
     for cap in range(1, num_capitulos + 1):
         novela += f"## Capítulo {cap}\n\n"
         for esc in range(1, num_escenas + 1):
-            palabras_escena = palabras_por_escena[escena_index]
-            palabras_por_capitulo[cap].append(palabras_escena)
-            with st.spinner(f"Generando Capítulo {cap}, Escena {esc} ({palabras_escena} palabras)..."):
-                escena = generar_escena(cap, esc, trama, personajes, ambientacion, tecnica, palabras_escena)
+            palabras_trama_escena = palabras_por_escena_trama_lista[escena_index]
+            palabras_subtramas_escena = palabras_por_escena_subtramas_lista[escena_index]
+            total_palabras_escena = palabras_trama_escena + palabras_subtramas_escena
+
+            palabras_por_capitulo[cap].append(total_palabras_escena)
+            with st.spinner(f"Generando Capítulo {cap}, Escena {esc} ({total_palabras_escena} palabras)..."):
+                escena = generar_escena(cap, esc, trama, subtramas, personajes, ambientacion, tecnica, 
+                                        palabras_trama_escena, palabras_subtramas_escena)
                 if not escena:
                     st.error(f"No se pudo generar la Escena {esc} del Capítulo {cap}.")
                     return None
                 # Limpiar saltos de línea manuales, reemplazándolos por saltos de párrafo
                 escena = escena.replace('\r\n', '\n').replace('\n', '\n\n')
                 novela += f"### Escena {esc}\n\n{escena}\n\n"
-                # Contar palabras generadas (estimación simple)
-                # Puedes mejorar esto con un conteo más preciso si lo deseas
-                # total_palabras_generadas += len(escena.split())
                 # Actualizar la barra de progreso
                 current += 1
                 progress_bar.progress(current / total_escenas)
@@ -338,8 +375,11 @@ def mostrar_aprobacion():
     st.subheader("Título")
     st.write(st.session_state.titulo)
 
-    st.subheader("Trama")
+    st.subheader("Trama Principal")
     st.write(st.session_state.trama)
+
+    st.subheader("Subtramas")
+    st.write(st.session_state.subtramas)
 
     st.subheader("Personajes")
     st.write(st.session_state.personajes)
@@ -361,6 +401,7 @@ def mostrar_aprobacion():
         st.session_state.estructura = None
         st.session_state.titulo = ""
         st.session_state.trama = ""
+        st.session_state.subtramas = ""
         st.session_state.personajes = ""
         st.session_state.ambientacion = ""
         st.session_state.tecnica = ""
@@ -380,11 +421,12 @@ if st.session_state.etapa == "inicio":
             with st.spinner("Generando la estructura inicial..."):
                 estructura = generar_estructura(theme)
                 if estructura:
-                    titulo, trama, personajes, ambientacion, tecnica = extraer_elementos(estructura)
+                    titulo, trama, subtramas, personajes, ambientacion, tecnica = extraer_elementos(estructura)
                     # Guardar en el estado de la sesión
                     st.session_state.estructura = estructura
                     st.session_state.titulo = titulo
                     st.session_state.trama = trama
+                    st.session_state.subtramas = subtramas
                     st.session_state.personajes = personajes
                     st.session_state.ambientacion = ambientacion
                     st.session_state.tecnica = tecnica
