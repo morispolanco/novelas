@@ -57,7 +57,7 @@ def call_together_api(prompt):
     payload = {
         "model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
         "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 2500,
+        "max_tokens": 3500,
         "temperature": 0.7,
         "top_p": 0.7,
         "top_k": 50,
