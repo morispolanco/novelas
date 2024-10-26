@@ -7,6 +7,8 @@ from docx.shared import Inches, Pt
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from io import BytesIO
 import re
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Configuración de la página
 st.set_page_config(
@@ -46,39 +48,41 @@ if 'ambientacion' not in st.session_state:
 if 'tecnica' not in st.session_state:
     st.session_state.tecnica = ""
 
-# Función para llamar a la API de Together
-def call_together_api(prompt):
-    api_url = "https://api.together.xyz/v1/chat/completions"
+# Función para llamar a la API de OpenRouter con reintentos
+def call_openrouter_api(prompt):
+    api_url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
-        "Authorization": f"Bearer {st.secrets['TOGETHER_API_KEY']}",
+        "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+        "model": "openai/gpt-4o-mini",
         "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 3000,
         "temperature": 0.7,
+        "max_tokens": 3000,
         "top_p": 0.7,
         "top_k": 50,
         "repetition_penalty": 1,
         "stop": ["[\"<|eot_id|>\"]"],
         "stream": False
     }
+    
+    session = requests.Session()
+    retries = Retry(total=5, backoff_factor=1, status_forcelist=[502, 503, 504])
+    session.mount('https://', HTTPAdapter(max_retries=retries))
+    
     try:
-        response = requests.post(api_url, headers=headers, data=json.dumps(payload))
-        if response.status_code == 200:
-            response_json = response.json()
-            if 'choices' in response_json and len(response_json['choices']) > 0:
-                return response_json['choices'][0]['message']['content']
-            else:
-                st.error("La respuesta de la API no contiene 'choices'.")
-                st.write("Respuesta completa de la API:", response_json)
-                return None
+        response = session.post(api_url, headers=headers, data=json.dumps(payload))
+        response.raise_for_status()
+        response_json = response.json()
+        if 'choices' in response_json and len(response_json['choices']) > 0:
+            return response_json['choices'][0]['message']['content']
         else:
-            st.error(f"Error en la API: {response.status_code} - {response.text}")
+            st.error("La respuesta de la API no contiene 'choices'.")
+            st.write("Respuesta completa de la API:", response_json)
             return None
-    except Exception as e:
-        st.error(f"Excepción durante la llamada a la API: {e}")
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error en la llamada a la API: {e}")
         return None
 
 # Función para generar la estructura inicial de la novela
@@ -95,7 +99,7 @@ Tema: {theme}
 
 Asegúrate de que todo sea coherente y adecuado para un thriller político.
 """
-    estructura = call_together_api(prompt)
+    estructura = call_openrouter_api(prompt)
     return estructura
 
 # Función para extraer los elementos de la estructura usando expresiones regulares
@@ -142,7 +146,7 @@ La escena debe tener al menos 1500 palabras, mantener la consistencia y coherenc
 Utiliza rayas (—) para las intervenciones de los personajes.
 Debe incluir descripciones vívidas, diálogos agudos y dinámicos, y contribuir al desarrollo de la trama y los personajes.
 """
-    escena_texto = call_together_api(prompt)
+    escena_texto = call_openrouter_api(prompt)
     return escena_texto
 
 # Función para generar la novela completa después de la aprobación
@@ -197,16 +201,16 @@ def exportar_a_word(titulo, novela_completa):
     section = document.sections[0]
     section.page_width = Inches(6)
     section.page_height = Inches(9)
-    section.top_margin = Inches(0.7)
-    section.bottom_margin = Inches(0.7)
-    section.left_margin = Inches(0.7)
-    section.right_margin = Inches(0.7)
+    section.top_margin = Inches(0.9)
+    section.bottom_margin = Inches(0.5)
+    section.left_margin = Inches(0.6)
+    section.right_margin = Inches(0.6)
 
     # Establecer el estilo normal con la fuente Alegreya, 12 pt
     style = document.styles['Normal']
     font = style.font
     font.name = 'Alegreya'
-    font.size = Pt(12)
+    font.size = Pt(11)
 
     # Agregar el título
     titulo_paragraph = document.add_heading(titulo, level=0)
