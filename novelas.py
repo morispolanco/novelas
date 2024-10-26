@@ -10,7 +10,11 @@ import re
 import random
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-import matplotlib.pyplot as plt  
+import matplotlib.pyplot as plt
+
+# Nuevas importaciones necesarias para agregar la tabla de contenidos
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 
 # Configuración de la página
 st.set_page_config(
@@ -166,7 +170,7 @@ def generar_novela_completa(num_capitulos, num_escenas):
     palabras_por_escena_base = total_palabras // total_escenas
     palabras_restantes = total_palabras - (palabras_por_escena_base * total_escenas)
 
-    # Crear una lista de palabras por escena con variación del ±10%
+    # Crear una lista de palabras por escena con variación del ±100 palabras
     palabras_por_escena = []
     for _ in range(total_escenas):
         variacion = random.randint(-100, 100)  # Ajusta según la preferencia
