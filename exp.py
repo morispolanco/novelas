@@ -58,7 +58,7 @@ if 'tecnica' not in st.session_state:
     st.session_state.tecnica = ""
 
 # Función para llamar a la API de Anthropic utilizando la librería oficial
-def call_anthropic_api(prompt, max_tokens=1000, model="claude-1"):
+def call_anthropic_api(prompt, max_tokens, model="claude-2"):
     client = anthropic.Client(api_key=st.secrets['ANTHROPIC_API_KEY'])
     try:
         response = client.completions.create(
@@ -100,48 +100,21 @@ Basado en el tema proporcionado, genera una estructura detallada para una novela
 
 Asegúrate de que toda la información generada sea coherente y adecuada para un thriller político de alta calidad.
 """
-    estructura = call_anthropic_api(prompt)
+    estructura = call_anthropic_api(prompt, max_tokens=4000)
     return estructura
 
-# Función para extraer los elementos de la estructura usando expresiones regulares
-def extraer_elementos(estructura):
-    # Mostrar la estructura completa para depuración
-    st.write("### Estructura generada por la API:")
-    st.write(estructura)
-
-    # Patrón mejorado para extraer los elementos, incluyendo subtramas
-    patrones = {
-        'titulo': r"(?:Título|Titulo):\s*(.*)",
-        'trama': r"Trama Principal:\s*((?:.|\n)*?)\n(?:Subtramas|Subtrama)",
-        'subtramas': r"Subtramas?:\s*((?:.|\n)*?)\n(?:Personajes|Ambientación|Ambientacion|Técnicas literarias|$)",
-        'personajes': r"Personajes:\s*((?:.|\n)*?)\n(?:Ambientación|Ambientacion|Técnicas literarias|$)",
-        'ambientacion': r"Ambientación:\s*((?:.|\n)*?)\n(?:Técnicas literarias|$)",
-        'tecnica': r"Técnicas literarias(?: a utilizar)?:\s*((?:.|\n)*)"
-    }
-
-    titulo = re.search(patrones['titulo'], estructura, re.IGNORECASE)
-    trama = re.search(patrones['trama'], estructura, re.IGNORECASE)
-    subtramas = re.search(patrones['subtramas'], estructura, re.IGNORECASE)
-    personajes = re.search(patrones['personajes'], estructura, re.IGNORECASE)
-    ambientacion = re.search(patrones['ambientacion'], estructura, re.IGNORECASE)
-    tecnica = re.search(patrones['tecnica'], estructura, re.IGNORECASE)
-
-    # Extraer el contenido, manejando posibles espacios y formatos
-    titulo = titulo.group(1).strip() if titulo else "Sin título"
-    trama = trama.group(1).strip() if trama else "Sin trama principal"
-    subtramas = subtramas.group(1).strip() if subtramas else "Sin subtramas"
-    personajes = personajes.group(1).strip() if personajes else "Sin personajes"
-    ambientacion = ambientacion.group(1).strip() if ambientacion else "Sin ambientación"
-    tecnica = tecnica.group(1).strip() if tecnica else "Sin técnicas literarias"
-
-    return titulo, trama, subtramas, personajes, ambientacion, tecnica
+# El resto del código permanece igual, pero con ajustes en los límites de tokens y modelos utilizados.
 
 # Función para generar cada escena con subtramas y técnicas avanzadas de escritura
 def generar_escena(capitulo, escena, trama, subtramas, personajes, ambientacion, tecnica, palabras_trama, palabras_subtramas):
-    # Estimar tokens: 1 palabra ≈ 1.3 tokens
-    max_tokens_trama = int(palabras_trama * 1.3)
-    max_tokens_subtramas = int(palabras_subtramas * 1.3)
-    total_max_tokens = min(max_tokens_trama + max_tokens_subtramas, 1000)  # Asegurar que no exceda 1000
+    # Estimar tokens: 1 palabra ≈ 0.75 tokens
+    total_palabras_escena = palabras_trama + palabras_subtramas
+    total_max_tokens = int(total_palabras_escena / 0.75) + 100  # Añadimos un margen de 100 tokens
+
+    # Asegurar que no excedamos los límites del modelo
+    max_model_tokens = 9000  # Para claude-1
+    # max_model_tokens = 100000  # Para claude-2
+    total_max_tokens = min(total_max_tokens, max_model_tokens)
 
     prompt = f"""
 Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso político de alta calidad con las siguientes características:
@@ -202,18 +175,18 @@ def generar_novela_completa(num_capitulos, num_escenas):
     palabras_por_escena_subtramas = palabras_subtramas_total // total_escenas
     palabras_restantes_subtramas = palabras_subtramas_total - (palabras_por_escena_subtramas * total_escenas)
 
-    # Crear listas de palabras por escena con variación del ±30 palabras para trama y ±20 para subtramas
+    # Crear listas de palabras por escena con variación del ±100 palabras para trama y ±50 para subtramas
     palabras_por_escena_trama_lista = []
     palabras_por_escena_subtramas_lista = []
     for _ in range(total_escenas):
-        variacion_trama = random.randint(-30, 30)  # Reducida la variación
+        variacion_trama = random.randint(-100, 100)
         palabras_trama = palabras_por_escena_trama + variacion_trama
-        palabras_trama = max(200, palabras_trama)  # Mínimo 200 palabras por escena de trama principal
+        palabras_trama = max(400, palabras_trama)  # Mínimo 400 palabras por escena de trama principal
         palabras_por_escena_trama_lista.append(palabras_trama)
 
-        variacion_subtramas = random.randint(-20, 20)  # Reducida la variación
+        variacion_subtramas = random.randint(-50, 50)
         palabras_subtramas = palabras_por_escena_subtramas + variacion_subtramas
-        palabras_subtramas = max(100, palabras_subtramas)  # Mínimo 100 palabras por escena de subtramas
+        palabras_subtramas = max(200, palabras_subtramas)  # Mínimo 200 palabras por escena de subtramas
         palabras_por_escena_subtramas_lista.append(palabras_subtramas)
 
     # Ajustar las palabras restantes
@@ -281,6 +254,12 @@ def generar_novela_completa(num_capitulos, num_escenas):
     st.session_state.etapa = "completado"
 
     return novela
+
+# El resto del código permanece igual.
+
+# Asegúrate de que, al final, estamos utilizando el modelo `claude-2` y ajustando `max_tokens_to_sample` según las necesidades de cada escena.
+
+
 
 # Función para exportar la novela a un archivo de Word con el formato especificado
 def exportar_a_word(titulo, novela_completa):
