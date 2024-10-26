@@ -45,6 +45,8 @@ if 'tecnica' not in st.session_state:
     st.session_state.tecnica = ""
 if 'etapa' not in st.session_state:
     st.session_state.etapa = "inicio"  # etapas: inicio, aprobacion, generacion
+if 'accion' not in st.session_state:
+    st.session_state.accion = None  # acciones: generar_estructura, aprobar, rechazar
 
 # Función para llamar a la API de Together
 def call_together_api(prompt):
@@ -67,7 +69,6 @@ def call_together_api(prompt):
     try:
         response = requests.post(api_url, headers=headers, data=json.dumps(payload))
         if response.status_code == 200:
-            # Verificar si la respuesta contiene 'choices'
             response_json = response.json()
             if 'choices' in response_json and len(response_json['choices']) > 0:
                 return response_json['choices'][0]['message']['content']
@@ -264,31 +265,19 @@ def mostrar_aprobacion():
     with col1:
         if st.button("Aprobar y Generar Novela"):
             st.session_state.etapa = "generacion"
-            with st.spinner("Generando la novela completa..."):
-                novela_completa = generar_novela_completa(num_capitulos, num_escenas)
-                if novela_completa:
-                    st.success("Novela generada con éxito.")
-                    # Exportar a Word
-                    doc_buffer = exportar_a_word(st.session_state.titulo, novela_completa)
-                    st.download_button(
-                        label="Descargar Novela en Word",
-                        data=doc_buffer,
-                        file_name=f"novela_thriller_politico_{int(time.time())}.docx",
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    )
-                    # Mostrar la novela en la interfaz
-                    st.text_area("Novela Generada:", st.session_state.novela_completa, height=600)
+            st.session_state.accion = "aprobar"
 
     with col2:
         if st.button("Rechazar y Regenerar Estructura"):
+            st.session_state.accion = "rechazar"
+            st.session_state.etapa = "inicio"
+            # Reiniciamos los valores
             st.session_state.estructura = None
             st.session_state.titulo = ""
             st.session_state.trama = ""
             st.session_state.personajes = ""
             st.session_state.ambientacion = ""
             st.session_state.tecnica = ""
-            st.session_state.etapa = "inicio"
-            st.experimental_rerun()
 
 # Interfaz de usuario principal
 if st.session_state.etapa == "inicio":
@@ -309,11 +298,29 @@ if st.session_state.etapa == "inicio":
                     st.session_state.ambientacion = ambientacion
                     st.session_state.tecnica = tecnica
                     st.session_state.etapa = "aprobacion"
-                    st.experimental_rerun()
                 else:
                     st.error("No se pudo generar la estructura inicial. Por favor, intente nuevamente.")
 elif st.session_state.etapa == "aprobacion":
     mostrar_aprobacion()
+    if st.session_state.accion == "aprobar":
+        with st.spinner("Generando la novela completa..."):
+            novela_completa = generar_novela_completa(num_capitulos, num_escenas)
+            if novela_completa:
+                st.success("Novela generada con éxito.")
+                # Exportar a Word
+                doc_buffer = exportar_a_word(st.session_state.titulo, novela_completa)
+                st.download_button(
+                    label="Descargar Novela en Word",
+                    data=doc_buffer,
+                    file_name=f"novela_thriller_politico_{int(time.time())}.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
+                # Mostrar la novela en la interfaz
+                st.text_area("Novela Generada:", st.session_state.novela_completa, height=600)
+        st.session_state.accion = None  # Reiniciar la acción
+    elif st.session_state.accion == "rechazar":
+        st.session_state.accion = None  # Reiniciar la acción
+        # La etapa ya se ha establecido en "inicio" en la función mostrar_aprobacion
 elif st.session_state.etapa == "generacion":
     if st.session_state.novela_completa:
         st.success("Novela generada con éxito.")
