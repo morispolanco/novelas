@@ -6,6 +6,7 @@ from docx import Document
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from io import BytesIO
+import re
 
 # Configuración de la página
 st.set_page_config(
@@ -91,6 +92,23 @@ def generar_estructura(theme):
     estructura = call_together_api(prompt)
     return estructura
 
+# Función para extraer los elementos de la estructura usando expresiones regulares
+def extraer_elementos(estructura):
+    titulo = re.search(r"Título:\s*(.*)", estructura, re.IGNORECASE)
+    trama = re.search(r"Trama:\s*(.*)", estructura, re.IGNORECASE)
+    personajes = re.search(r"Personajes:\s*(.*)", estructura, re.IGNORECASE | re.DOTALL)
+    ambientacion = re.search(r"Ambientación:\s*(.*)", estructura, re.IGNORECASE | re.DOTALL)
+    tecnica = re.search(r"Técnicas literarias:\s*(.*)", estructura, re.IGNORECASE | re.DOTALL)
+
+    # Extraer el contenido, manejando posibles espacios y formatos
+    titulo = titulo.group(1).strip() if titulo else "Sin título"
+    trama = trama.group(1).strip() if trama else "Sin trama"
+    personajes = personajes.group(1).strip() if personajes else "Sin personajes"
+    ambientacion = ambientacion.group(1).strip() if ambientacion else "Sin ambientación"
+    tecnica = tecnica.group(1).strip() if tecnica else "Sin técnicas literarias"
+
+    return titulo, trama, personajes, ambientacion, tecnica
+
 # Función para generar cada escena
 def generar_escena(capitulo, escena, trama, personajes, ambientacion, tecnica):
     prompt = f"""
@@ -107,46 +125,6 @@ def generar_escena(capitulo, escena, trama, personajes, ambientacion, tecnica):
     """
     escena_texto = call_together_api(prompt)
     return escena_texto
-
-# Función para generar la novela completa
-def generar_novela(theme, num_capitulos, num_escenas):
-    # Generar la estructura inicial
-    with st.spinner("Generando la estructura de la novela..."):
-        estructura = generar_estructura(theme)
-        if not estructura:
-            st.error("No se pudo generar la estructura de la novela.")
-            return None
-
-    # Procesar la estructura para extraer título, trama, etc.
-    lineas = estructura.split('\n')
-    titulo = ""
-    trama = ""
-    personajes = ""
-    ambientacion = ""
-    tecnica = ""
-
-    for linea in lineas:
-        if linea.lower().startswith("título"):
-            titulo = linea.split(":", 1)[1].strip()
-        elif linea.lower().startswith("trama"):
-            trama = linea.split(":", 1)[1].strip()
-        elif linea.lower().startswith("personajes"):
-            personajes = linea.split(":", 1)[1].strip()
-        elif linea.lower().startswith("ambientación"):
-            ambientacion = linea.split(":", 1)[1].strip()
-        elif linea.lower().startswith("técnicas literarias"):
-            tecnica = linea.split(":", 1)[1].strip()
-
-    # Guardar en el estado de la sesión
-    st.session_state.estructura = estructura
-    st.session_state.titulo = titulo
-    st.session_state.trama = trama
-    st.session_state.personajes = personajes
-    st.session_state.ambientacion = ambientacion
-    st.session_state.tecnica = tecnica
-    st.session_state.etapa = "aprobacion"
-
-    return estructura
 
 # Función para generar la novela completa después de la aprobación
 def generar_novela_completa(num_capitulos, num_escenas):
@@ -168,7 +146,7 @@ def generar_novela_completa(num_capitulos, num_escenas):
                     st.error(f"No se pudo generar la Escena {esc} del Capítulo {cap}.")
                     return None
                 # Limpiar saltos de línea manuales, reemplazándolos por saltos de párrafo
-                escena = escena.replace('\n', '\n\n')
+                escena = escena.replace('\r\n', '\n').replace('\n', '\n\n')
                 novela += f"### Escena {esc}\n\n{escena}\n\n"
                 # Retraso para evitar exceder los límites de la API
                 time.sleep(1)
@@ -204,29 +182,38 @@ def exportar_a_word(titulo, novela_completa):
     # Separar la novela por capítulos
     capítulos = novela_completa.split("## Capítulo")
     for cap in capítulos:
-        if cap.strip() == "":
+        cap = cap.strip()
+        if not cap:
             continue
-        cap_num, *cap_contenido = cap.split('\n', 1)
-        cap_num = cap_num.strip()
-        cap_text = cap_contenido[0].strip() if cap_contenido else ""
+        cap_num_match = re.match(r"(\d+)", cap)
+        cap_num = cap_num_match.group(1) if cap_num_match else "Sin número"
+        cap_content = cap.split('\n', 1)[1].strip() if '\n' in cap else ""
+
+        # Agregar el capítulo
         document.add_heading(f"Capítulo {cap_num}", level=1)
 
         # Separar por escenas
-        escenas = cap_text.split("### Escena")
+        escenas = cap_content.split("### Escena")
         for esc in escenas:
-            if esc.strip() == "":
+            esc = esc.strip()
+            if not esc:
                 continue
-            esc_num, *esc_contenido = esc.split('\n', 1)
-            esc_num = esc_num.strip()
-            esc_text = esc_contenido[0].strip() if esc_contenido else ""
+            esc_num_match = re.match(r"(\d+)", esc)
+            esc_num = esc_num_match.group(1) if esc_num_match else "Sin número"
+            esc_text = esc.split('\n', 1)[1].strip() if '\n' in esc else ""
+
+            # Agregar la escena
             document.add_heading(f"Escena {esc_num}", level=2)
+
             # Agregar el texto de la escena con saltos de párrafo
             for paragraph_text in esc_text.split('\n\n'):
-                paragraph = document.add_paragraph(paragraph_text)
-                paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
-                paragraph_format = paragraph.paragraph_format
-                paragraph_format.line_spacing = 1.15
-                paragraph_format.space_after = Pt(6)
+                paragraph_text = paragraph_text.strip()
+                if paragraph_text:
+                    paragraph = document.add_paragraph(paragraph_text)
+                    paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+                    paragraph_format = paragraph.paragraph_format
+                    paragraph_format.line_spacing = 1.15
+                    paragraph_format.space_after = Pt(6)
 
     # Guardar el documento en memoria
     buffer = BytesIO()
@@ -252,41 +239,56 @@ def mostrar_aprobacion():
     st.subheader("Técnicas Literarias")
     st.write(st.session_state.tecnica)
 
-    if st.button("Aprobar y Generar Novela"):
-        st.session_state.etapa = "generacion"
-        with st.spinner("Generando la novela completa..."):
-            novela_completa = generar_novela_completa(num_capitulos, num_escenas)
-            if novela_completa:
-                st.success("Novela generada con éxito.")
-                # Exportar a Word
-                doc_buffer = exportar_a_word(st.session_state.titulo, novela_completa)
-                st.download_button(
-                    label="Descargar Novela en Word",
-                    data=doc_buffer,
-                    file_name=f"novela_thriller_politico_{int(time.time())}.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                )
-                # Mostrar la novela en la interfaz
-                st.text_area("Novela Generada:", novela_completa, height=600)
+    col1, col2 = st.columns(2)
 
-    if st.button("Rechazar y Regenerar Estructura"):
-        st.session_state.estructura = None
-        st.session_state.titulo = ""
-        st.session_state.trama = ""
-        st.session_state.personajes = ""
-        st.session_state.ambientacion = ""
-        st.session_state.tecnica = ""
-        st.session_state.etapa = "inicio"
+    with col1:
+        if st.button("Aprobar y Generar Novela"):
+            st.session_state.etapa = "generacion"
+            with st.spinner("Generando la novela completa..."):
+                novela_completa = generar_novela_completa(num_capitulos, num_escenas)
+                if novela_completa:
+                    st.success("Novela generada con éxito.")
+                    # Exportar a Word
+                    doc_buffer = exportar_a_word(st.session_state.titulo, novela_completa)
+                    st.download_button(
+                        label="Descargar Novela en Word",
+                        data=doc_buffer,
+                        file_name=f"novela_thriller_politico_{int(time.time())}.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    )
+                    # Mostrar la novela en la interfaz
+                    st.text_area("Novela Generada:", novela_completa, height=600)
+
+    with col2:
+        if st.button("Rechazar y Regenerar Estructura"):
+            st.session_state.estructura = None
+            st.session_state.titulo = ""
+            st.session_state.trama = ""
+            st.session_state.personajes = ""
+            st.session_state.ambientacion = ""
+            st.session_state.tecnica = ""
+            st.session_state.etapa = "inicio"
+            st.experimental_rerun()
 
 # Interfaz de usuario principal
 if st.session_state.etapa == "inicio":
+    st.header("Generación de Elementos Iniciales")
     if st.button("Generar Elementos Iniciales"):
         if not theme:
             st.error("Por favor, ingrese un tema.")
         else:
-            estructura = generar_novela(theme, num_capitulos, num_escenas)
+            estructura = generar_estructura(theme)
             if estructura:
-                st.success("Estructura generada. Por favor, revise y apruebe los elementos.")
+                titulo, trama, personajes, ambientacion, tecnica = extraer_elementos(estructura)
+                # Guardar en el estado de la sesión
+                st.session_state.estructura = estructura
+                st.session_state.titulo = titulo
+                st.session_state.trama = trama
+                st.session_state.personajes = personajes
+                st.session_state.ambientacion = ambientacion
+                st.session_state.tecnica = tecnica
+                st.session_state.etapa = "aprobacion"
+                st.experimental_rerun()
 elif st.session_state.etapa == "aprobacion":
     mostrar_aprobacion()
 elif st.session_state.etapa == "generacion":
@@ -302,4 +304,3 @@ elif st.session_state.etapa == "generacion":
         )
         # Mostrar la novela en la interfaz
         st.text_area("Novela Generada:", st.session_state.novela_completa, height=600)
-
