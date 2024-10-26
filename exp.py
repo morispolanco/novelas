@@ -1,5 +1,5 @@
 import streamlit as st
-import requests
+import anthropic
 import json
 import time
 from docx import Document
@@ -8,8 +8,6 @@ from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from io import BytesIO
 import re
 import random
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 import matplotlib.pyplot as plt
 
 # Nuevas importaciones necesarias para agregar la tabla de contenidos
@@ -59,41 +57,19 @@ if 'ambientacion' not in st.session_state:
 if 'tecnica' not in st.session_state:
     st.session_state.tecnica = ""
 
-# Función para llamar a la API de Anthropic con reintentos y parámetros ajustables
-def call_anthropic_api(prompt, max_tokens=1024, model="claude-3-5", temperature=0.7, top_p=0.7, top_k=50):
-    api_url = "https://api.anthropic.com/v1/messages"
-    headers = {
-        "x-api-key": st.secrets['ANTHROPIC_API_KEY'],
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json"
-    }
-    payload = {
-        "model": model,
-        "max_tokens_to_sample": max_tokens,
-        "messages": [
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": temperature,
-        "top_p": top_p,
-        "top_k": top_k
-    }
-    
-    session = requests.Session()
-    retries = Retry(total=5, backoff_factor=1, status_forcelist=[502, 503, 504])
-    session.mount('https://', HTTPAdapter(max_retries=retries))
-    
+# Función para llamar a la API de Anthropic utilizando la librería oficial
+def call_anthropic_api(prompt, max_tokens=1000, model="claude-1"):
+    client = anthropic.Client(api_key=st.secrets['ANTHROPIC_API_KEY'])
     try:
-        response = session.post(api_url, headers=headers, json=payload)
-        response.raise_for_status()
-        response_json = response.json()
-        if 'completion' in response_json:
-            return response_json['completion']
-        else:
-            st.error("La respuesta de la API no contiene 'completion'.")
-            st.write("Respuesta completa de la API:", response_json)
-            return None
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error en la llamada a la API: {e}")
+        response = client.completions.create(
+            model=model,
+            max_tokens_to_sample=max_tokens,
+            temperature=0.7,
+            prompt=f"{anthropic.HUMAN_PROMPT}{prompt}{anthropic.AI_PROMPT}"
+        )
+        return response['completion'].strip()
+    except Exception as e:
+        st.error(f"Error en la llamada a la API de Anthropic: {e}")
         return None
 
 # Función para generar la estructura inicial de la novela con subtramas y técnicas avanzadas
@@ -165,7 +141,7 @@ def generar_escena(capitulo, escena, trama, subtramas, personajes, ambientacion,
     # Estimar tokens: 1 palabra ≈ 1.3 tokens
     max_tokens_trama = int(palabras_trama * 1.3)
     max_tokens_subtramas = int(palabras_subtramas * 1.3)
-    total_max_tokens = min(max_tokens_trama + max_tokens_subtramas, 1024)  # Asegurar que no exceda 1024
+    total_max_tokens = min(max_tokens_trama + max_tokens_subtramas, 1000)  # Asegurar que no exceda 1000
 
     prompt = f"""
 Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso político de alta calidad con las siguientes características:
@@ -196,7 +172,7 @@ Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso po
 
 Asegúrate de mantener la coherencia y la cohesión en toda la escena, contribuyendo significativamente al desarrollo general de la novela.
 """
-    escena_texto = call_anthropic_api(prompt, max_tokens=total_max_tokens, temperature=0.7, top_p=0.7, top_k=50)
+    escena_texto = call_anthropic_api(prompt, max_tokens=total_max_tokens)
     return escena_texto
 
 # Función para generar la novela completa después de la aprobación
@@ -267,7 +243,7 @@ def generar_novela_completa(num_capitulos, num_escenas):
 
             palabras_por_capitulo[cap].append(total_palabras_escena)
             with st.spinner(f"Generando Capítulo {cap}, Escena {esc} ({total_palabras_escena} palabras)..."):
-                escena = generar_escena(cap, esc, trama, subtramas, personajes, ambientacion, tecnica, 
+                escena = generar_escena(cap, esc, trama, subtramas, personajes, ambientacion, tecnica,
                                         palabras_trama_escena, palabras_subtramas_escena)
                 if not escena:
                     st.error(f"No se pudo generar la Escena {esc} del Capítulo {cap}.")
