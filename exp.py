@@ -60,7 +60,8 @@ if 'tecnica' not in st.session_state:
     st.session_state.tecnica = ""
 
 # Función para llamar a la API de OpenRouter con reintentos y parámetros ajustables
-def call_together_api(prompt, max_tokens=2512, temperature=0.7, top_p=0.7, top_k=50, repetition_penalty=1):
+# Función para llamar a la API de Together con reintentos y parámetros ajustables
+def call_together_api(prompt, max_tokens=1200, temperature=0.7, top_p=0.7, top_k=50, repetition_penalty=1.0):
     api_url = "https://api.together.xyz/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {st.secrets['TOGETHER_API_KEY']}",
@@ -77,20 +78,24 @@ def call_together_api(prompt, max_tokens=2512, temperature=0.7, top_p=0.7, top_k
         "stop": ["[\"<|eot_id|>\"]"],
         "stream": True
     }
-
+    
+    session = requests.Session()
+    retries = Retry(total=5, backoff_factor=1, status_forcelist=[502, 503, 504])
+    session.mount('https://', HTTPAdapter(max_retries=retries))
+    
     try:
-        response = requests.post(api_url, headers=headers, data=json.dumps(payload))
+        response = session.post(api_url, headers=headers, data=json.dumps(payload))
         response.raise_for_status()
         response_json = response.json()
         if 'choices' in response_json and len(response_json['choices']) > 0:
             return response_json['choices'][0]['message']['content']
         else:
-            st.error("API response missing 'choices'.")
+            st.error("La respuesta de la API no contiene 'choices'.")
+            st.write("Respuesta completa de la API:", response_json)
             return None
     except requests.exceptions.RequestException as e:
-        st.error(f"API call error: {e}")
+        st.error(f"Error en la llamada a la API: {e}")
         return None
-
 
 # Función para generar la estructura inicial de la novela con subtramas y técnicas avanzadas
 def generar_estructura(theme):
@@ -472,7 +477,7 @@ if st.session_state.etapa == "completado":
         st.success("Novela generada con éxito.")
         # Exportar a Word
         doc_buffer = exportar_a_word(st.session_state.titulo, st.session_state.novela_completa)
-        st.download_button
+        st.download_button(
             label="Descargar Novela en Word",
             data=doc_buffer,
             file_name=f"novela_thriller_politico_{int(time.time())}.docx",
