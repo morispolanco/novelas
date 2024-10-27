@@ -77,11 +77,11 @@ def call_openrouter_api(prompt, max_tokens=1800, temperature=0.7, top_p=0.9, top
         "stop": ["[\"<|eot_id|>\"]"],
         "stream": False
     }
-    
+
     session = requests.Session()
     retries = Retry(total=5, backoff_factor=1, status_forcelist=[502, 503, 504])
     session.mount('https://', HTTPAdapter(max_retries=retries))
-    
+
     try:
         response = session.post(api_url, headers=headers, data=json.dumps(payload))
         response.raise_for_status()
@@ -98,37 +98,25 @@ def call_openrouter_api(prompt, max_tokens=1800, temperature=0.7, top_p=0.9, top
 
 # Función para generar la estructura inicial de la novela con subtramas y técnicas avanzadas
 def generar_estructura(theme):
-prompt = f"""
-Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso político de alta calidad con las siguientes características:
-
-- **Trama Principal**: {trama}
-- **Subtramas**: {subtramas}
-- **Personajes**: {personajes}
-- **Ambientación**: {ambientacion}
-- **Técnicas Literarias**: {tecnica}
-
-### Requisitos de la Escena:
-1. **Trama**: Desarrolla la trama principal con profundidad y añade giros inesperados que mantengan al lector intrigado.
-2. **Subtramas**: Integra las subtramas de manera que complementen y enriquezcan la trama principal, asegurando que cada una contribuya al desarrollo de los personajes y al avance de la historia.
-3. **Desarrollo de Personajes**: Asegúrate de que las interacciones entre personajes muestren sus arcos de desarrollo y relaciones complejas.
-4. **Ritmo**: Mantén un ritmo dinámico que equilibre la acción, el suspense y el desarrollo emocional.
-5. **Descripciones**: Utiliza descripciones vivas y detalladas, evitando que sean demasiado extensas. **Evita frases hechas y comunes** como “un silencio ensordecedor” o “el corazón latía apresuradamente”. **No repitas frases o clichés**; procura que cada descripción aporte frescura y claridad sin extenderse demasiado.
-6. **Inicio de Escena**: Los inicios de escena deben ser originales y no predecibles, evitando que se repitan patrones o comienzos que resulten similares en escenas consecutivas.
-7. **Calidad Literaria**: Emplea técnicas literarias avanzadas como metáforas, simbolismo y foreshadowing para enriquecer la narrativa.
-8. **Coherencia y Cohesión**: Asegúrate de que los eventos y desarrollos sean lógicos y estén bien conectados con el resto de la historia.
-
-### Distribución de Palabras:
-- **Trama Principal**: Aproximadamente {palabras_trama} palabras.
-- **Subtramas**: Aproximadamente {palabras_subtramas} palabras.
-
-### Formato:
-- Utiliza rayas (—) para las intervenciones de los personajes.
-- Estructura el texto con párrafos claros y bien organizados.
-- Evita clichés y frases hechas, enfocándote en originalidad y frescura.
-
-Asegúrate de mantener la coherencia y la cohesión en toda la escena, contribuyendo significativamente al desarrollo general de la novela.
-"""
-"""
+    prompt = f"""
+    Crea una estructura inicial para una novela de suspenso político basada en el tema: {theme}.
+    
+    ### Elementos de la Novela:
+    1. **Título**: 
+    2. **Trama Principal**:
+    3. **Subtramas**:
+    4. **Personajes**:
+    5. **Ambientación**:
+    6. **Técnicas Literarias**:
+    
+    ### Instrucciones:
+    - Proporciona un título atractivo que refleje el tema.
+    - Detalla una trama principal sólida con elementos de suspense y política.
+    - Incluye varias subtramas que complementen la trama principal.
+    - Describe los personajes principales y sus roles en la historia.
+    - Define la ambientación temporal y geográfica de la novela.
+    - Especifica técnicas literarias avanzadas a utilizar.
+    """
     estructura = call_openrouter_api(prompt)
     return estructura
 
@@ -189,14 +177,14 @@ Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso po
 5. **Descripciones**: Utiliza descripciones vívidas y detalladas que permitan al lector visualizar claramente las escenas y sentir las emociones de los personajes. Que no sean muy largas.
 6. **Calidad Literaria**: Emplea técnicas literarias avanzadas como metáforas, simbolismo y foreshadowing para enriquecer la narrativa.
 7. **Coherencia y Cohesión**: Asegúrate de que los eventos y desarrollos sean lógicos y estén bien conectados con el resto de la historia.
-8. ****Inicio de Escena**: Los inicios de escena deben ser originales y no predecibles, evitando que se repitan patrones o comienzos que resulten similares en escenas consecutivas.
+8. **Inicio de Escena**: Los inicios de escena deben ser originales y no predecibles, evitando que se repitan patrones o comienzos que resulten similares en escenas consecutivas.
 
 ### Distribución de Palabras:
 - **Trama Principal**: Aproximadamente {palabras_trama} palabras.
 - **Subtramas**: Aproximadamente {palabras_subtramas} palabras.
 
 ### Formato:
-- Utiliza raya para las intervenciones de los personajes.
+- Utiliza rayas (—) para las intervenciones de los personajes.
 - Estructura el texto con párrafos claros y bien organizados.
 - Evita clichés y frases hechas, enfocándote en originalidad y frescura.
 
@@ -214,11 +202,11 @@ def generar_novela_completa(num_capitulos, num_escenas):
     ambientacion = st.session_state.ambientacion
     tecnica = st.session_state.tecnica
 
-    total_palabras = 60000  # Total ajustado a 40,000 palabras
+    total_palabras = 40000  # Ajustar según sea necesario
     total_escenas = num_capitulos * num_escenas
 
     # Distribuir las palabras entre trama principal y subtramas
-    porcentaje_trama_principal_decimal = porcentaje_trama_principal / 100  # Convertir a decimal
+    porcentaje_trama_principal_decimal = porcentaje_trama_principal / 100
     porcentaje_subtramas_decimal = porcentaje_subtramas / 100
 
     palabras_trama_principal_total = int(total_palabras * porcentaje_trama_principal_decimal)
@@ -276,8 +264,12 @@ def generar_novela_completa(num_capitulos, num_escenas):
                 escena = generar_escena(cap, esc, trama, subtramas, personajes, ambientacion, tecnica, 
                                         palabras_trama_escena, palabras_subtramas_escena)
                 if not escena:
-                    st.error(f"No se pudo generar la Escena {esc} del Capítulo {cap}.")
-                    return None
+                    st.error(f"No se pudo generar la Escena {esc} del Capítulo {cap}. Intentando nuevamente...")
+                    escena = generar_escena(cap, esc, trama, subtramas, personajes, ambientacion, tecnica, 
+                                            palabras_trama_escena, palabras_subtramas_escena)
+                    if not escena:
+                        st.error(f"No se pudo generar la Escena {esc} del Capítulo {cap} después de dos intentos.")
+                        continue  # O manejar según sea necesario
                 # Limpiar saltos de línea manuales, reemplazándolos por saltos de párrafo
                 escena = escena.replace('\r\n', '\n').replace('\n', '\n\n')
                 novela += f"### Escena {esc}\n\n{escena}\n\n"
