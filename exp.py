@@ -17,7 +17,7 @@ from docx.oxml.ns import qn
 # Configuración del modelo y tokens
 TOGETHER_API_URL = "https://api.together.xyz/v1/chat/completions"
 MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct-Turbo"
-MAX_MODEL_TOKENS = 2512  # Según la especificación de tu cURL
+MAX_MODEL_TOKENS = 10000  # Según la especificación de tu cURL
 STOP_SEQUENCE = "<|eot_id|>"
 
 # Configuración de la página
