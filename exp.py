@@ -75,30 +75,40 @@ def call_anthropic_api(prompt, max_tokens, model="claude-1"):
 # Función para generar la estructura inicial de la novela con subtramas y técnicas avanzadas
 def generar_estructura(theme):
     prompt = f"""
-Basado en el tema proporcionado, genera una estructura detallada para una novela de suspenso político de alta calidad. Asegúrate de que la novela obtenga una calificación de 10 sobre 10 en los siguientes aspectos:
-- **Trama**: Compleja, bien desarrollada y llena de giros inesperados.
-- **Originalidad**: Ideas frescas y únicas que distinguen la novela de otras en el mismo género.
-- **Desarrollo de Personajes**: Personajes profundos, multidimensionales y realistas con arcos de desarrollo claros.
-- **Ritmo**: Fluido y bien equilibrado, manteniendo el interés del lector en todo momento.
-- **Descripciones**: Vivas y detalladas que permiten al lector visualizar escenas y emociones con claridad.
-- **Calidad General**: Cohesión, coherencia y excelencia literaria en todo momento.
-- **Técnicas Avanzadas de Escritura**:
-    - **Foreshadowing**: Introduce pistas sutiles sobre eventos futuros.
-    - **Metáforas y Simbolismo**: Utiliza figuras retóricas para enriquecer la narrativa.
-    - **Show, Don't Tell**: Enfócate en mostrar acciones y emociones en lugar de simplemente describirlas.
+Basado en el tema proporcionado, genera una estructura detallada para una novela de suspenso político de alta calidad. Utiliza encabezados claros para cada sección y asegúrate de que cada sección tenga contenido detallado.
 
-### Estructura Requerida:
-1. **Título**
-2. **Trama Principal**
-3. **Subtramas** (incluyendo nombres, descripciones detalladas, motivaciones y cómo afectan a los personajes y la trama principal)
-4. **Personajes** (incluyendo nombres, descripciones físicas y psicológicas, motivaciones, y arcos de desarrollo)
-5. **Ambientación** (detallada y relevante para la trama)
-6. **Técnicas Literarias a Utilizar** (como metáforas, simbolismo, foreshadowing, etc.)
+### Estructura:
+#### Título:
+El Filo del Abismo
 
-### Tema:
-{theme}
+#### Trama Principal:
+Una trama compleja llena de giros inesperados donde el protagonista descubre una conspiración gubernamental que amenaza con desestabilizar el país.
 
-Asegúrate de que toda la información generada sea coherente y adecuada para un thriller político de alta calidad.
+#### Subtramas:
+1. **Subtrama 1:**
+   La lucha interna del protagonista entre su deber profesional y sus creencias personales.
+2. **Subtrama 2:**
+   La relación conflictiva entre el protagonista y un aliado inesperado que tiene sus propios motivos ocultos.
+
+#### Personajes:
+1. **Nombre:** Alejandro Rivas
+   - **Descripción Física:** Alto, de cabello oscuro y ojos penetrantes.
+   - **Descripción Psicológica:** Inteligente, decidido pero con un pasado misterioso.
+   - **Motivaciones:** Desea descubrir la verdad y proteger a su familia.
+   - **Arco de Desarrollo:** De un agente desconfiado a un líder confiado y estratégico.
+2. **Nombre:** Laura Márquez
+   - **Descripción Física:** De estatura media, cabello rubio y sonrisa amable.
+   - **Descripción Psicológica:** Persuasiva, empática pero determinada.
+   - **Motivaciones:** Busca justicia y redención por errores pasados.
+   - **Arco de Desarrollo:** De una aliada insegura a una colaboradora clave y valiente.
+
+#### Ambientación:
+La historia se desarrolla en una metrópolis contemporánea con un trasfondo político tenso y conflictos sociales crecientes, proporcionando un ambiente propicio para la conspiración y el suspense.
+
+#### Técnicas Literarias a Utilizar:
+- Foreshadowing
+- Metáforas y Simbolismo
+- Show, Don't Tell
 """
     estructura = call_anthropic_api(prompt, max_tokens=4000)
     return estructura
@@ -109,14 +119,13 @@ def extraer_elementos(estructura):
     st.write("### Estructura generada por la API:")
     st.write(estructura)
 
-    # Patrón mejorado para extraer los elementos, incluyendo subtramas
     patrones = {
-        'titulo': r"(?:Título|Titulo):\s*(.*)",
-        'trama': r"Trama Principal:\s*((?:.|\n)*?)\n(?:Subtramas|Subtrama)",
-        'subtramas': r"Subtramas?:\s*((?:.|\n)*?)\n(?:Personajes|Ambientación|Ambientacion|Técnicas literarias|$)",
-        'personajes': r"Personajes:\s*((?:.|\n)*?)\n(?:Ambientación|Ambientacion|Técnicas literarias|$)",
-        'ambientacion': r"Ambientación:\s*((?:.|\n)*?)\n(?:Técnicas literarias|$)",
-        'tecnica': r"Técnicas literarias(?: a utilizar)?:\s*((?:.|\n)*)"
+        'titulo': r"#### Título:\s*(.*)",
+        'trama': r"#### Trama Principal:\s*((?:.|\n)*?)(?=#### Subtramas:)",
+        'subtramas': r"#### Subtramas:\s*((?:.|\n)*?)(?=#### Personajes:)",
+        'personajes': r"#### Personajes:\s*((?:.|\n)*?)(?=#### Ambientación:)",
+        'ambientacion': r"#### Ambientación:\s*((?:.|\n)*?)(?=#### Técnicas Literarias a Utilizar:)",
+        'tecnica': r"#### Técnicas Literarias a Utilizar:\s*((?:.|\n)*)"
     }
 
     titulo = re.search(patrones['titulo'], estructura, re.IGNORECASE)
@@ -134,6 +143,15 @@ def extraer_elementos(estructura):
     ambientacion = ambientacion.group(1).strip() if ambientacion else "Sin ambientación"
     tecnica = tecnica.group(1).strip() if tecnica else "Sin técnicas literarias"
 
+    # Mostrar cada elemento para depuración
+    st.write("### Elementos Extraídos:")
+    st.write(f"**Título:** {titulo}")
+    st.write(f"**Trama Principal:** {trama}")
+    st.write(f"**Subtramas:** {subtramas}")
+    st.write(f"**Personajes:** {personajes}")
+    st.write(f"**Ambientación:** {ambientacion}")
+    st.write(f"**Técnicas Literarias:** {tecnica}")
+
     return titulo, trama, subtramas, personajes, ambientacion, tecnica
 
 # Función para generar cada escena con subtramas y técnicas avanzadas de escritura
@@ -143,8 +161,8 @@ def generar_escena(capitulo, escena, trama, subtramas, personajes, ambientacion,
     total_max_tokens = int(total_palabras_escena / 0.75) + 100  # Añadimos un margen de 100 tokens
 
     # Asegurar que no excedamos los límites del modelo
-    max_model_tokens = 9000  # Para claude-1
-    # max_model_tokens = 100000  # Para claude-2, descomenta si usas claude-2
+    max_model_tokens = 100000  # Para claude-2
+    # max_model_tokens = 9000  # Para claude-1, si usas este modelo
     total_max_tokens = min(total_max_tokens, max_model_tokens)
 
     prompt = f"""
@@ -206,16 +224,16 @@ def generar_novela_completa(num_capitulos, num_escenas):
     palabras_por_escena_subtramas = palabras_subtramas_total // total_escenas
     palabras_restantes_subtramas = palabras_subtramas_total - (palabras_por_escena_subtramas * total_escenas)
 
-    # Crear listas de palabras por escena con variación del ±100 palabras para trama y ±50 para subtramas
+    # Crear listas de palabras por escena con mayor variación
     palabras_por_escena_trama_lista = []
     palabras_por_escena_subtramas_lista = []
     for _ in range(total_escenas):
-        variacion_trama = random.randint(-100, 100)
+        variacion_trama = random.randint(-200, 200)  # Mayor variación
         palabras_trama = palabras_por_escena_trama + variacion_trama
         palabras_trama = max(300, palabras_trama)  # Mínimo 300 palabras por escena de trama principal
         palabras_por_escena_trama_lista.append(palabras_trama)
 
-        variacion_subtramas = random.randint(-50, 50)
+        variacion_subtramas = random.randint(-100, 100)  # Mayor variación
         palabras_subtramas = palabras_por_escena_subtramas + variacion_subtramas
         palabras_subtramas = max(150, palabras_subtramas)  # Mínimo 150 palabras por escena de subtramas
         palabras_por_escena_subtramas_lista.append(palabras_subtramas)
