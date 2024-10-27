@@ -1,5 +1,4 @@
 import streamlit as st
-import json
 import time
 from docx import Document
 from docx.shared import Inches, Pt
@@ -14,15 +13,15 @@ from together import Together
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
+# Inicializar el cliente de Together
+client = Together()
+
 # Configuración de la página
 st.set_page_config(
     page_title="Generador de Novelas de Suspenso Político",
     layout="wide",
     initial_sidebar_state="expanded",
 )
-
-# Inicializar el cliente de Together
-client = Together()
 
 # Título de la aplicación
 st.title("Generador de Novelas de Suspenso Político")
@@ -43,24 +42,12 @@ st.sidebar.write(f"Porcentaje de palabras para subtramas: {porcentaje_subtramas}
 if 'etapa' not in st.session_state:
     st.session_state.etapa = "inicio"  # etapas: inicio, aprobacion, generacion, completado
 
-if 'estructura' not in st.session_state:
-    st.session_state.estructura = None
 if 'novela_completa' not in st.session_state:
-    st.session_state.novela_completa = None
-if 'titulo' not in st.session_state:
-    st.session_state.titulo = ""
-if 'trama' not in st.session_state:
-    st.session_state.trama = ""
-if 'subtramas' not in st.session_state:
-    st.session_state.subtramas = ""
-if 'personajes' not in st.session_state:
-    st.session_state.personajes = ""
-if 'ambientacion' not in st.session_state:
-    st.session_state.ambientacion = ""
-if 'tecnica' not in st.session_state:
-    st.session_state.tecnica = ""
+    st.session_state.novela_completa = ""
+if 'novela_doc' not in st.session_state:
+    st.session_state.novela_doc = Document()
 
-# Función para llamar a la API de Together con reintentos y parámetros ajustables
+# Función para llamar a la API de Together y generar escenas
 def call_together_api(prompt, max_tokens=1200, temperature=0.7, top_p=0.9, top_k=50, repetition_penalty=1.2):
     response = client.chat.completions.create(
         model="Qwen/Qwen2.5-7B-Instruct-Turbo",
@@ -74,7 +61,7 @@ def call_together_api(prompt, max_tokens=1200, temperature=0.7, top_p=0.9, top_k
         stream=True
     )
 
-    # Preparar para mostrar la respuesta en tiempo real en Streamlit
+    # Generación de respuesta en tiempo real
     respuesta_completa = ""
     output_text = st.empty()  # Espacio para mostrar la respuesta en tiempo real
 
@@ -87,72 +74,80 @@ def call_together_api(prompt, max_tokens=1200, temperature=0.7, top_p=0.9, top_k
 
     return respuesta_completa
 
-# Función para generar la estructura inicial de la novela con subtramas y técnicas avanzadas
-def generar_estructura(theme):
+# Función para generar cada escena y agregarla al documento de Word
+def generar_escena(capitulo, escena, trama, subtramas, personajes, ambientacion, tecnica, palabras_trama, palabras_subtramas):
     prompt = f"""
-    Basado en el tema proporcionado, genera una estructura detallada para una novela de suspenso político...
-    """
-    estructura = call_together_api(prompt)
-    return estructura
+Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso político de alta calidad con las siguientes características:
 
-# Función para extraer los elementos de la estructura usando expresiones regulares
-def extraer_elementos(estructura):
-    st.write("### Estructura generada por la API:")
-    st.write(estructura)
+- **Trama Principal**: {trama}
+- **Subtramas**: {subtramas}
+- **Personajes**: {personajes}
+- **Ambientación**: {ambientacion}
+- **Técnicas Literarias**: {tecnica}
 
-    # Patrón mejorado para extraer los elementos, incluyendo subtramas
-    patrones = {
-        'titulo': r"(?:Título|Titulo):\s*(.*)",
-        'trama': r"Trama Principal:\s*((?:.|\n)*?)\n(?:Subtramas|Subtrama)",
-        'subtramas': r"Subtramas?:\s*((?:.|\n)*?)\n(?:Personajes|Ambientación|Ambientacion|Técnicas literarias|$)",
-        'personajes': r"Personajes:\s*((?:.|\n)*?)\n(?:Ambientación|Ambientacion|Técnicas literarias|$)",
-        'ambientacion': r"Ambientación:\s*((?:.|\n)*?)\n(?:Técnicas literarias|$)",
-        'tecnica': r"Técnicas literarias(?: a utilizar)?:\s*((?:.|\n)*)"
-    }
+Asegúrate de mantener la coherencia y la cohesión en toda la escena, contribuyendo significativamente al desarrollo general de la novela.
+"""
+    # Llamar a la API para generar la escena
+    escena_texto = call_together_api(prompt, max_tokens=1200, temperature=0.7, top_p=0.9, top_k=50, repetition_penalty=1.2)
+    
+    # Agregar la escena generada al contenido de la novela y al documento de Word
+    st.session_state.novela_completa += f"### Escena {escena} (Capítulo {capitulo})\n\n{escena_texto}\n\n"
 
-    titulo = re.search(patrones['titulo'], estructura, re.IGNORECASE)
-    trama = re.search(patrones['trama'], estructura, re.IGNORECASE)
-    subtramas = re.search(patrones['subtramas'], estructura, re.IGNORECASE)
-    personajes = re.search(patrones['personajes'], estructura, re.IGNORECASE)
-    ambientacion = re.search(patrones['ambientacion'], estructura, re.IGNORECASE)
-    tecnica = re.search(patrones['tecnica'], estructura, re.IGNORECASE)
+    # Añadir capítulo y escena al documento de Word
+    st.session_state.novela_doc.add_heading(f"Capítulo {capitulo}", level=1)
+    st.session_state.novela_doc.add_heading(f"Escena {escena}", level=2)
+    for paragraph in escena_texto.split('\n'):
+        st.session_state.novela_doc.add_paragraph(paragraph.strip())
 
-    # Extraer el contenido, manejando posibles espacios y formatos
-    titulo = titulo.group(1).strip() if titulo else "Sin título"
-    trama = trama.group(1).strip() if trama else "Sin trama principal"
-    subtramas = subtramas.group(1).strip() if subtramas else "Sin subtramas"
-    personajes = personajes.group(1).strip() if personajes else "Sin personajes"
-    ambientacion = ambientacion.group(1).strip() if ambientacion else "Sin ambientación"
-    tecnica = tecnica.group(1).strip() if tecnica else "Sin técnicas literarias"
+    return escena_texto
 
-    return titulo, trama, subtramas, personajes, ambientacion, tecnica
+# Función para generar la novela completa
+def generar_novela_completa(num_capitulos, num_escenas, trama, subtramas, personajes, ambientacion, tecnica):
+    for cap in range(1, num_capitulos + 1):
+        for esc in range(1, num_escenas + 1):
+            palabras_trama = 600  # Número estimado de palabras para la trama principal por escena
+            palabras_subtramas = 200  # Número estimado de palabras para subtramas por escena
+
+            with st.spinner(f"Generando Escena {esc} del Capítulo {cap}..."):
+                escena_texto = generar_escena(cap, esc, trama, subtramas, personajes, ambientacion, tecnica, palabras_trama, palabras_subtramas)
+                time.sleep(1)  # Retraso para evitar exceder los límites de la API
+
+# Función para exportar la novela a Word
+def exportar_a_word():
+    buffer = BytesIO()
+    st.session_state.novela_doc.save(buffer)
+    buffer.seek(0)
+    return buffer
 
 # Interfaz de usuario principal
-st.write(f"**Etapa actual:** {st.session_state.etapa}")
-
 if st.session_state.etapa == "inicio":
-    st.header("Generación de Elementos Iniciales")
+    st.header("Configuración Inicial")
     theme = st.text_input("Ingrese el tema para su thriller político:", "")
-
     if st.button("Generar Elementos Iniciales"):
-        if not theme:
-            st.error("Por favor, ingrese un tema.")
+        if theme:
+            # Llamar a la API para generar la estructura inicial (simplificado)
+            st.session_state.trama = f"Trama principal basada en el tema: {theme}"
+            st.session_state.subtramas = "Varias subtramas que complementan la historia principal."
+            st.session_state.personajes = "Personajes complejos y bien desarrollados."
+            st.session_state.ambientacion = "Ambientación acorde a la trama de suspenso político."
+            st.session_state.tecnica = "Uso de técnicas literarias avanzadas."
+
+            # Cambiar la etapa para empezar a generar la novela
+            st.session_state.etapa = "generacion"
         else:
-            with st.spinner("Generando la estructura inicial..."):
-                estructura = generar_estructura(theme)
-                if estructura:
-                    titulo, trama, subtramas, personajes, ambientacion, tecnica = extraer_elementos(estructura)
-                    st.session_state.estructura = estructura
-                    st.session_state.titulo = titulo
-                    st.session_state.trama = trama
-                    st.session_state.subtramas = subtramas
-                    st.session_state.personajes = personajes
-                    st.session_state.ambientacion = ambientacion
-                    st.session_state.tecnica = tecnica
-                    st.session_state.etapa = "completado"
-                else:
-                    st.error("No se pudo generar la estructura inicial. Por favor, intente nuevamente.")
+            st.error("Por favor, ingrese un tema.")
+
+if st.session_state.etapa == "generacion":
+    if st.button("Generar Novela Completa"):
+        generar_novela_completa(num_capitulos, num_escenas, st.session_state.trama, st.session_state.subtramas, st.session_state.personajes, st.session_state.ambientacion, st.session_state.tecnica)
+        st.session_state.etapa = "completado"
 
 if st.session_state.etapa == "completado":
-    if st.session_state.estructura:
-        st.success("Estructura de la novela generada con éxito.")
+    st.success("Novela generada con éxito.")
+    st.download_button(
+        label="Descargar Novela en Word",
+        data=exportar_a_word(),
+        file_name="novela_thriller_politico.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    st.text_area("Novela Generada:", st.session_state.novela_completa, height=600)
