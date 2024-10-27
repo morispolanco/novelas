@@ -201,7 +201,7 @@ Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso po
 - Evita clichés y frases hechas, enfocándote en originalidad y frescura.
 
 Asegúrate de mantener la coherencia y la cohesión en toda la escena, contribuyendo significativamente al desarrollo general de la novela.
-"""
+
     escena_texto = call_openrouter_api(prompt, max_tokens=total_max_tokens, temperature=0.7, top_p=0.9, top_k=50, repetition_penalty=1.2)
     return escena_texto
 
