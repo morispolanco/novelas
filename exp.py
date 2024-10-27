@@ -14,6 +14,10 @@ import matplotlib.pyplot as plt
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
+# Configuración del modelo y tokens
+MODEL_NAME = "claude-1"
+MAX_MODEL_TOKENS = 9000  # Límite para claude-1
+
 # Configuración de la página
 st.set_page_config(
     page_title="Generador de Novelas de Suspenso Político",
@@ -58,7 +62,7 @@ if 'tecnica' not in st.session_state:
     st.session_state.tecnica = ""
 
 # Función para llamar a la API de Anthropic utilizando la librería oficial
-def call_anthropic_api(prompt, max_tokens, model="claude-1"):
+def call_anthropic_api(prompt, max_tokens, model=MODEL_NAME):
     client = anthropic.Client(api_key=st.secrets['ANTHROPIC_API_KEY'])
     try:
         response = client.completions.create(
@@ -143,11 +147,10 @@ def extraer_elementos(estructura):
 def generar_escena(capitulo, escena, trama, subtramas, personajes, ambientacion, tecnica, palabras_trama, palabras_subtramas):
     # Estimar tokens: Reducimos la estimación para adaptarnos al límite
     total_palabras_escena = palabras_trama + palabras_subtramas
-    total_max_tokens = int(total_palabras_escena * 1.5)  # Ajustamos el multiplicador
+    total_max_tokens = int(total_palabras_escena * 1.5)
 
     # Asegurar que no excedamos los límites del modelo
-    max_model_tokens = 9000  # Límite para claude-1
-    total_max_tokens = min(total_max_tokens, max_model_tokens)
+    total_max_tokens = min(total_max_tokens, MAX_MODEL_TOKENS)
 
     prompt = f"""
 Escribe la **Escena {escena}** del **Capítulo {capitulo}** de una novela de suspenso político de alta calidad.
@@ -262,10 +265,11 @@ def generar_novela_completa(num_capitulos, num_escenas):
 
             # Asegurar que total_max_tokens no exceda el límite
             total_max_tokens = int(total_palabras_escena * 1.5)
-            if total_max_tokens > max_model_tokens:
-                total_palabras_escena = int(max_model_tokens / 1.5)
-                palabras_trama_escena = int(total_palabras_escena * (porcentaje_trama_principal_decimal))
+            if total_max_tokens > MAX_MODEL_TOKENS:
+                total_palabras_escena = int(MAX_MODEL_TOKENS / 1.5)
+                palabras_trama_escena = int(total_palabras_escena * porcentaje_trama_principal_decimal)
                 palabras_subtramas_escena = total_palabras_escena - palabras_trama_escena
+                total_max_tokens = MAX_MODEL_TOKENS
 
             palabras_por_capitulo[cap].append(total_palabras_escena)
             with st.spinner(f"Generando Capítulo {cap}, Escena {esc} ({total_palabras_escena} palabras)..."):
