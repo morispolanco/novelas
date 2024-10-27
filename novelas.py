@@ -98,31 +98,36 @@ def call_openrouter_api(prompt, max_tokens=1800, temperature=0.7, top_p=0.9, top
 
 # Función para generar la estructura inicial de la novela con subtramas y técnicas avanzadas
 def generar_estructura(theme):
-    prompt = f"""
-Basado en el tema proporcionado, genera una estructura detallada para una novela de suspenso político de alta calidad. Asegúrate de que la novela obtenga una calificación de 10 sobre 10 en los siguientes aspectos:
-- **Trama**: Compleja, bien desarrollada y llena de giros inesperados.
-- **Originalidad**: Ideas frescas y únicas que distinguen la novela de otras en el mismo género.
-- **Desarrollo de Personajes**: Personajes profundos, multidimensionales y realistas con arcos de desarrollo claros.
-- **Ritmo**: Fluido y bien equilibrado, manteniendo el interés del lector en todo momento.
-- **Descripciones**: Vivas y detalladas que permiten al lector visualizar escenas y emociones con claridad.
-- **Calidad General**: Cohesión, coherencia y excelencia literaria en todo momento.
-- **Técnicas Avanzadas de Escritura**:
-    - **Foreshadowing**: Introduce pistas sutiles sobre eventos futuros.
-    - **Metáforas y Simbolismo**: Utiliza figuras retóricas para enriquecer la narrativa.
-    - **Show, Don't Tell**: Enfócate en mostrar acciones y emociones en lugar de simplemente describirlas.
+prompt = f"""
+Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso político de alta calidad con las siguientes características:
 
-### Estructura Requerida:
-1. **Título**
-2. **Trama Principal**
-3. **Subtramas** (incluyendo nombres, descripciones detalladas, motivaciones y cómo afectan a los personajes y la trama principal)
-4. **Personajes** (incluyendo nombres, descripciones físicas y psicológicas, motivaciones, y arcos de desarrollo)
-5. **Ambientación** (detallada y relevante para la trama)
-6. **Técnicas Literarias a Utilizar** (como metáforas, simbolismo, foreshadowing, etc.)
+- **Trama Principal**: {trama}
+- **Subtramas**: {subtramas}
+- **Personajes**: {personajes}
+- **Ambientación**: {ambientacion}
+- **Técnicas Literarias**: {tecnica}
 
-### Tema:
-{theme}
+### Requisitos de la Escena:
+1. **Trama**: Desarrolla la trama principal con profundidad y añade giros inesperados que mantengan al lector intrigado.
+2. **Subtramas**: Integra las subtramas de manera que complementen y enriquezcan la trama principal, asegurando que cada una contribuya al desarrollo de los personajes y al avance de la historia.
+3. **Desarrollo de Personajes**: Asegúrate de que las interacciones entre personajes muestren sus arcos de desarrollo y relaciones complejas.
+4. **Ritmo**: Mantén un ritmo dinámico que equilibre la acción, el suspense y el desarrollo emocional.
+5. **Descripciones**: Utiliza descripciones vivas y detalladas, evitando que sean demasiado extensas. **Evita frases hechas y comunes** como “un silencio ensordecedor” o “el corazón latía apresuradamente”. **No repitas frases o clichés**; procura que cada descripción aporte frescura y claridad sin extenderse demasiado.
+6. **Inicio de Escena**: Los inicios de escena deben ser originales y no predecibles, evitando que se repitan patrones o comienzos que resulten similares en escenas consecutivas.
+7. **Calidad Literaria**: Emplea técnicas literarias avanzadas como metáforas, simbolismo y foreshadowing para enriquecer la narrativa.
+8. **Coherencia y Cohesión**: Asegúrate de que los eventos y desarrollos sean lógicos y estén bien conectados con el resto de la historia.
 
-Asegúrate de que toda la información generada sea coherente y adecuada para un thriller político de alta calidad.
+### Distribución de Palabras:
+- **Trama Principal**: Aproximadamente {palabras_trama} palabras.
+- **Subtramas**: Aproximadamente {palabras_subtramas} palabras.
+
+### Formato:
+- Utiliza rayas (—) para las intervenciones de los personajes.
+- Estructura el texto con párrafos claros y bien organizados.
+- Evita clichés y frases hechas, enfocándote en originalidad y frescura.
+
+Asegúrate de mantener la coherencia y la cohesión en toda la escena, contribuyendo significativamente al desarrollo general de la novela.
+"""
 """
     estructura = call_openrouter_api(prompt)
     return estructura
