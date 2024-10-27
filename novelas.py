@@ -202,7 +202,7 @@ def generar_novela_completa(num_capitulos, num_escenas):
     ambientacion = st.session_state.ambientacion
     tecnica = st.session_state.tecnica
 
-    total_palabras = 40000  # Ajustar según sea necesario
+    total_palabras = 60000  # Ajustar según sea necesario
     total_escenas = num_capitulos * num_escenas
 
     # Distribuir las palabras entre trama principal y subtramas
