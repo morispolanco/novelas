@@ -144,7 +144,7 @@ def generar_escena(capitulo, escena, trama, subtramas, personajes, ambientacion,
 
     # Asegurar que no excedamos los límites del modelo
     max_model_tokens = 9000  # Para claude-1
-    # max_model_tokens = 100000  # Para claude-2
+    # max_model_tokens = 100000  # Para claude-2, descomenta si usas claude-2
     total_max_tokens = min(total_max_tokens, max_model_tokens)
 
     prompt = f"""
@@ -212,12 +212,12 @@ def generar_novela_completa(num_capitulos, num_escenas):
     for _ in range(total_escenas):
         variacion_trama = random.randint(-100, 100)
         palabras_trama = palabras_por_escena_trama + variacion_trama
-        palabras_trama = max(400, palabras_trama)  # Mínimo 400 palabras por escena de trama principal
+        palabras_trama = max(300, palabras_trama)  # Mínimo 300 palabras por escena de trama principal
         palabras_por_escena_trama_lista.append(palabras_trama)
 
         variacion_subtramas = random.randint(-50, 50)
         palabras_subtramas = palabras_por_escena_subtramas + variacion_subtramas
-        palabras_subtramas = max(200, palabras_subtramas)  # Mínimo 200 palabras por escena de subtramas
+        palabras_subtramas = max(150, palabras_subtramas)  # Mínimo 150 palabras por escena de subtramas
         palabras_por_escena_subtramas_lista.append(palabras_subtramas)
 
     # Ajustar las palabras restantes
