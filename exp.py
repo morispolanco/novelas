@@ -1,5 +1,5 @@
 import streamlit as st
-import anthropic
+import requests
 import json
 import time
 from docx import Document
@@ -15,8 +15,10 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
 # Configuración del modelo y tokens
-MODEL_NAME = "claude-1"
-MAX_MODEL_TOKENS = 9000  # Límite para claude-1
+TOGETHER_API_URL = "https://api.together.xyz/v1/chat/completions"
+MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct-Turbo"
+MAX_MODEL_TOKENS = 2512  # Según la especificación de tu cURL
+STOP_SEQUENCE = "<|eot_id|>"
 
 # Configuración de la página
 st.set_page_config(
@@ -61,24 +63,47 @@ if 'ambientacion' not in st.session_state:
 if 'tecnica' not in st.session_state:
     st.session_state.tecnica = ""
 
-# Función para llamar a la API de Anthropic utilizando la librería oficial
-def call_anthropic_api(prompt, max_tokens, model=MODEL_NAME):
-    client = anthropic.Client(api_key=st.secrets['ANTHROPIC_API_KEY'])
+# Función para llamar a la API de Together
+def call_together_api(messages, max_tokens, temperature=0.7, top_p=0.7, top_k=50, repetition_penalty=1, stop=STOP_SEQUENCE, stream=False):
+    headers = {
+        "Authorization": f"Bearer {st.secrets['TOGETHER_API_KEY']}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": MODEL_NAME,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "top_p": top_p,
+        "top_k": top_k,
+        "repetition_penalty": repetition_penalty,
+        "stop": [stop],
+        "stream": stream
+    }
     try:
-        response = client.completions.create(
-            model=model,
-            max_tokens_to_sample=max_tokens,
-            temperature=0.7,
-            prompt=f"{anthropic.HUMAN_PROMPT}{prompt}{anthropic.AI_PROMPT}"
-        )
-        return response.completion.strip()
+        response = requests.post(TOGETHER_API_URL, headers=headers, data=json.dumps(payload), stream=stream)
+        if response.status_code != 200:
+            st.error(f"Error en la llamada a la API de Together: {response.status_code} - {response.text}")
+            return None
+        if stream:
+            # Manejo de respuestas en streaming (si es necesario)
+            # Este ejemplo no implementa el manejo de streaming
+            # Puedes implementar esto si la API lo soporta
+            pass
+        else:
+            data = response.json()
+            return data.get('choices', [{}])[0].get('message', {}).get('content', '').strip()
     except Exception as e:
-        st.error(f"Error en la llamada a la API de Anthropic: {e}")
+        st.error(f"Error en la llamada a la API de Together: {e}")
         return None
 
 # Función para generar la estructura inicial de la novela
 def generar_estructura(theme):
-    prompt = f"""
+    system_message = {
+        "role": "system",
+        "content": "Eres un asistente que ayuda a generar estructuras detalladas para novelas de suspenso político."
+    }
+    user_prompt = f"""
 Quiero que generes una estructura detallada para una novela de suspenso político basada en el siguiente tema:
 
 ### Tema:
@@ -106,7 +131,12 @@ Quiero que generes una estructura detallada para una novela de suspenso polític
 
 Por favor, proporciona la estructura ahora.
 """
-    estructura = call_anthropic_api(prompt, max_tokens=4000)
+    user_message = {
+        "role": "user",
+        "content": user_prompt
+    }
+    messages = [system_message, user_message]
+    estructura = call_together_api(messages, max_tokens=MAX_MODEL_TOKENS)
     return estructura
 
 # Función para extraer los elementos de la estructura usando expresiones regulares
@@ -133,6 +163,15 @@ def extraer_elementos(estructura):
     ambientacion_match = re.search(patrones['ambientacion'], estructura, re.IGNORECASE)
     tecnica_match = re.search(patrones['tecnica'], estructura, re.IGNORECASE)
 
+    # Mostrar los resultados de las expresiones regulares
+    st.write("### Resultados de las expresiones regulares:")
+    st.write(f"**Título Match:** {bool(titulo_match)}")
+    st.write(f"**Trama Match:** {bool(trama_match)}")
+    st.write(f"**Subtramas Match:** {bool(subtramas_match)}")
+    st.write(f"**Personajes Match:** {bool(personajes_match)}")
+    st.write(f"**Ambientación Match:** {bool(ambientacion_match)}")
+    st.write(f"**Técnicas Match:** {bool(tecnica_match)}")
+
     # Extraer el contenido
     titulo = titulo_match.group(1).strip() if titulo_match else "Sin título"
     trama = trama_match.group(1).strip() if trama_match else "Sin trama principal"
@@ -140,6 +179,15 @@ def extraer_elementos(estructura):
     personajes = personajes_match.group(1).strip() if personajes_match else "Sin personajes"
     ambientacion = ambientacion_match.group(1).strip() if ambientacion_match else "Sin ambientación"
     tecnica = tecnica_match.group(1).strip() if tecnica_match else "Sin técnicas literarias"
+
+    # Mostrar los elementos extraídos
+    st.write("### Elementos Extraídos:")
+    st.write(f"**Título:** {titulo}")
+    st.write(f"**Trama Principal:** {trama}")
+    st.write(f"**Subtramas:** {subtramas}")
+    st.write(f"**Personajes:** {personajes}")
+    st.write(f"**Ambientación:** {ambientacion}")
+    st.write(f"**Técnicas Literarias:** {tecnica}")
 
     return titulo, trama, subtramas, personajes, ambientacion, tecnica
 
@@ -152,7 +200,11 @@ def generar_escena(capitulo, escena, trama, subtramas, personajes, ambientacion,
     # Asegurar que no excedamos los límites del modelo
     total_max_tokens = min(total_max_tokens, MAX_MODEL_TOKENS)
 
-    prompt = f"""
+    system_message = {
+        "role": "system",
+        "content": "Eres un asistente que ayuda a generar escenas detalladas para una novela de suspenso político."
+    }
+    user_prompt = f"""
 Escribe la **Escena {escena}** del **Capítulo {capitulo}** de una novela de suspenso político de alta calidad.
 
 **Instrucciones para la Escena:**
@@ -195,7 +247,12 @@ Escribe la **Escena {escena}** del **Capítulo {capitulo}** de una novela de sus
 
 Recuerda que la escena debe tener **al menos {total_palabras_escena} palabras**.
 """
-    escena_texto = call_anthropic_api(prompt, max_tokens=total_max_tokens)
+    user_message = {
+        "role": "user",
+        "content": user_prompt
+    }
+    messages = [system_message, user_message]
+    escena_texto = call_together_api(messages, max_tokens=total_max_tokens, temperature=0.7, top_p=0.7, top_k=50, repetition_penalty=1, stop=STOP_SEQUENCE, stream=False)
     return escena_texto
 
 # Función para generar la novela completa
