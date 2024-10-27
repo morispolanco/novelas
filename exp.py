@@ -59,7 +59,6 @@ if 'ambientacion' not in st.session_state:
 if 'tecnica' not in st.session_state:
     st.session_state.tecnica = ""
 
-# Función para llamar a la API de OpenRouter con reintentos y parámetros ajustables
 # Función para llamar a la API de Together con reintentos y parámetros ajustables
 def call_together_api(prompt, max_tokens=1200, temperature=0.7, top_p=0.7, top_k=50, repetition_penalty=1.0):
     api_url = "https://api.together.xyz/v1/chat/completions"
@@ -100,32 +99,9 @@ def call_together_api(prompt, max_tokens=1200, temperature=0.7, top_p=0.7, top_k
 # Función para generar la estructura inicial de la novela con subtramas y técnicas avanzadas
 def generar_estructura(theme):
     prompt = f"""
-Basado en el tema proporcionado, genera una estructura detallada para una novela de suspenso político de alta calidad. Asegúrate de que la novela obtenga una calificación de 10 sobre 10 en los siguientes aspectos:
-- **Trama**: Compleja, bien desarrollada y llena de giros inesperados.
-- **Originalidad**: Ideas frescas y únicas que distinguen la novela de otras en el mismo género.
-- **Desarrollo de Personajes**: Personajes profundos, multidimensionales y realistas con arcos de desarrollo claros.
-- **Ritmo**: Fluido y bien equilibrado, manteniendo el interés del lector en todo momento.
-- **Descripciones**: Vivas y detalladas que permiten al lector visualizar escenas y emociones con claridad.
-- **Calidad General**: Cohesión, coherencia y excelencia literaria en todo momento.
-- **Técnicas Avanzadas de Escritura**:
-    - **Foreshadowing**: Introduce pistas sutiles sobre eventos futuros.
-    - **Metáforas y Simbolismo**: Utiliza figuras retóricas para enriquecer la narrativa.
-    - **Show, Don't Tell**: Enfócate en mostrar acciones y emociones en lugar de simplemente describirlas.
-
-### Estructura Requerida:
-1. **Título**
-2. **Trama Principal**
-3. **Subtramas** (incluyendo nombres, descripciones detalladas, motivaciones y cómo afectan a los personajes y la trama principal)
-4. **Personajes** (incluyendo nombres, descripciones físicas y psicológicas, motivaciones, y arcos de desarrollo)
-5. **Ambientación** (detallada y relevante para la trama)
-6. **Técnicas Literarias a Utilizar** (como metáforas, simbolismo, foreshadowing, etc.)
-
-### Tema:
-{theme}
-
-Asegúrate de que toda la información generada sea coherente y adecuada para un thriller político de alta calidad.
-"""
-    estructura = call_openrouter_api(prompt)
+Basado en el tema proporcionado, genera una estructura detallada para una novela de suspenso político de alta calidad...
+    """
+    estructura = call_together_api(prompt)
     return estructura
 
 # Función para extraer los elementos de la estructura usando expresiones regulares
@@ -169,35 +145,9 @@ def generar_escena(capitulo, escena, trama, subtramas, personajes, ambientacion,
     total_max_tokens = max_tokens_trama + max_tokens_subtramas
 
     prompt = f"""
-Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso político de alta calidad con las siguientes características:
-
-- **Trama Principal**: {trama}
-- **Subtramas**: {subtramas}
-- **Personajes**: {personajes}
-- **Ambientación**: {ambientacion}
-- **Técnicas Literarias**: {tecnica}
-
-### Requisitos de la Escena:
-1. **Trama**: Desarrolla la trama principal con profundidad y añade giros inesperados que mantengan al lector intrigado.
-2. **Subtramas**: Integra las subtramas de manera que complementen y enriquezcan la trama principal, asegurando que cada una contribuya al desarrollo de los personajes y al avance de la historia.
-3. **Desarrollo de Personajes**: Asegúrate de que las interacciones entre personajes muestren sus arcos de desarrollo y relaciones complejas.
-4. **Ritmo**: Mantén un ritmo dinámico que equilibre la acción, el suspense y el desarrollo emocional.
-5. **Descripciones**: Utiliza descripciones vívidas y detalladas que permitan al lector visualizar claramente las escenas y sentir las emociones de los personajes.
-6. **Calidad Literaria**: Emplea técnicas literarias avanzadas como metáforas, simbolismo y foreshadowing para enriquecer la narrativa.
-7. **Coherencia y Cohesión**: Asegúrate de que los eventos y desarrollos sean lógicos y estén bien conectados con el resto de la historia.
-
-### Distribución de Palabras:
-- **Trama Principal**: Aproximadamente {palabras_trama} palabras.
-- **Subtramas**: Aproximadamente {palabras_subtramas} palabras.
-
-### Formato:
-- Utiliza rayas (—) para las intervenciones de los personajes.
-- Estructura el texto con párrafos claros y bien organizados.
-- Evita clichés y frases hechas, enfocándote en originalidad y frescura.
-
-Asegúrate de mantener la coherencia y la cohesión en toda la escena, contribuyendo significativamente al desarrollo general de la novela.
-"""
-    escena_texto = call_openrouter_api(prompt, max_tokens=total_max_tokens, temperature=0.7, top_p=0.9, top_k=50, repetition_penalty=1.2)
+Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso político de alta calidad con las siguientes características...
+    """
+    escena_texto = call_together_api(prompt, max_tokens=total_max_tokens, temperature=0.7, top_p=0.9, top_k=50, repetition_penalty=1.2)
     return escena_texto
 
 # Función para generar la novela completa después de la aprobación
@@ -219,34 +169,19 @@ def generar_novela_completa(num_capitulos, num_escenas):
     palabras_trama_principal_total = int(total_palabras * porcentaje_trama_principal_decimal)
     palabras_subtramas_total = total_palabras - palabras_trama_principal_total
 
-    # Distribuir palabras por escena para trama principal
-    palabras_por_escena_trama = palabras_trama_principal_total // total_escenas
-    palabras_restantes_trama = palabras_trama_principal_total - (palabras_por_escena_trama * total_escenas)
-
-    # Distribuir palabras por escena para subtramas
-    palabras_por_escena_subtramas = palabras_subtramas_total // total_escenas
-    palabras_restantes_subtramas = palabras_subtramas_total - (palabras_por_escena_subtramas * total_escenas)
-
     # Crear listas de palabras por escena con variación del ±50 palabras
     palabras_por_escena_trama_lista = []
     palabras_por_escena_subtramas_lista = []
     for _ in range(total_escenas):
         variacion_trama = random.randint(-50, 50)
-        palabras_trama = palabras_por_escena_trama + variacion_trama
+        palabras_trama = palabras_trama_principal_total // total_escenas + variacion_trama
         palabras_trama = max(300, palabras_trama)  # Mínimo 300 palabras por escena de trama principal
         palabras_por_escena_trama_lista.append(palabras_trama)
 
         variacion_subtramas = random.randint(-30, 30)
-        palabras_subtramas = palabras_por_escena_subtramas + variacion_subtramas
+        palabras_subtramas = palabras_subtramas_total // total_escenas + variacion_subtramas
         palabras_subtramas = max(150, palabras_subtramas)  # Mínimo 150 palabras por escena de subtramas
         palabras_por_escena_subtramas_lista.append(palabras_subtramas)
-
-    # Ajustar las palabras restantes
-    for i in range(palabras_restantes_trama):
-        palabras_por_escena_trama_lista[i % total_escenas] += 1
-
-    for i in range(palabras_restantes_subtramas):
-        palabras_por_escena_subtramas_lista[i % total_escenas] += 1
 
     novela = f"**{titulo}**\n\n"
 
@@ -256,7 +191,6 @@ def generar_novela_completa(num_capitulos, num_escenas):
     current = 0
 
     escena_index = 0  # Índice para acceder a las listas de palabras
-    palabras_por_capitulo = {cap: [] for cap in range(1, num_capitulos + 1)}  # Para la gráfica
 
     # Generar cada capítulo y escena
     for cap in range(1, num_capitulos + 1):
@@ -266,7 +200,6 @@ def generar_novela_completa(num_capitulos, num_escenas):
             palabras_subtramas_escena = palabras_por_escena_subtramas_lista[escena_index]
             total_palabras_escena = palabras_trama_escena + palabras_subtramas_escena
 
-            palabras_por_capitulo[cap].append(total_palabras_escena)
             with st.spinner(f"Generando Capítulo {cap}, Escena {esc} ({total_palabras_escena} palabras)..."):
                 escena = generar_escena(cap, esc, trama, subtramas, personajes, ambientacion, tecnica, 
                                         palabras_trama_escena, palabras_subtramas_escena)
@@ -287,20 +220,6 @@ def generar_novela_completa(num_capitulos, num_escenas):
     # Ocultar la barra de progreso y el texto de progreso
     progress_bar.empty()
     progress_text.empty()
-
-    # Mostrar el total de palabras generadas estimadas
-    total_palabras_generadas = len(novela.split())
-    st.write(f"**Total de palabras generadas estimadas:** {total_palabras_generadas}")
-
-    # Graficar la distribución de palabras por capítulo
-    fig, ax = plt.subplots(figsize=(10, 6))
-    for cap in palabras_por_capitulo:
-        ax.plot(range(1, num_escenas + 1), palabras_por_capitulo[cap], marker='o', label=f'Capítulo {cap}')
-    ax.set_xlabel('Escena')
-    ax.set_ylabel('Palabras')
-    ax.set_title('Distribución de Palabras por Escena en Cada Capítulo')
-    ax.legend()
-    st.pyplot(fig)
 
     st.session_state.novela_completa = novela
     st.session_state.etapa = "completado"
@@ -369,11 +288,6 @@ def exportar_a_word(titulo, novela_completa):
                     paragraph_format = paragraph.paragraph_format
                     paragraph_format.line_spacing = 1.15
                     paragraph_format.space_after = Pt(6)
-
-    # Agregar el conteo total de palabras al final del documento
-    total_palabras = len(novela_completa.split())
-    document.add_page_break()
-    document.add_paragraph(f"**Total de palabras generadas:** {total_palabras}", style='Intense Quote')
 
     # Guardar el documento en memoria
     buffer = BytesIO()
