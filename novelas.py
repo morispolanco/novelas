@@ -60,7 +60,7 @@ if 'tecnica' not in st.session_state:
     st.session_state.tecnica = ""
 
 # Función para llamar a la API de OpenRouter con reintentos y parámetros ajustables
-def call_openrouter_api(prompt, max_tokens=1200, temperature=0.7, top_p=0.9, top_k=50, repetition_penalty=1.2):
+def call_openrouter_api(prompt, max_tokens=1800, temperature=0.7, top_p=0.9, top_k=50, repetition_penalty=1.2):
     api_url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
@@ -208,7 +208,7 @@ def generar_novela_completa(num_capitulos, num_escenas):
     ambientacion = st.session_state.ambientacion
     tecnica = st.session_state.tecnica
 
-    total_palabras = 40000  # Total ajustado a 40,000 palabras
+    total_palabras = 60000  # Total ajustado a 40,000 palabras
     total_escenas = num_capitulos * num_escenas
 
     # Distribuir las palabras entre trama principal y subtramas
