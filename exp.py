@@ -10,7 +10,7 @@ import re
 import random
 import matplotlib.pyplot as plt
 
-# Nuevas importaciones necesarias para agregar la tabla de contenidos
+# Importaciones adicionales para la tabla de contenidos
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
@@ -58,7 +58,7 @@ if 'tecnica' not in st.session_state:
     st.session_state.tecnica = ""
 
 # Función para llamar a la API de Anthropic utilizando la librería oficial
-def call_anthropic_api(prompt, max_tokens, model="claude-1"):
+def call_anthropic_api(prompt, max_tokens, model="claude-2"):
     client = anthropic.Client(api_key=st.secrets['ANTHROPIC_API_KEY'])
     try:
         response = client.completions.create(
@@ -72,43 +72,35 @@ def call_anthropic_api(prompt, max_tokens, model="claude-1"):
         st.error(f"Error en la llamada a la API de Anthropic: {e}")
         return None
 
-# Función para generar la estructura inicial de la novela con subtramas y técnicas avanzadas
+# Función para generar la estructura inicial de la novela
 def generar_estructura(theme):
     prompt = f"""
-Basado en el tema proporcionado, genera una estructura detallada para una novela de suspenso político de alta calidad. Utiliza encabezados claros para cada sección y asegúrate de que cada sección tenga contenido detallado.
+Quiero que generes una estructura detallada para una novela de suspenso político basada en el siguiente tema:
 
-### Estructura:
+### Tema:
+{theme}
+
+### Instrucciones:
+
+- La estructura debe estar en formato Markdown.
+- Utiliza **exactamente** los siguientes encabezados, con el mismo formato y orden:
+
 #### Título:
-El Filo del Abismo
 
 #### Trama Principal:
-Una trama compleja llena de giros inesperados donde el protagonista descubre una conspiración gubernamental que amenaza con desestabilizar el país.
 
 #### Subtramas:
-1. **Subtrama 1:**
-   La lucha interna del protagonista entre su deber profesional y sus creencias personales.
-2. **Subtrama 2:**
-   La relación conflictiva entre el protagonista y un aliado inesperado que tiene sus propios motivos ocultos.
 
 #### Personajes:
-1. **Nombre:** Alejandro Rivas
-   - **Descripción Física:** Alto, de cabello oscuro y ojos penetrantes.
-   - **Descripción Psicológica:** Inteligente, decidido pero con un pasado misterioso.
-   - **Motivaciones:** Desea descubrir la verdad y proteger a su familia.
-   - **Arco de Desarrollo:** De un agente desconfiado a un líder confiado y estratégico.
-2. **Nombre:** Laura Márquez
-   - **Descripción Física:** De estatura media, cabello rubio y sonrisa amable.
-   - **Descripción Psicológica:** Persuasiva, empática pero determinada.
-   - **Motivaciones:** Busca justicia y redención por errores pasados.
-   - **Arco de Desarrollo:** De una aliada insegura a una colaboradora clave y valiente.
 
 #### Ambientación:
-La historia se desarrolla en una metrópolis contemporánea con un trasfondo político tenso y conflictos sociales crecientes, proporcionando un ambiente propicio para la conspiración y el suspense.
 
 #### Técnicas Literarias a Utilizar:
-- Foreshadowing
-- Metáforas y Simbolismo
-- Show, Don't Tell
+
+- Asegúrate de que cada sección tenga contenido detallado y relevante.
+- No agregues secciones adicionales ni modifiques los encabezados.
+
+Por favor, proporciona la estructura ahora.
 """
     estructura = call_anthropic_api(prompt, max_tokens=4000)
     return estructura
@@ -117,8 +109,9 @@ La historia se desarrolla en una metrópolis contemporánea con un trasfondo pol
 def extraer_elementos(estructura):
     # Mostrar la estructura completa para depuración
     st.write("### Estructura generada por la API:")
-    st.write(estructura)
+    st.text_area("Respuesta de la API:", estructura, height=300)
 
+    # Patrones ajustados
     patrones = {
         'titulo': r"#### Título:\s*(.*)",
         'trama': r"#### Trama Principal:\s*((?:.|\n)*?)(?=#### Subtramas:)",
@@ -128,22 +121,32 @@ def extraer_elementos(estructura):
         'tecnica': r"#### Técnicas Literarias a Utilizar:\s*((?:.|\n)*)"
     }
 
-    titulo = re.search(patrones['titulo'], estructura, re.IGNORECASE)
-    trama = re.search(patrones['trama'], estructura, re.IGNORECASE)
-    subtramas = re.search(patrones['subtramas'], estructura, re.IGNORECASE)
-    personajes = re.search(patrones['personajes'], estructura, re.IGNORECASE)
-    ambientacion = re.search(patrones['ambientacion'], estructura, re.IGNORECASE)
-    tecnica = re.search(patrones['tecnica'], estructura, re.IGNORECASE)
+    # Extraer cada sección usando expresiones regulares
+    titulo_match = re.search(patrones['titulo'], estructura, re.IGNORECASE)
+    trama_match = re.search(patrones['trama'], estructura, re.IGNORECASE)
+    subtramas_match = re.search(patrones['subtramas'], estructura, re.IGNORECASE)
+    personajes_match = re.search(patrones['personajes'], estructura, re.IGNORECASE)
+    ambientacion_match = re.search(patrones['ambientacion'], estructura, re.IGNORECASE)
+    tecnica_match = re.search(patrones['tecnica'], estructura, re.IGNORECASE)
 
-    # Extraer el contenido, manejando posibles espacios y formatos
-    titulo = titulo.group(1).strip() if titulo else "Sin título"
-    trama = trama.group(1).strip() if trama else "Sin trama principal"
-    subtramas = subtramas.group(1).strip() if subtramas else "Sin subtramas"
-    personajes = personajes.group(1).strip() if personajes else "Sin personajes"
-    ambientacion = ambientacion.group(1).strip() if ambientacion else "Sin ambientación"
-    tecnica = tecnica.group(1).strip() if tecnica else "Sin técnicas literarias"
+    # Mostrar los resultados de las expresiones regulares
+    st.write("### Resultados de las expresiones regulares:")
+    st.write(f"**Título Match:** {titulo_match}")
+    st.write(f"**Trama Match:** {trama_match}")
+    st.write(f"**Subtramas Match:** {subtramas_match}")
+    st.write(f"**Personajes Match:** {personajes_match}")
+    st.write(f"**Ambientación Match:** {ambientacion_match}")
+    st.write(f"**Técnicas Match:** {tecnica_match}")
 
-    # Mostrar cada elemento para depuración
+    # Extraer el contenido
+    titulo = titulo_match.group(1).strip() if titulo_match else "Sin título"
+    trama = trama_match.group(1).strip() if trama_match else "Sin trama principal"
+    subtramas = subtramas_match.group(1).strip() if subtramas_match else "Sin subtramas"
+    personajes = personajes_match.group(1).strip() if personajes_match else "Sin personajes"
+    ambientacion = ambientacion_match.group(1).strip() if ambientacion_match else "Sin ambientación"
+    tecnica = tecnica_match.group(1).strip() if tecnica_match else "Sin técnicas literarias"
+
+    # Mostrar los elementos extraídos
     st.write("### Elementos Extraídos:")
     st.write(f"**Título:** {titulo}")
     st.write(f"**Trama Principal:** {trama}")
@@ -154,7 +157,7 @@ def extraer_elementos(estructura):
 
     return titulo, trama, subtramas, personajes, ambientacion, tecnica
 
-# Función para generar cada escena con subtramas y técnicas avanzadas de escritura
+# Función para generar cada escena
 def generar_escena(capitulo, escena, trama, subtramas, personajes, ambientacion, tecnica, palabras_trama, palabras_subtramas):
     # Estimar tokens: 1 palabra ≈ 0.75 tokens
     total_palabras_escena = palabras_trama + palabras_subtramas
@@ -162,7 +165,6 @@ def generar_escena(capitulo, escena, trama, subtramas, personajes, ambientacion,
 
     # Asegurar que no excedamos los límites del modelo
     max_model_tokens = 100000  # Para claude-2
-    # max_model_tokens = 9000  # Para claude-1, si usas este modelo
     total_max_tokens = min(total_max_tokens, max_model_tokens)
 
     prompt = f"""
@@ -176,28 +178,28 @@ Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso po
 
 ### Requisitos de la Escena:
 1. **Trama**: Desarrolla la trama principal con profundidad y añade giros inesperados que mantengan al lector intrigado.
-2. **Subtramas**: Integra las subtramas de manera que complementen y enriquezcan la trama principal, asegurando que cada una contribuya al desarrollo de los personajes y al avance de la historia.
-3. **Desarrollo de Personajes**: Asegúrate de que las interacciones entre personajes muestren sus arcos de desarrollo y relaciones complejas.
-4. **Ritmo**: Mantén un ritmo dinámico que equilibre la acción, el suspense y el desarrollo emocional.
-5. **Descripciones**: Utiliza descripciones vívidas y detalladas que permitan al lector visualizar claramente las escenas y sentir las emociones de los personajes.
-6. **Calidad Literaria**: Emplea técnicas literarias avanzadas como metáforas, simbolismo y foreshadowing para enriquecer la narrativa.
-7. **Coherencia y Cohesión**: Asegúrate de que los eventos y desarrollos sean lógicos y estén bien conectados con el resto de la historia.
+2. **Subtramas**: Integra las subtramas de manera que complementen y enriquezcan la trama principal.
+3. **Desarrollo de Personajes**: Muestra las interacciones y evoluciones de los personajes.
+4. **Ritmo**: Mantén un ritmo dinámico que equilibre acción y desarrollo emocional.
+5. **Descripciones**: Utiliza descripciones vívidas y detalladas.
+6. **Calidad Literaria**: Emplea técnicas literarias avanzadas.
+7. **Coherencia y Cohesión**: Asegura lógica y conexión con el resto de la historia.
 
 ### Distribución de Palabras:
 - **Trama Principal**: Aproximadamente {palabras_trama} palabras.
 - **Subtramas**: Aproximadamente {palabras_subtramas} palabras.
 
 ### Formato:
-- Utiliza rayas (—) para las intervenciones de los personajes.
-- Estructura el texto con párrafos claros y bien organizados.
-- Evita clichés y frases hechas, enfocándote en originalidad y frescura.
+- Utiliza rayas (—) para los diálogos.
+- Estructura el texto con párrafos claros.
+- Evita clichés y frases hechas.
 
-Asegúrate de mantener la coherencia y la cohesión en toda la escena, contribuyendo significativamente al desarrollo general de la novela.
+Asegúrate de mantener la coherencia y la cohesión en toda la escena.
 """
     escena_texto = call_anthropic_api(prompt, max_tokens=total_max_tokens)
     return escena_texto
 
-# Función para generar la novela completa después de la aprobación
+# Función para generar la novela completa
 def generar_novela_completa(num_capitulos, num_escenas):
     titulo = st.session_state.titulo
     trama = st.session_state.trama
@@ -216,26 +218,25 @@ def generar_novela_completa(num_capitulos, num_escenas):
     palabras_trama_principal_total = int(total_palabras * porcentaje_trama_principal_decimal)
     palabras_subtramas_total = total_palabras - palabras_trama_principal_total
 
-    # Distribuir palabras por escena para trama principal
+    # Distribuir palabras por escena
     palabras_por_escena_trama = palabras_trama_principal_total // total_escenas
     palabras_restantes_trama = palabras_trama_principal_total - (palabras_por_escena_trama * total_escenas)
 
-    # Distribuir palabras por escena para subtramas
     palabras_por_escena_subtramas = palabras_subtramas_total // total_escenas
     palabras_restantes_subtramas = palabras_subtramas_total - (palabras_por_escena_subtramas * total_escenas)
 
-    # Crear listas de palabras por escena con mayor variación
+    # Crear listas de palabras por escena con variación
     palabras_por_escena_trama_lista = []
     palabras_por_escena_subtramas_lista = []
     for _ in range(total_escenas):
-        variacion_trama = random.randint(-200, 200)  # Mayor variación
+        variacion_trama = random.randint(-200, 200)
         palabras_trama = palabras_por_escena_trama + variacion_trama
-        palabras_trama = max(300, palabras_trama)  # Mínimo 300 palabras por escena de trama principal
+        palabras_trama = max(300, palabras_trama)  # Mínimo 300 palabras
         palabras_por_escena_trama_lista.append(palabras_trama)
 
-        variacion_subtramas = random.randint(-100, 100)  # Mayor variación
+        variacion_subtramas = random.randint(-100, 100)
         palabras_subtramas = palabras_por_escena_subtramas + variacion_subtramas
-        palabras_subtramas = max(150, palabras_subtramas)  # Mínimo 150 palabras por escena de subtramas
+        palabras_subtramas = max(150, palabras_subtramas)  # Mínimo 150 palabras
         palabras_por_escena_subtramas_lista.append(palabras_subtramas)
 
     # Ajustar las palabras restantes
@@ -270,7 +271,7 @@ def generar_novela_completa(num_capitulos, num_escenas):
                 if not escena:
                     st.error(f"No se pudo generar la Escena {esc} del Capítulo {cap}.")
                     return None
-                # Limpiar saltos de línea manuales, reemplazándolos por saltos de párrafo
+                # Limpiar saltos de línea
                 escena = escena.replace('\r\n', '\n').replace('\n', '\n\n')
                 novela += f"### Escena {esc}\n\n{escena}\n\n"
                 # Actualizar la barra de progreso
@@ -281,7 +282,7 @@ def generar_novela_completa(num_capitulos, num_escenas):
                 # Retraso para evitar exceder los límites de la API
                 time.sleep(1)
 
-    # Ocultar la barra de progreso y el texto de progreso
+    # Ocultar la barra de progreso
     progress_bar.empty()
     progress_text.empty()
 
@@ -304,7 +305,7 @@ def generar_novela_completa(num_capitulos, num_escenas):
 
     return novela
 
-# Función para exportar la novela a un archivo de Word con el formato especificado
+# Función para exportar la novela a un archivo de Word
 def exportar_a_word(titulo, novela_completa):
     document = Document()
 
@@ -320,7 +321,7 @@ def exportar_a_word(titulo, novela_completa):
     # Establecer el estilo normal con una fuente común
     style = document.styles['Normal']
     font = style.font
-    font.name = 'Times New Roman'  # Cambiado a una fuente común
+    font.name = 'Times New Roman'
     font.size = Pt(12)
 
     # Agregar el título
@@ -329,12 +330,12 @@ def exportar_a_word(titulo, novela_completa):
 
     # Agregar la tabla de contenidos
     agregar_tabla_de_contenidos(document)
-    document.add_paragraph("\n*Nota: Después de abrir el documento en Word, actualiza la tabla de contenidos seleccionándola y presionando F9 para actualizarla.*")
+    document.add_paragraph("\n*Nota: Después de abrir el documento en Word, actualiza la tabla de contenidos seleccionándola y presionando F9.*")
     document.add_page_break()
 
     # Separar la novela por capítulos
-    capítulos = novela_completa.split("## Capítulo")
-    for cap in capítulos:
+    capitulos = novela_completa.split("## Capítulo")
+    for cap in capitulos:
         cap = cap.strip()
         if not cap:
             continue
@@ -358,7 +359,7 @@ def exportar_a_word(titulo, novela_completa):
             # Agregar la escena
             document.add_heading(f"Escena {esc_num}", level=2)
 
-            # Agregar el texto de la escena con saltos de párrafo
+            # Agregar el texto de la escena
             for paragraph_text in esc_text.split('\n\n'):
                 paragraph_text = paragraph_text.strip()
                 if paragraph_text:
@@ -396,7 +397,7 @@ def agregar_tabla_de_contenidos(document):
     run._r.append(fldChar2)
     run._r.append(fldChar3)
 
-# Interfaz de usuario para aprobar la estructura inicial
+# Función para mostrar la aprobación de elementos iniciales
 def mostrar_aprobacion():
     st.header("Aprobación de Elementos Iniciales")
     st.subheader("Título")
@@ -417,7 +418,7 @@ def mostrar_aprobacion():
     st.subheader("Técnicas Literarias")
     st.write(st.session_state.tecnica)
 
-    # Alinear los botones a la izquierda sin columnas
+    # Botones de aprobación y rechazo
     aprobar = st.button("Aprobar y Generar Novela", key="aprobar")
     if aprobar:
         st.session_state.etapa = "generacion"
