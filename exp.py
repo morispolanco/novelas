@@ -70,12 +70,12 @@ def call_together_api(prompt, max_tokens=None, temperature=0.7, top_p=0.7, top_k
         "model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
         "messages": [{"role": "user", "content": prompt}],
         "temperature": temperature,
-        "max_tokens": max_tokens,  # Dejar como None para que se envíe como null
+        "max_tokens": max_tokens,  # None para enviar como null en JSON
         "top_p": top_p,
         "top_k": top_k,
         "repetition_penalty": repetition_penalty,
-        "stop": ["<|im_end|>"],  # Utilizar el delimitador especificado
-        "stream": True  # Activar streaming
+        "stop": ["<|im_end|>"],
+        "stream": True  # Activa streaming
     }
     
     session = requests.Session()
@@ -89,24 +89,30 @@ def call_together_api(prompt, max_tokens=None, temperature=0.7, top_p=0.7, top_k
         # Leer la respuesta en "chunks" o fragmentos en streaming
         respuesta_completa = ""
         for line in response.iter_lines():
-            if line:  # Ignorar líneas vacías
-                # Convertir cada línea a JSON y extraer el contenido
+            # Convertir cada línea a texto y verificar que tenga datos
+            decoded_line = line.decode('utf-8').strip()
+            if decoded_line:
+                st.write("Fragmento recibido para depuración:", decoded_line)  # Depuración
+
+                # Verificar que la línea comience con 'data:' y eliminarlo
+                if decoded_line.startswith("data:"):
+                    decoded_line = decoded_line[5:].strip()  # Eliminar el prefijo "data:"
+
+                # Intentar cargar el fragmento como JSON
                 try:
-                    line_json = json.loads(line.decode('utf-8').replace("data: ", ""))
+                    line_json = json.loads(decoded_line)
                     if 'choices' in line_json and 'delta' in line_json['choices'][0]:
                         content = line_json['choices'][0]['delta'].get('content', '')
                         respuesta_completa += content  # Agregar contenido al texto final
                 except json.JSONDecodeError:
                     st.error("Error al decodificar el fragmento JSON.")
-                    st.write("Fragmento no decodificado:", line.decode('utf-8'))
+                    st.write("Fragmento no decodificado:", decoded_line)
                     continue
 
         return respuesta_completa if respuesta_completa else "No se recibió contenido."
     except requests.exceptions.RequestException as e:
         st.error(f"Error en la llamada a la API: {e}")
         return None
-
-
 # Función para generar la estructura inicial de la novela con subtramas y técnicas avanzadas
 def generar_estructura(theme):
     prompt = f"""
