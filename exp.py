@@ -60,7 +60,7 @@ if 'tecnica' not in st.session_state:
     st.session_state.tecnica = ""
 
 # Función para llamar a la API de Together con reintentos y parámetros ajustables
-def call_together_api(prompt, max_tokens=None, temperature=0.7, top_p=0.7, top_k=50, repetition_penalty=1.0):
+def call_together_api(prompt, max_tokens=4000, temperature=0.7, top_p=0.7, top_k=50, repetition_penalty=1.0):
     api_url = "https://api.together.xyz/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {st.secrets['TOGETHER_API_KEY']}",
