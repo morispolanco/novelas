@@ -129,15 +129,6 @@ def extraer_elementos(estructura):
     ambientacion_match = re.search(patrones['ambientacion'], estructura, re.IGNORECASE)
     tecnica_match = re.search(patrones['tecnica'], estructura, re.IGNORECASE)
 
-    # Mostrar los resultados de las expresiones regulares
-    st.write("### Resultados de las expresiones regulares:")
-    st.write(f"**Título Match:** {titulo_match}")
-    st.write(f"**Trama Match:** {trama_match}")
-    st.write(f"**Subtramas Match:** {subtramas_match}")
-    st.write(f"**Personajes Match:** {personajes_match}")
-    st.write(f"**Ambientación Match:** {ambientacion_match}")
-    st.write(f"**Técnicas Match:** {tecnica_match}")
-
     # Extraer el contenido
     titulo = titulo_match.group(1).strip() if titulo_match else "Sin título"
     trama = trama_match.group(1).strip() if trama_match else "Sin trama principal"
@@ -146,55 +137,60 @@ def extraer_elementos(estructura):
     ambientacion = ambientacion_match.group(1).strip() if ambientacion_match else "Sin ambientación"
     tecnica = tecnica_match.group(1).strip() if tecnica_match else "Sin técnicas literarias"
 
-    # Mostrar los elementos extraídos
-    st.write("### Elementos Extraídos:")
-    st.write(f"**Título:** {titulo}")
-    st.write(f"**Trama Principal:** {trama}")
-    st.write(f"**Subtramas:** {subtramas}")
-    st.write(f"**Personajes:** {personajes}")
-    st.write(f"**Ambientación:** {ambientacion}")
-    st.write(f"**Técnicas Literarias:** {tecnica}")
-
     return titulo, trama, subtramas, personajes, ambientacion, tecnica
 
 # Función para generar cada escena
 def generar_escena(capitulo, escena, trama, subtramas, personajes, ambientacion, tecnica, palabras_trama, palabras_subtramas):
-    # Estimar tokens: 1 palabra ≈ 0.75 tokens
+    # Estimar tokens: Reducimos la estimación para adaptarnos al límite
     total_palabras_escena = palabras_trama + palabras_subtramas
-    total_max_tokens = int(total_palabras_escena / 0.75) + 100  # Añadimos un margen de 100 tokens
+    total_max_tokens = int(total_palabras_escena * 1.5)  # Ajustamos el multiplicador
 
     # Asegurar que no excedamos los límites del modelo
-    max_model_tokens = 100000  # Para claude-2
+    max_model_tokens = 9000  # Límite para claude-1
     total_max_tokens = min(total_max_tokens, max_model_tokens)
 
     prompt = f"""
-Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso político de alta calidad con las siguientes características:
+Escribe la **Escena {escena}** del **Capítulo {capitulo}** de una novela de suspenso político de alta calidad.
+
+**Instrucciones para la Escena:**
+
+- **Extensión**: La escena debe tener al menos **{total_palabras_escena} palabras**.
 
 - **Trama Principal**: {trama}
+
 - **Subtramas**: {subtramas}
+
 - **Personajes**: {personajes}
+
 - **Ambientación**: {ambientacion}
-- **Técnicas Literarias**: {tecnica}
 
-### Requisitos de la Escena:
-1. **Trama**: Desarrolla la trama principal con profundidad y añade giros inesperados que mantengan al lector intrigado.
-2. **Subtramas**: Integra las subtramas de manera que complementen y enriquezcan la trama principal.
-3. **Desarrollo de Personajes**: Muestra las interacciones y evoluciones de los personajes.
-4. **Ritmo**: Mantén un ritmo dinámico que equilibre acción y desarrollo emocional.
-5. **Descripciones**: Utiliza descripciones vívidas y detalladas.
-6. **Calidad Literaria**: Emplea técnicas literarias avanzadas.
-7. **Coherencia y Cohesión**: Asegura lógica y conexión con el resto de la historia.
+- **Técnicas Literarias a Utilizar**: {tecnica}
 
-### Distribución de Palabras:
-- **Trama Principal**: Aproximadamente {palabras_trama} palabras.
-- **Subtramas**: Aproximadamente {palabras_subtramas} palabras.
+### Requisitos Específicos:
 
-### Formato:
+1. Desarrolla la trama principal con profundidad y añade giros inesperados que mantengan al lector intrigado.
+
+2. Integra las subtramas de manera que complementen y enriquezcan la trama principal.
+
+3. Muestra las interacciones y evoluciones de los personajes, destacando sus motivaciones y conflictos internos.
+
+4. Mantén un ritmo dinámico que equilibre acción y desarrollo emocional.
+
+5. Utiliza descripciones vívidas y detalladas que permitan al lector visualizar las escenas y sentir las emociones de los personajes.
+
+6. Emplea técnicas literarias avanzadas como metáforas, simbolismo y foreshadowing.
+
+7. Asegura coherencia y cohesión en toda la escena, conectándola lógicamente con los eventos anteriores y preparando el terreno para los futuros.
+
+### Formato y Estilo:
+
 - Utiliza rayas (—) para los diálogos.
-- Estructura el texto con párrafos claros.
-- Evita clichés y frases hechas.
 
-Asegúrate de mantener la coherencia y la cohesión en toda la escena.
+- Estructura el texto con párrafos claros y bien organizados.
+
+- Evita clichés y frases hechas, enfocándote en originalidad y frescura.
+
+Recuerda que la escena debe tener **al menos {total_palabras_escena} palabras**.
 """
     escena_texto = call_anthropic_api(prompt, max_tokens=total_max_tokens)
     return escena_texto
@@ -208,11 +204,11 @@ def generar_novela_completa(num_capitulos, num_escenas):
     ambientacion = st.session_state.ambientacion
     tecnica = st.session_state.tecnica
 
-    total_palabras = 20000  # Ajustado a 20,000 palabras
+    total_palabras = 20000  # Objetivo de 20,000 palabras
     total_escenas = num_capitulos * num_escenas
 
     # Distribuir las palabras entre trama principal y subtramas
-    porcentaje_trama_principal_decimal = porcentaje_trama_principal / 100  # Convertir a decimal
+    porcentaje_trama_principal_decimal = porcentaje_trama_principal / 100
     porcentaje_subtramas_decimal = porcentaje_subtramas / 100
 
     palabras_trama_principal_total = int(total_palabras * porcentaje_trama_principal_decimal)
@@ -229,14 +225,14 @@ def generar_novela_completa(num_capitulos, num_escenas):
     palabras_por_escena_trama_lista = []
     palabras_por_escena_subtramas_lista = []
     for _ in range(total_escenas):
-        variacion_trama = random.randint(-200, 200)
+        variacion_trama = random.randint(-100, 100)
         palabras_trama = palabras_por_escena_trama + variacion_trama
-        palabras_trama = max(300, palabras_trama)  # Mínimo 300 palabras
+        palabras_trama = max(400, palabras_trama)  # Ajustamos el mínimo
         palabras_por_escena_trama_lista.append(palabras_trama)
 
-        variacion_subtramas = random.randint(-100, 100)
+        variacion_subtramas = random.randint(-50, 50)
         palabras_subtramas = palabras_por_escena_subtramas + variacion_subtramas
-        palabras_subtramas = max(150, palabras_subtramas)  # Mínimo 150 palabras
+        palabras_subtramas = max(200, palabras_subtramas)  # Ajustamos el mínimo
         palabras_por_escena_subtramas_lista.append(palabras_subtramas)
 
     # Ajustar las palabras restantes
@@ -263,6 +259,13 @@ def generar_novela_completa(num_capitulos, num_escenas):
             palabras_trama_escena = palabras_por_escena_trama_lista[escena_index]
             palabras_subtramas_escena = palabras_por_escena_subtramas_lista[escena_index]
             total_palabras_escena = palabras_trama_escena + palabras_subtramas_escena
+
+            # Asegurar que total_max_tokens no exceda el límite
+            total_max_tokens = int(total_palabras_escena * 1.5)
+            if total_max_tokens > max_model_tokens:
+                total_palabras_escena = int(max_model_tokens / 1.5)
+                palabras_trama_escena = int(total_palabras_escena * (porcentaje_trama_principal_decimal))
+                palabras_subtramas_escena = total_palabras_escena - palabras_trama_escena
 
             palabras_por_capitulo[cap].append(total_palabras_escena)
             with st.spinner(f"Generando Capítulo {cap}, Escena {esc} ({total_palabras_escena} palabras)..."):
