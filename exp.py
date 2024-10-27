@@ -70,12 +70,12 @@ def call_together_api(prompt, max_tokens=None, temperature=0.7, top_p=0.7, top_k
         "model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
         "messages": [{"role": "user", "content": prompt}],
         "temperature": temperature,
-        "max_tokens": max_tokens,  # Cambiado a None para que se envíe como null en JSON
+        "max_tokens": max_tokens,  # Dejar como None para que se envíe como null
         "top_p": top_p,
         "top_k": top_k,
         "repetition_penalty": repetition_penalty,
-        "stop": ["<|im_end|>"],  # Cambiado a "<|im_end|>"
-        "stream": True
+        "stop": ["<|im_end|>"],  # Utilizar el delimitador especificado
+        "stream": True  # Activar streaming
     }
     
     session = requests.Session()
@@ -83,26 +83,29 @@ def call_together_api(prompt, max_tokens=None, temperature=0.7, top_p=0.7, top_k
     session.mount('https://', HTTPAdapter(max_retries=retries))
     
     try:
-        response = session.post(api_url, headers=headers, data=json.dumps(payload))
+        response = session.post(api_url, headers=headers, data=json.dumps(payload), stream=True)
         response.raise_for_status()
-        
-        # Depuración: mostrar el contenido bruto de la respuesta
-        st.write("Respuesta de la API (raw):", response.text)
-        
-        response_json = response.json()
-        if 'choices' in response_json and len(response_json['choices']) > 0:
-            return response_json['choices'][0]['message']['content']
-        else:
-            st.error("La respuesta de la API no contiene 'choices'.")
-            st.write("Respuesta completa de la API:", response_json)
-            return None
+
+        # Leer la respuesta en "chunks" o fragmentos en streaming
+        respuesta_completa = ""
+        for line in response.iter_lines():
+            if line:  # Ignorar líneas vacías
+                # Convertir cada línea a JSON y extraer el contenido
+                try:
+                    line_json = json.loads(line.decode('utf-8').replace("data: ", ""))
+                    if 'choices' in line_json and 'delta' in line_json['choices'][0]:
+                        content = line_json['choices'][0]['delta'].get('content', '')
+                        respuesta_completa += content  # Agregar contenido al texto final
+                except json.JSONDecodeError:
+                    st.error("Error al decodificar el fragmento JSON.")
+                    st.write("Fragmento no decodificado:", line.decode('utf-8'))
+                    continue
+
+        return respuesta_completa if respuesta_completa else "No se recibió contenido."
     except requests.exceptions.RequestException as e:
         st.error(f"Error en la llamada a la API: {e}")
         return None
-    except json.JSONDecodeError:
-        st.error("Error al decodificar JSON: La respuesta no es un JSON válido.")
-        st.write("Respuesta de la API (raw):", response.text)
-        return None
+
 
 # Función para generar la estructura inicial de la novela con subtramas y técnicas avanzadas
 def generar_estructura(theme):
