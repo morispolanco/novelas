@@ -195,7 +195,7 @@ Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso po
 - **Subtramas**: Aproximadamente {palabras_subtramas} palabras.
 
 ### Formato:
-- Utiliza rayas (—) para las intervenciones de los personajes.
+- Utiliza raya para las intervenciones de los personajes.
 - Estructura el texto con párrafos claros y bien organizados.
 - Evita clichés y frases hechas, enfocándote en originalidad y frescura.
 
