@@ -60,7 +60,7 @@ if 'tecnica' not in st.session_state:
     st.session_state.tecnica = ""
 
 # Función para llamar a la API de Together con reintentos y parámetros ajustables
-def call_together_api(prompt, max_tokens=1200, temperature=0.7, top_p=0.7, top_k=50, repetition_penalty=1.0):
+def call_together_api(prompt, max_tokens=None, temperature=0.7, top_p=0.7, top_k=50, repetition_penalty=1.0):
     api_url = "https://api.together.xyz/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {st.secrets['TOGETHER_API_KEY']}",
@@ -70,11 +70,11 @@ def call_together_api(prompt, max_tokens=1200, temperature=0.7, top_p=0.7, top_k
         "model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
         "messages": [{"role": "user", "content": prompt}],
         "temperature": temperature,
-        "max_tokens": max_tokens,
+        "max_tokens": max_tokens,  # Cambiado a None para que se envíe como null en JSON
         "top_p": top_p,
         "top_k": top_k,
         "repetition_penalty": repetition_penalty,
-        "stop": ["[\"<|eot_id|>\"]"],
+        "stop": ["<|im_end|>"],  # Cambiado a "<|im_end|>"
         "stream": True
     }
     
@@ -85,6 +85,10 @@ def call_together_api(prompt, max_tokens=1200, temperature=0.7, top_p=0.7, top_k
     try:
         response = session.post(api_url, headers=headers, data=json.dumps(payload))
         response.raise_for_status()
+        
+        # Depuración: mostrar el contenido bruto de la respuesta
+        st.write("Respuesta de la API (raw):", response.text)
+        
         response_json = response.json()
         if 'choices' in response_json and len(response_json['choices']) > 0:
             return response_json['choices'][0]['message']['content']
@@ -94,6 +98,10 @@ def call_together_api(prompt, max_tokens=1200, temperature=0.7, top_p=0.7, top_k
             return None
     except requests.exceptions.RequestException as e:
         st.error(f"Error en la llamada a la API: {e}")
+        return None
+    except json.JSONDecodeError:
+        st.error("Error al decodificar JSON: La respuesta no es un JSON válido.")
+        st.write("Respuesta de la API (raw):", response.text)
         return None
 
 # Función para generar la estructura inicial de la novela con subtramas y técnicas avanzadas
