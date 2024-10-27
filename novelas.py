@@ -186,7 +186,7 @@ Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso po
 2. **Subtramas**: Integra las subtramas de manera que complementen y enriquezcan la trama principal, asegurando que cada una contribuya al desarrollo de los personajes y al avance de la historia.
 3. **Desarrollo de Personajes**: Asegúrate de que las interacciones entre personajes muestren sus arcos de desarrollo y relaciones complejas.
 4. **Ritmo**: Mantén un ritmo dinámico que equilibre la acción, el suspense y el desarrollo emocional.
-5. **Descripciones**: Utiliza descripciones vivas y detalladas, evitando que sean demasiado extensas. **Evita frases hechas y comunes** como “un silencio ensordecedor” o “el corazón latía apresuradamente”. **No repitas frases o clichés**; procura que cada descripción aporte frescura y claridad sin extenderse demasiado.
+5. **Descripciones**: Utiliza descripciones vivas y detalladas, evitando que sean demasiado extensas. **Evita frases hechas y comunes** como un silencio ensordecedor. **No repitas frases o clichés**; procura que cada descripción aporte frescura y claridad sin extenderse demasiado.
 6. **Inicio de Escena**: Los inicios de escena deben ser originales y no predecibles, evitando que se repitan patrones o comienzos que resulten similares en escenas consecutivas.
 7. **Calidad Literaria**: Emplea técnicas literarias avanzadas como metáforas, simbolismo y foreshadowing para enriquecer la narrativa.
 8. **Coherencia y Cohesión**: Asegúrate de que los eventos y desarrollos sean lógicos y estén bien conectados con el resto de la historia.
