@@ -3,15 +3,10 @@ import requests
 import json
 import time
 from docx import Document
-from docx.shared import Inches, Pt
-from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from io import BytesIO
 import re
-import matplotlib.pyplot as plt
-
-# Nuevas importaciones necesarias para agregar la tabla de contenidos
-from docx.oxml import OxmlElement
-from docx.oxml.ns import qn
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Configuración de la página
 st.set_page_config(
@@ -165,23 +160,6 @@ def exportar_informe_word(informe):
     buffer.seek(0)
     return buffer
 
-# Función para agregar una tabla de contenidos automática (opcional)
-def agregar_tabla_de_contenidos(document):
-    paragraph = document.add_paragraph()
-    run = paragraph.add_run()
-    fldChar1 = OxmlElement('w:fldChar')
-    fldChar1.set(qn('w:fldCharType'), 'begin')
-    instrText = OxmlElement('w:instrText')
-    instrText.text = 'TOC \\o "1-3" \\h \\z \\u'
-    fldChar2 = OxmlElement('w:fldChar')
-    fldChar2.set(qn('w:fldCharType'), 'separate')
-    fldChar3 = OxmlElement('w:fldChar')
-    fldChar3.set(qn('w:fldCharType'), 'end')
-    run._r.append(fldChar1)
-    run._r.append(instrText)
-    run._r.append(fldChar2)
-    run._r.append(fldChar3)
-
 # Interfaz de usuario para aprobar la carga y comenzar el análisis
 def mostrar_inicio():
     st.header("Carga y Análisis de la Novela")
@@ -196,6 +174,20 @@ def mostrar_inicio():
         else:
             st.error("Formato de archivo no soportado.")
             return
+        
+        if "### Escena" not in texto:
+            st.warning("""
+            **Advertencia:** No se encontraron marcadores de escenas ("### Escena X") en tu novela.
+            Asegúrate de que cada escena esté marcada de la siguiente manera para un análisis correcto:
+
+            ```
+            ### Escena 1
+            [Contenido de la Escena 1]
+
+            ### Escena 2
+            [Contenido de la Escena 2]
+            ```
+            """)
         
         st.session_state.novela = texto
         st.session_state.etapa = "analisis"
@@ -262,9 +254,11 @@ def mostrar_completado():
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
 
-    # Opcional: Mostrar gráficas o resúmenes adicionales
-    # Por ejemplo, número de errores por escena, etc.
-    # Aquí puedes agregar cualquier visualización adicional que desees.
+    # Opcional: Mostrar resúmenes adicionales
+    st.subheader("Resumen General")
+    total_escenas = len(re.findall(r'## Escena \d+', informe))
+    st.write(f"**Total de escenas analizadas:** {total_escenas}")
+    # Puedes agregar más resúmenes o visualizaciones aquí según tus necesidades
 
 # Interfaz de usuario principal
 if st.session_state.etapa == "inicio":
