@@ -166,7 +166,7 @@ def analizar_novela(texto, progress_bar=None, progress_text=None):
     }
     
     for idx, seccion in enumerate(secciones):
-        prompt = f"""
+        prompt = f'''
 Por favor, analiza la siguiente sección de una novela de suspenso político. Identifica errores gramaticales, de coherencia, desarrollo de personajes, ritmo y cualquier otro aspecto que pueda mejorar la calidad de la novela. Proporciona recomendaciones claras y específicas para cada área de mejora y asigna una calificación de 1 a 10 puntos basada en la calidad general de la sección.
 
 **Importante:** Responde únicamente con un JSON válido que contenga las siguientes claves: "calificacion", "errores", "recomendaciones". No incluyas ningún texto adicional fuera del JSON.
