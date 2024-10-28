@@ -43,21 +43,19 @@ if 'informe' not in st.session_state:
     st.session_state.informe = ""
 
 # Función para llamar a la API de OpenRouter con reintentos y parámetros ajustables
-def call_openrouter_api(prompt, max_tokens=3000, temperature=0.5, top_p=0.9, top_k=50, repetition_penalty=1.2):
+def call_openrouter_api(prompt, max_tokens=3000, temperature=0.5, top_p=0.9, repetition_penalty=1.2):
     api_url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "openai/gpt-4o-mini",  # Asegúrate de que este es el nombre correcto del modelo
+        "model": "openai/gpt-4o-mini",  # Verificar nombre correcto del modelo
         "messages": [{"role": "user", "content": prompt}],
         "temperature": temperature,
         "max_tokens": max_tokens,
         "top_p": top_p,
-        "top_k": top_k,
         "repetition_penalty": repetition_penalty,
-        "stop": ["<|eot_id|>"],  # Asegúrate de que este es el token de detención correcto
         "stream": False
     }
     
@@ -75,20 +73,23 @@ def call_openrouter_api(prompt, max_tokens=3000, temperature=0.5, top_p=0.9, top
             
             if 'application/json' in response.headers.get('Content-Type', ''):
                 response_json = response.json()
-                if 'choices' in response_json and len(response_json['choices']) > 0:
-                    return response_json['choices'][0]['message']['content']
-                else:
-                    st.error("La respuesta de la API no contiene 'choices'.")
-                    st.write("Respuesta completa de la API:", response_json)
-                    return None
             else:
-                st.error("La respuesta de la API no es JSON.")
-                st.write("Respuesta completa de la API:", response_text)
+                response_json = extraer_json(response_text)
+                if not response_json:
+                    st.error("La respuesta de la API no contiene un JSON válido.")
+                    st.write("Respuesta completa de la API:", response_text)
+                    return None
+            
+            if 'choices' in response_json and len(response_json['choices']) > 0:
+                return response_json['choices'][0]['message']['content']
+            else:
+                st.error("La respuesta de la API no contiene 'choices'.")
+                st.write("Respuesta completa de la API:", response_json)
                 return None
         except requests.exceptions.RequestException as e:
             logging.error(f"Intento {attempt + 1}: Error en la llamada a la API: {e}")
             st.warning(f"Intento {attempt + 1}: Error en la llamada a la API. Reintentando...")
-            sleep(2 ** attempt)  # Esperar 2^attempt segundos antes de reintentar
+            sleep(2 ** attempt)
         except json.JSONDecodeError as e:
             logging.error("Error al decodificar la respuesta de la API: %s", e)
             st.error(f"Error al decodificar la respuesta de la API: {e}")
@@ -98,14 +99,25 @@ def call_openrouter_api(prompt, max_tokens=3000, temperature=0.5, top_p=0.9, top
     st.error("No se pudo obtener una respuesta válida de la API después de varios intentos.")
     return None
 
+# Función para extraer JSON de una respuesta mixta
+def extraer_json(texto):
+    try:
+        # Encuentra el primer bloque que comienza con { y termina con }
+        match = re.search(r'\{.*\}', texto, re.DOTALL)
+        if match:
+            json_str = match.group(0)
+            return json.loads(json_str)
+        else:
+            return None
+    except json.JSONDecodeError:
+        return None
+
 # Función para leer el contenido del archivo subido
 def leer_archivo(file):
     if file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        # Leer archivo .docx
         doc = Document(file)
         texto = "\n".join([para.text for para in doc.paragraphs])
     elif file.type == "text/plain":
-        # Leer archivo .txt
         texto = file.read().decode("utf-8")
     else:
         st.error("Formato de archivo no soportado.")
@@ -118,7 +130,6 @@ def dividir_novela(texto, max_length=3000):
 
 # Función para analizar la novela completa
 def analizar_novela(texto, progress_bar=None, progress_text=None):
-    # Dividir el texto si es muy largo
     secciones = dividir_novela(texto)
     total_secciones = len(secciones)
     analisis_completo = {
@@ -131,7 +142,7 @@ def analizar_novela(texto, progress_bar=None, progress_text=None):
         prompt = f"""
 Por favor, analiza la siguiente sección de una novela de suspenso político. Identifica errores gramaticales, de coherencia, desarrollo de personajes, ritmo y cualquier otro aspecto que pueda mejorar la calidad de la novela. Proporciona recomendaciones claras y específicas para cada área de mejora y asigna una calificación de 1 a 10 puntos basada en la calidad general de la sección.
 
-Responde estrictamente en formato JSON con las siguientes claves: "calificacion", "errores", "recomendaciones".
+Responde únicamente con un JSON válido que contenga las siguientes claves: "calificacion", "errores", "recomendaciones". No incluyas ningún texto adicional fuera del JSON.
 
 ### Sección {idx+1}:
 {seccion}
@@ -154,19 +165,16 @@ Responde estrictamente en formato JSON con las siguientes claves: "calificacion"
             st.error("No se recibió análisis para una sección.")
             return None
         
-        # Actualizar la barra de progreso y el texto
         if progress_bar and progress_text:
             progreso_actual = (idx + 1) / total_secciones
             progress_bar.progress(progreso_actual)
             progress_text.text(f"Procesando sección {idx + 1} de {total_secciones} ({int(progreso_actual * 100)}%)")
     
-    # Calcular la calificación promedio
     if analisis_completo["calificacion"]:
         calificacion_promedio = sum(analisis_completo["calificacion"]) / len(analisis_completo["calificacion"])
     else:
         calificacion_promedio = "No disponible"
     
-    # Combinar errores y recomendaciones
     errores_completos = "\n".join([f"**Sección {i+1}:**\n{error}" for i, error in enumerate(analisis_completo["errores"])])
     recomendaciones_completas = "\n".join([f"**Sección {i+1}:**\n{recomendacion}" for i, recomendacion in enumerate(analisis_completo["recomendaciones"])])
     
@@ -181,7 +189,6 @@ Responde estrictamente en formato JSON con las siguientes claves: "calificacion"
 # Función para generar el informe completo
 def generar_informe(analisis):
     try:
-        # Intentar cargar la respuesta como JSON
         analisis_json = json.loads(analisis)
         calificacion = analisis_json.get('calificacion', 'No disponible')
         errores = analisis_json.get('errores', 'No se identificaron errores.')
@@ -193,7 +200,6 @@ def generar_informe(analisis):
         informe += f"**Recomendaciones para Mejoras:**\n{recomendaciones}\n\n"
         return informe
     except json.JSONDecodeError:
-        # Si la respuesta no es JSON, mostrar el contenido completo
         informe = f"# Informe de Análisis de la Novela\n\n"
         informe += f"**Calificación General:** No disponible\n\n"
         informe += f"**Errores y Recomendaciones:**\n{analisis}\n\n"
@@ -202,8 +208,6 @@ def generar_informe(analisis):
 # Función para exportar el informe a Word
 def exportar_informe_word(informe):
     document = Document()
-
-    # Configurar el tamaño de la página y márgenes
     section = document.sections[0]
     section.page_width = Inches(6)
     section.page_height = Inches(9)
@@ -212,25 +216,20 @@ def exportar_informe_word(informe):
     section.left_margin = Inches(0.7)
     section.right_margin = Inches(0.7)
 
-    # Establecer el estilo normal con una fuente común
     style = document.styles['Normal']
     font = style.font
     font.name = 'Times New Roman'
     font.size = Pt(12)
 
-    # Agregar el título
     titulo_paragraph = document.add_heading("Informe de Análisis de la Novela", level=0)
     titulo_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
 
     document.add_page_break()
 
-    # Agregar el contenido del informe
     for line in informe.split('\n'):
         if line.startswith("# "):
-            # Títulos
             document.add_heading(line.replace("# ", ""), level=1)
         elif line.startswith("**"):
-            # Negritas
             match = re.match(r'\*\*(.*?)\*\*:\s*(.*)', line)
             if match:
                 term, desc = match.groups()
@@ -238,17 +237,15 @@ def exportar_informe_word(informe):
                 p.add_run(f"{term}: ").bold = True
                 p.add_run(desc)
         else:
-            # Párrafos normales
             if line.strip() != "":
                 document.add_paragraph(line)
 
-    # Guardar el documento en memoria
     buffer = BytesIO()
     document.save(buffer)
     buffer.seek(0)
     return buffer
 
-# Interfaz de usuario para aprobar la carga y comenzar el análisis usando un formulario
+# Interfaz de usuario para cargar y analizar
 def mostrar_inicio():
     st.header("Carga y Análisis de la Novela")
     with st.form(key='form_carga'):
@@ -265,27 +262,21 @@ def mostrar_inicio():
         else:
             st.error("Por favor, carga un archivo antes de hacer clic en 'Enviar'.")
 
-# Interfaz de usuario para mostrar el análisis y generar el informe
+# Interfaz de usuario para el análisis
 def mostrar_analisis():
     st.header("Análisis en Proceso")
     novela = st.session_state.novela
-
-    # Mostrar un extracto de la novela para confirmar
     st.subheader("Extracto de la Novela:")
     st.text_area("Contenido de la Novela:", novela[:1000] + "..." if len(novela) > 1000 else novela, height=200)
 
-    # Botón para iniciar el análisis
     iniciar_btn = st.button("Iniciar Análisis")
 
     if iniciar_btn:
         with st.spinner("Analizando la novela..."):
-            # Crear la barra de progreso y el texto de progreso
             progreso = st.progress(0)
             progreso_text = st.empty()
-            # Analizar la novela pasando la barra de progreso y el texto
             analisis = analizar_novela(novela, progress_bar=progreso, progress_text=progreso_text)
             if analisis:
-                # Generar el informe
                 informe = generar_informe(analisis)
                 st.session_state.informe = informe
                 st.session_state.etapa = "completado"
@@ -293,16 +284,14 @@ def mostrar_analisis():
             else:
                 st.error("No se pudo generar el análisis. Por favor, intenta nuevamente.")
 
-# Interfaz de usuario para mostrar el informe y opciones de descarga
+# Interfaz de usuario para mostrar el informe y descargar
 def mostrar_completado():
     st.header("Informe de Análisis Generado")
     informe = st.session_state.informe
 
-    # Mostrar el informe en la interfaz
     st.subheader("Informe Detallado:")
     st.text_area("Informe:", informe, height=600)
 
-    # Exportar a Word
     doc_buffer = exportar_informe_word(informe)
     st.download_button(
         label="Descargar Informe en Word",
