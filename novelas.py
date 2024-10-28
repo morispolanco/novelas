@@ -12,15 +12,15 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import matplotlib.pyplot as plt
 
-# Nuevas importaciones necesarias para agregar la tabla de contenidos
+# Importaciones adicionales para la tabla de contenidos
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
 # Configuración de la página
 st.set_page_config(
     page_title="Generador de Novelas de Suspenso Político",
-    layout="wide",
-    initial_sidebar_state="expanded",
+    layout="wide",  # Uso de layout ancho para mejor visualización
+    initial_sidebar_state="expanded",  # La barra lateral inicia expandida
 )
 
 # Título de la aplicación
@@ -32,9 +32,35 @@ Ingrese un tema y personalice el número de capítulos y escenas para crear una 
 
 # Barra lateral para opciones de usuario
 st.sidebar.header("Configuración de la Novela")
-num_capitulos = st.sidebar.slider("Número de capítulos", min_value=15, max_value=20, value=18)
-num_escenas = st.sidebar.slider("Número de escenas por capítulo", min_value=4, max_value=6, value=5)
-porcentaje_trama_principal = st.sidebar.slider("Porcentaje de palabras para la trama principal (%)", min_value=60, max_value=80, value=70)
+
+# Número de capítulos
+num_capitulos = st.sidebar.slider(
+    "Número de capítulos",
+    min_value=15,
+    max_value=20,
+    value=18,  # Valor recomendado
+    help="Selecciona el número de capítulos para tu novela."
+)
+
+# Número de escenas por capítulo
+num_escenas = st.sidebar.slider(
+    "Número de escenas por capítulo",
+    min_value=4,
+    max_value=6,
+    value=5,  # Valor recomendado
+    help="Selecciona el número de escenas por cada capítulo."
+)
+
+# Porcentaje de palabras para la trama principal
+porcentaje_trama_principal = st.sidebar.slider(
+    "Porcentaje de palabras para la trama principal (%)",
+    min_value=60,
+    max_value=80,
+    value=70,  # Valor recomendado
+    help="Define el porcentaje de palabras que se destinarán a la trama principal."
+)
+
+# Porcentaje de palabras para subtramas
 porcentaje_subtramas = 100 - porcentaje_trama_principal
 st.sidebar.write(f"Porcentaje de palabras para subtramas: {porcentaje_subtramas}%")
 
@@ -238,14 +264,14 @@ def generar_novela_completa(num_capitulos, num_escenas):
     palabras_por_escena_trama_lista = []
     palabras_por_escena_subtramas_lista = []
     for _ in range(total_escenas):
-        variacion_trama = random.randint(-75, 75)  # Ajustado para mayor variación
+        variacion_trama = random.randint(-75, 75)  # Variación recomendada
         palabras_trama = palabras_por_escena_trama + variacion_trama
-        palabras_trama = max(350, palabras_trama)  # Mínimo 350 palabras por escena de trama principal
+        palabras_trama = max(350, palabras_trama)  # Mínimo recomendado
         palabras_por_escena_trama_lista.append(palabras_trama)
 
-        variacion_subtramas = random.randint(-45, 45)  # Ajustado para mayor variación
+        variacion_subtramas = random.randint(-45, 45)  # Variación recomendada
         palabras_subtramas = palabras_por_escena_subtramas + variacion_subtramas
-        palabras_subtramas = max(175, palabras_subtramas)  # Mínimo 175 palabras por escena de subtramas
+        palabras_subtramas = max(175, palabras_subtramas)  # Mínimo recomendado
         palabras_por_escena_subtramas_lista.append(palabras_subtramas)
 
     # Ajustar las palabras restantes
@@ -302,7 +328,12 @@ def generar_novela_completa(num_capitulos, num_escenas):
     # Graficar la distribución de palabras por capítulo
     fig, ax = plt.subplots(figsize=(10, 6))
     for cap in palabras_por_capitulo:
-        ax.plot(range(1, num_escenas + 1), palabras_por_capitulo[cap], marker='o', label=f'Capítulo {cap}')
+        ax.plot(
+            range(1, num_escenas + 1),
+            palabras_por_capitulo[cap],
+            marker='o',
+            label=f'Capítulo {cap}'
+        )
     ax.set_xlabel('Escena')
     ax.set_ylabel('Palabras')
     ax.set_title('Distribución de Palabras por Escena en Cada Capítulo')
@@ -320,8 +351,8 @@ def exportar_a_word(titulo, novela_completa):
 
     # Configurar el tamaño de la página y márgenes
     section = document.sections[0]
-    section.page_width = Inches(6)
-    section.page_height = Inches(9)
+    section.page_width = Inches(5)
+    section.page_height = Inches(8)
     section.top_margin = Inches(0.7)
     section.bottom_margin = Inches(0.7)
     section.left_margin = Inches(0.7)
@@ -330,8 +361,8 @@ def exportar_a_word(titulo, novela_completa):
     # Establecer el estilo normal con una fuente común
     style = document.styles['Normal']
     font = style.font
-    font.name = 'Times New Roman'  # Cambiado a una fuente común
-    font.size = Pt(12)
+    font.name = 'Alegreya'  # Fuente recomendada para documentos formales
+    font.size = Pt(11)
 
     # Agregar el título
     titulo_paragraph = document.add_heading(titulo, level=0)
@@ -426,25 +457,25 @@ def mostrar_aprobacion():
     st.subheader("Técnicas Literarias")
     st.write(st.session_state.tecnica)
 
-    # Alinear los botones a la izquierda sin columnas
-    aprobar = st.button("Aprobar y Generar Novela", key="aprobar")
-    if aprobar:
-        st.session_state.etapa = "generacion"
-
-    rechazar = st.button("Rechazar y Regenerar Estructura", key="rechazar")
-    if rechazar:
-        # Reiniciamos los valores
-        st.session_state.estructura = None
-        st.session_state.titulo = ""
-        st.session_state.trama = ""
-        st.session_state.subtramas = ""
-        st.session_state.personajes = ""
-        st.session_state.ambientacion = ""
-        st.session_state.tecnica = ""
-        st.session_state.etapa = "inicio"
+    # Botones de aprobación y rechazo
+    aprobar, rechazar = st.columns(2)
+    with aprobar:
+        if st.button("Aprobar y Generar Novela", key="aprobar"):
+            st.session_state.etapa = "generacion"
+    with rechazar:
+        if st.button("Rechazar y Regenerar Estructura", key="rechazar"):
+            # Reiniciamos los valores
+            st.session_state.estructura = None
+            st.session_state.titulo = ""
+            st.session_state.trama = ""
+            st.session_state.subtramas = ""
+            st.session_state.personajes = ""
+            st.session_state.ambientacion = ""
+            st.session_state.tecnica = ""
+            st.session_state.etapa = "inicio"
 
 # Interfaz de usuario principal
-st.write(f"**Etapa actual:** {st.session_state.etapa}")  # Depuración
+st.write(f"**Etapa actual:** {st.session_state.etapa}")  # Información de depuración
 
 if st.session_state.etapa == "inicio":
     st.header("Generación de Elementos Iniciales")
@@ -492,3 +523,9 @@ if st.session_state.etapa == "completado":
         )
         # Mostrar la novela en la interfaz
         st.text_area("Novela Generada:", st.session_state.novela_completa, height=600)
+        st.info("Después de descargar el documento en Word, abre el archivo y actualiza la tabla de contenidos:")
+        st.markdown("""
+1. Selecciona la tabla de contenidos.
+2. Haz clic derecho y selecciona "Actualizar campo".
+3. Elige "Actualizar toda la tabla" y confirma.
+        """)
