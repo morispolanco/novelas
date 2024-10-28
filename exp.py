@@ -26,7 +26,7 @@ st.set_page_config(
 st.title("Analizador de Novelas de Suspenso Político")
 st.write("""
 Esta aplicación analiza una novela en el género de thriller político.
-Sube tu novela en formato `.docx` o `.txt` y recibe un informe detallado de errores y mejoras, además de una calificación global y un análisis escena por escena.
+Sube tu novela en formato `.docx` o `.txt` y recibe un informe detallado de errores y mejoras, además de una calificación global.
 """)
 
 # Barra lateral para opciones de usuario
@@ -41,8 +41,6 @@ if 'novela' not in st.session_state:
     st.session_state.novela = ""
 if 'informe_global' not in st.session_state:
     st.session_state.informe_global = ""
-if 'informe_escenas' not in st.session_state:
-    st.session_state.informe_escenas = {}
 
 # Función para extraer JSON de una respuesta mixta
 def extraer_json(texto):
@@ -138,45 +136,43 @@ def leer_archivo(file):
         logging.error("Error al leer el archivo: %s", e)
         return None
 
-# Función para dividir la novela por escenas si es muy larga
+# Función para dividir la novela si es muy larga
 def dividir_novela(texto, max_length=3000):
-    # Suposición: Las escenas están separadas por saltos de línea dobles o etiquetas específicas
-    # Puedes ajustar el separador según el formato de tus novelas
-    escenas = re.split(r'\n{2,}', texto)
+    # Dividir por párrafos para mantener la coherencia
+    parrafos = texto.split('\n')
     secciones = []
     seccion_actual = ""
     
-    for escena in escenas:
-        if len(seccion_actual) + len(escena) + 1 <= max_length:
-            seccion_actual += escena + '\n\n'
+    for parrafo in parrafos:
+        if len(seccion_actual) + len(parrafo) + 1 <= max_length:
+            seccion_actual += parrafo + '\n'
         else:
             secciones.append(seccion_actual.strip())
-            seccion_actual = escena + '\n\n'
+            seccion_actual = parrafo + '\n'
     
     if seccion_actual:
         secciones.append(seccion_actual.strip())
     
     return secciones
 
-# Función para analizar la novela completa y escena por escena
+# Función para analizar la novela completa
 def analizar_novela(texto, progress_bar=None, progress_text=None):
-    escenas = dividir_novela(texto)
-    total_escenas = len(escenas)
+    secciones = dividir_novela(texto)
+    total_secciones = len(secciones)
     analisis_completo = {
         "calificacion": [],
         "errores": [],
         "recomendaciones": []
     }
-    analisis_escenas = {}
     
-    for idx, escena in enumerate(escenas):
+    for idx, seccion in enumerate(secciones):
         prompt = f"""
-Por favor, analiza la siguiente escena de una novela de suspenso político. Identifica errores gramaticales, de coherencia, desarrollo de personajes, ritmo y cualquier otro aspecto que pueda mejorar la calidad de la escena. Proporciona recomendaciones claras y específicas para cada área de mejora y asigna una calificación de 1 a 10 puntos basada en la calidad general de la escena.
+Por favor, analiza la siguiente sección de una novela de suspenso político. Identifica errores gramaticales, de coherencia, desarrollo de personajes, ritmo y cualquier otro aspecto que pueda mejorar la calidad de la novela. Proporciona recomendaciones claras y específicas para cada área de mejora y asigna una calificación de 1 a 10 puntos basada en la calidad general de la sección.
 
 Responde únicamente con un JSON válido que contenga las siguientes claves: "calificacion", "errores", "recomendaciones". No incluyas ningún texto adicional fuera del JSON.
 
-### Escena {idx+1}:
-{escena}
+### Sección {idx+1}:
+{seccion}
 
 ### Informe de Análisis:
 """
@@ -191,28 +187,21 @@ Responde únicamente con un JSON válido que contenga las siguientes claves: "ca
                 analisis_completo["calificacion"].append(float(calificacion))
                 analisis_completo["errores"].append(errores)
                 analisis_completo["recomendaciones"].append(recomendaciones)
-                
-                # Almacenar análisis por escena
-                analisis_escenas[f"Escena {idx+1}"] = {
-                    "calificacion": calificacion,
-                    "errores": errores,
-                    "recomendaciones": recomendaciones
-                }
             except json.JSONDecodeError as e:
                 st.error("Error al decodificar la respuesta de la API.")
-                st.write("**Escena:**", idx+1)
+                st.write("**Sección:**", idx+1)
                 st.write("**Respuesta de la API:**", analisis)
                 logging.error("Error al decodificar la respuesta JSON: %s", e)
                 return None
         else:
-            st.error("No se recibió análisis para una escena.")
+            st.error("No se recibió análisis para una sección.")
             return None
         
         # Actualizar la barra de progreso y el texto
         if progress_bar and progress_text:
-            progreso_actual = (idx + 1) / total_escenas
+            progreso_actual = (idx + 1) / total_secciones
             progress_bar.progress(progreso_actual)
-            progress_text.text(f"Procesando escena {idx + 1} de {total_escenas} ({int(progreso_actual * 100)}%)")
+            progress_text.text(f"Procesando sección {idx + 1} de {total_secciones} ({int(progreso_actual * 100)}%)")
     
     # Calcular la calificación promedio global
     if analisis_completo["calificacion"]:
@@ -221,8 +210,8 @@ Responde únicamente con un JSON válido que contenga las siguientes claves: "ca
         calificacion_promedio = "No disponible"
     
     # Combinar errores y recomendaciones para el análisis global
-    errores_completos = "\n".join([f"**Escena {i+1}:**\n{error}" for i, error in enumerate(analisis_completo["errores"])])
-    recomendaciones_completas = "\n".join([f"**Escena {i+1}:**\n{recomendacion}" for i, recomendacion in enumerate(analisis_completo["recomendaciones"])])
+    errores_completos = "\n".join([f"**Sección {i+1}:**\n{error}" for i, error in enumerate(analisis_completo["errores"])])
+    recomendaciones_completas = "\n".join([f"**Sección {i+1}:**\n{recomendacion}" for i, recomendacion in enumerate(analisis_completo["recomendaciones"])])
     
     informe_global = {
         "calificacion": round(calificacion_promedio, 2) if isinstance(calificacion_promedio, float) else calificacion_promedio,
@@ -230,37 +219,25 @@ Responde únicamente con un JSON válido que contenga las siguientes claves: "ca
         "recomendaciones": recomendaciones_completas
     }
     
-    return json.dumps(informe_global, ensure_ascii=False), json.dumps(analisis_escenas, ensure_ascii=False)
+    return json.dumps(informe_global, ensure_ascii=False), None  # Retorna None para el informe de escenas
 
 # Función para generar el informe completo
-def generar_informe(informe_global, informe_escenas):
+def generar_informe(informe_global, _):
     try:
         analisis_global_json = json.loads(informe_global)
         calificacion = analisis_global_json.get('calificacion', 'No disponible')
         errores = analisis_global_json.get('errores', 'No se identificaron errores.')
         recomendaciones = analisis_global_json.get('recomendaciones', 'No se proporcionaron recomendaciones.')
         
-        analisis_escenas_json = json.loads(informe_escenas)
-        
         informe = f"# Informe de Análisis de la Novela\n\n"
         informe += f"## **Calificación General:** {calificacion} / 10\n\n"
         informe += f"## **Errores Identificados:**\n{errores}\n\n"
         informe += f"## **Recomendaciones para Mejoras:**\n{recomendaciones}\n\n"
-        informe += f"# Análisis Escena por Escena\n\n"
-        
-        for escena, datos in analisis_escenas_json.items():
-            informe += f"## {escena}\n\n"
-            informe += f"**Calificación:** {datos.get('calificacion', 'No disponible')} / 10\n\n"
-            informe += f"**Errores Identificados:**\n{datos.get('errores', 'No se identificaron errores.')}\n\n"
-            informe += f"**Recomendaciones para Mejoras:**\n{datos.get('recomendaciones', 'No se proporcionaron recomendaciones.')}\n\n"
-        
         return informe
     except json.JSONDecodeError:
         informe = f"# Informe de Análisis de la Novela\n\n"
         informe += f"**Calificación General:** No disponible\n\n"
         informe += f"**Errores y Recomendaciones:**\n{informe_global}\n\n"
-        informe += f"# Análisis Escena por Escena\n\n"
-        informe += f"**No se pudo generar el análisis por escena.**\n\n"
         return informe
 
 # Función para exportar el informe a Word
@@ -363,11 +340,10 @@ def mostrar_analisis():
         with st.spinner("Analizando la novela..."):
             progreso = st.progress(0)
             progreso_text = st.empty()
-            analisis_global, analisis_escenas = analizar_novela(novela, progress_bar=progreso, progress_text=progreso_text)
-            if analisis_global and analisis_escenas:
-                informe = generar_informe(analisis_global, analisis_escenas)
-                st.session_state.informe_global = analisis_global
-                st.session_state.informe_escenas = analisis_escenas
+            analisis_global, _ = analizar_novela(novela, progress_bar=progreso, progress_text=progreso_text)
+            if analisis_global:
+                informe = generar_informe(analisis_global, None)
+                st.session_state.informe_global = informe
                 st.session_state.etapa = "completado"
                 st.success("Análisis completado exitosamente.")
             else:
@@ -377,22 +353,12 @@ def mostrar_analisis():
 def mostrar_completado():
     st.header("Informe de Análisis Generado")
     informe_global = st.session_state.informe_global
-    informe_escenas = st.session_state.informe_escenas
 
     st.subheader("Informe Global:")
-    informe_global_formateado = generar_informe(informe_global, informe_escenas)  # Incluye análisis global y escenas
-    st.text_area("Informe Global:", informe_global_formateado, height=400)
-
-    st.subheader("Análisis Escena por Escena:")
-    analisis_escenas_json = json.loads(informe_escenas)
-    for escena, datos in analisis_escenas_json.items():
-        with st.expander(escena):
-            st.markdown(f"**Calificación:** {datos.get('calificacion', 'No disponible')} / 10\n\n")
-            st.markdown(f"**Errores Identificados:**\n{datos.get('errores', 'No se identificaron errores.')}\n\n")
-            st.markdown(f"**Recomendaciones para Mejoras:**\n{datos.get('recomendaciones', 'No se proporcionaron recomendaciones.')}\n\n")
+    st.text_area("Informe Global:", informe_global, height=600)
 
     # Exportar a Word
-    doc_buffer = exportar_informe_word(informe_global_formateado)
+    doc_buffer = exportar_informe_word(informe_global)
     st.download_button(
         label="Descargar Informe en Word",
         data=doc_buffer,
