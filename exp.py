@@ -63,14 +63,14 @@ def call_openrouter_api(prompt, max_tokens=3000, temperature=0.5, top_p=0.9, rep
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "gpt-4",  # Asegúrate de que este es el nombre correcto del modelo
+        "model": "openai/gpt-4o-mini",  # Usando el modelo especificado por el usuario
         "messages": [{"role": "user", "content": prompt}],
         "temperature": temperature,
         "max_tokens": max_tokens,
         "top_p": top_p,
         "repetition_penalty": repetition_penalty,
         "stream": False
-        # "stop": ["<|eot_id|>"],  # Eliminar temporalmente
+        # "stop": ["<|eot_id|>"],  # Eliminado para evitar posibles interrupciones incorrectas
     }
     
     session = requests.Session()
