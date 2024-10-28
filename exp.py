@@ -10,9 +10,10 @@ from urllib3.util.retry import Retry
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 import logging
+from time import sleep
 
-# Configurar el logging
-logging.basicConfig(level=logging.INFO)
+# Configurar el logging para Streamlit
+logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 # Configuración de la página
 st.set_page_config(
@@ -64,21 +65,38 @@ def call_openrouter_api(prompt, max_tokens=3000, temperature=0.5, top_p=0.9, top
     retries = Retry(total=5, backoff_factor=1, status_forcelist=[502, 503, 504])
     session.mount('https://', HTTPAdapter(max_retries=retries))
     
-    try:
-        response = session.post(api_url, headers=headers, data=json.dumps(payload))
-        response.raise_for_status()
-        response_json = response.json()
-        logging.info("API Response: %s", response_json)
-        if 'choices' in response_json and len(response_json['choices']) > 0:
-            return response_json['choices'][0]['message']['content']
-        else:
-            st.error("La respuesta de la API no contiene 'choices'.")
-            st.write("Respuesta completa de la API:", response_json)
+    response_text = ""
+    for attempt in range(5):
+        try:
+            response = session.post(api_url, headers=headers, data=json.dumps(payload))
+            response.raise_for_status()
+            response_text = response.text  # Obtener la respuesta como texto
+            logging.info("Respuesta de la API: %s", response_text)  # Registrar la respuesta completa
+            
+            if 'application/json' in response.headers.get('Content-Type', ''):
+                response_json = response.json()
+                if 'choices' in response_json and len(response_json['choices']) > 0:
+                    return response_json['choices'][0]['message']['content']
+                else:
+                    st.error("La respuesta de la API no contiene 'choices'.")
+                    st.write("Respuesta completa de la API:", response_json)
+                    return None
+            else:
+                st.error("La respuesta de la API no es JSON.")
+                st.write("Respuesta completa de la API:", response_text)
+                return None
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Intento {attempt + 1}: Error en la llamada a la API: {e}")
+            st.warning(f"Intento {attempt + 1}: Error en la llamada a la API. Reintentando...")
+            sleep(2 ** attempt)  # Esperar 2^attempt segundos antes de reintentar
+        except json.JSONDecodeError as e:
+            logging.error("Error al decodificar la respuesta de la API: %s", e)
+            st.error(f"Error al decodificar la respuesta de la API: {e}")
+            st.write("Respuesta de la API (texto):", response_text)
             return None
-    except requests.exceptions.RequestException as e:
-        logging.error("Error en la llamada a la API: %s", e)
-        st.error(f"Error en la llamada a la API: {e}")
-        return None
+    
+    st.error("No se pudo obtener una respuesta válida de la API después de varios intentos.")
+    return None
 
 # Función para leer el contenido del archivo subido
 def leer_archivo(file):
@@ -111,13 +129,15 @@ def analizar_novela(texto, progress_bar=None, progress_text=None):
     
     for idx, seccion in enumerate(secciones):
         prompt = f"""
-        Por favor, analiza la siguiente sección de una novela de suspenso político. Identifica errores gramaticales, de coherencia, desarrollo de personajes, ritmo y cualquier otro aspecto que pueda mejorar la calidad de la novela. Proporciona recomendaciones claras y específicas para cada área de mejora y asigna una calificación de 1 a 10 puntos basada en la calidad general de la sección. Responde en formato JSON con las siguientes claves: "calificacion", "errores", "recomendaciones".
-        
-        ### Sección {idx+1}:
-        {seccion}
-        
-        ### Informe de Análisis:
-        """
+Por favor, analiza la siguiente sección de una novela de suspenso político. Identifica errores gramaticales, de coherencia, desarrollo de personajes, ritmo y cualquier otro aspecto que pueda mejorar la calidad de la novela. Proporciona recomendaciones claras y específicas para cada área de mejora y asigna una calificación de 1 a 10 puntos basada en la calidad general de la sección.
+
+Responde estrictamente en formato JSON con las siguientes claves: "calificacion", "errores", "recomendaciones".
+
+### Sección {idx+1}:
+{seccion}
+
+### Informe de Análisis:
+"""
         analisis = call_openrouter_api(prompt)
         if analisis:
             try:
@@ -125,8 +145,10 @@ def analizar_novela(texto, progress_bar=None, progress_text=None):
                 analisis_completo["calificacion"].append(float(analisis_json.get('calificacion', 0)))
                 analisis_completo["errores"].append(analisis_json.get('errores', 'No se identificaron errores.'))
                 analisis_completo["recomendaciones"].append(analisis_json.get('recomendaciones', 'No se proporcionaron recomendaciones.'))
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
                 st.error("Error al decodificar la respuesta de la API.")
+                st.write("Sección:", idx+1)
+                st.write("Respuesta de la API:", analisis)
                 return None
         else:
             st.error("No se recibió análisis para una sección.")
