@@ -32,8 +32,8 @@ Ingrese un tema y personalice el número de capítulos y escenas para crear una 
 
 # Barra lateral para opciones de usuario
 st.sidebar.header("Configuración de la Novela")
-num_capitulos = st.sidebar.slider("Número de capítulos", min_value=15, max_value=30, value=20)
-num_escenas = st.sidebar.slider("Número de escenas por capítulo", min_value=4, max_value=8, value=6)
+num_capitulos = st.sidebar.slider("Número de capítulos", min_value=10, max_value=20, value=15)
+num_escenas = st.sidebar.slider("Número de escenas por capítulo", min_value=3, max_value=6, value=4)
 porcentaje_trama_principal = st.sidebar.slider("Porcentaje de palabras para la trama principal (%)", min_value=60, max_value=80, value=70)
 porcentaje_subtramas = 100 - porcentaje_trama_principal
 st.sidebar.write(f"Porcentaje de palabras para subtramas: {porcentaje_subtramas}%")
@@ -233,7 +233,7 @@ def generar_novela_completa(num_capitulos, num_escenas):
     climax = st.session_state.climax
     temas = st.session_state.temas
 
-    total_palabras = 80000  # Ajustado a 80,000 palabras como promedio
+    total_palabras = 25000  # Ajustado a 25,000 palabras
     total_escenas = num_capitulos * num_escenas
 
     # Distribuir las palabras entre trama principal y subtramas
@@ -251,18 +251,18 @@ def generar_novela_completa(num_capitulos, num_escenas):
     palabras_por_escena_subtramas = palabras_subtramas_total // total_escenas
     palabras_restantes_subtramas = palabras_subtramas_total - (palabras_por_escena_subtramas * total_escenas)
 
-    # Crear listas de palabras por escena con variación del ±50 palabras
+    # Crear listas de palabras por escena con variación del ±30 palabras
     palabras_por_escena_trama_lista = []
     palabras_por_escena_subtramas_lista = []
     for _ in range(total_escenas):
-        variacion_trama = random.randint(-50, 50)
+        variacion_trama = random.randint(-30, 30)
         palabras_trama = palabras_por_escena_trama + variacion_trama
-        palabras_trama = max(300, palabras_trama)  # Mínimo 300 palabras por escena de trama principal
+        palabras_trama = max(150, palabras_trama)  # Mínimo 150 palabras por escena de trama principal
         palabras_por_escena_trama_lista.append(palabras_trama)
 
-        variacion_subtramas = random.randint(-30, 30)
+        variacion_subtramas = random.randint(-15, 15)
         palabras_subtramas = palabras_por_escena_subtramas + variacion_subtramas
-        palabras_subtramas = max(150, palabras_subtramas)  # Mínimo 150 palabras por escena de subtramas
+        palabras_subtramas = max(50, palabras_subtramas)  # Mínimo 50 palabras por escena de subtramas
         palabras_por_escena_subtramas_lista.append(palabras_subtramas)
 
     # Ajustar las palabras restantes
