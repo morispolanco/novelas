@@ -223,10 +223,22 @@ def exportar_informe_word(informe):
 def mostrar_inicio():
     st.header("Carga y Análisis de la Novela")
     if file_upload:
-        texto = leer_archivo(file_upload)
-        if texto:
-            st.session_state.novela = texto
-            st.session_state.etapa = "analisis"
+        st.session_state.archivo_cargado = file_upload  # Almacenar el archivo en el estado
+        st.success("Archivo cargado exitosamente. Haz clic en 'Enviar' para proceder.")
+    else:
+        st.session_state.archivo_cargado = None
+
+    # Botón "Enviar" para confirmar la carga del archivo
+    enviar_btn = st.button("Enviar")
+
+    if enviar_btn:
+        if st.session_state.archivo_cargado:
+            texto = leer_archivo(st.session_state.archivo_cargado)
+            if texto:
+                st.session_state.novela = texto
+                st.session_state.etapa = "analisis"
+        else:
+            st.error("Por favor, carga un archivo antes de hacer clic en 'Enviar'.")
 
 # Interfaz de usuario para mostrar el análisis y generar el informe
 def mostrar_analisis():
