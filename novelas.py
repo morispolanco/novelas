@@ -18,22 +18,22 @@ from docx.oxml.ns import qn
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Generador de Novelas de Suspenso Político",
+    page_title="Generador de Novelas para el Premio Cervantes",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 # Título de la aplicación
-st.title("Generador de Novelas de Suspenso Político")
+st.title("Generador de Novelas para el Premio Cervantes")
 st.write("""
-Esta aplicación genera una novela en el género de thriller político.
-Ingrese un tema y personalice el número de capítulos y escenas para crear una narrativa coherente y emocionante.
+Esta aplicación genera una novela con el potencial de ganar el Premio Cervantes.
+Ingrese un tema y personalice el número de capítulos y escenas para crear una narrativa profunda, reflexiva y de alta calidad literaria.
 """)
 
 # Barra lateral para opciones de usuario
 st.sidebar.header("Configuración de la Novela")
-num_capitulos = st.sidebar.slider("Número de capítulos", min_value=15, max_value=20, value=18)
-num_escenas = st.sidebar.slider("Número de escenas por capítulo", min_value=4, max_value=6, value=5)
+num_capitulos = st.sidebar.slider("Número de capítulos", min_value=15, max_value=30, value=20)
+num_escenas = st.sidebar.slider("Número de escenas por capítulo", min_value=4, max_value=8, value=6)
 porcentaje_trama_principal = st.sidebar.slider("Porcentaje de palabras para la trama principal (%)", min_value=60, max_value=80, value=70)
 porcentaje_subtramas = 100 - porcentaje_trama_principal
 st.sidebar.write(f"Porcentaje de palabras para subtramas: {porcentaje_subtramas}%")
@@ -96,33 +96,43 @@ def call_openrouter_api(prompt, max_tokens=2800, temperature=0.7, top_p=0.9, top
         st.error(f"Error en la llamada a la API: {e}")
         return None
 
-# Función para generar la estructura inicial de la novela con subtramas y técnicas avanzadas
+# Función para generar la estructura inicial de la novela con enfoque en Premio Cervantes
 def generar_estructura(theme):
     prompt = f"""
-Basado en el tema proporcionado, genera una estructura detallada para una novela de suspenso político de alta calidad. Asegúrate de que la novela obtenga una calificación de 10 sobre 10 en los siguientes aspectos:
-- **Trama**: Compleja, bien desarrollada y llena de giros inesperados.
-- **Originalidad**: Ideas frescas y únicas que distinguen la novela de otras en el mismo género.
-- **Desarrollo de Personajes**: Personajes profundos, multidimensionales y realistas con arcos de desarrollo claros.
-- **Ritmo**: Fluido y bien equilibrado, manteniendo el interés del lector en todo momento.
-- **Descripciones**: Vivas y detalladas que permiten al lector visualizar escenas y emociones con claridad, sin extenderse demasiado. **Evita frases hechas** como "un silencio ensordecedor" o "el corazón latía apresuradamente".
-- **Calidad General**: Cohesión, coherencia y excelencia literaria en todo momento.
-- **Técnicas Avanzadas de Escritura**:
-    - **Foreshadowing**: Introduce pistas sutiles sobre eventos futuros.
-    - **Metáforas y Simbolismo**: Utiliza figuras retóricas para enriquecer la narrativa.
-    - **Show, Don't Tell**: Enfócate en mostrar acciones y emociones en lugar de simplemente describirlas.
+Escribe una novela que tenga el potencial de ganar el premio Cervantes, tomando en cuenta la calidad literaria, la profundidad temática y el uso del lenguaje.
 
-### Estructura Requerida:
-1. **Título**
-2. **Trama Principal**
-3. **Subtramas** (incluyendo nombres, descripciones detalladas, motivaciones y cómo afectan a los personajes y la trama principal)
-4. **Personajes** (incluyendo nombres, descripciones físicas y psicológicas, motivaciones, y arcos de desarrollo)
-5. **Ambientación** (detallada y relevante para la trama)
-6. **Técnicas Literarias a Utilizar** (como metáforas, simbolismo, foreshadowing, etc.)
+# Elementos a considerar
+- **Calidad Literaria**: Usa un estilo único, refinado y consistente a lo largo de la obra. Emplea recursos literarios como metáforas, simbolismo y diálogos efectivos.
+- **Profundidad Temática**: Aborda temas universales o contemporáneos de manera profunda y reflexiva. La historia debe provocar un análisis y reflexión en el lector.
+- **Construcción de Personajes**: Los personajes deben ser complejos, bien desarrollados y mostrarse a través de sus acciones, pensamientos y evolución a lo largo de la trama.
+- **Estructura Narrativa**: La novela debe tener una estructura coherente, con un desarrollo claro, un clímax y resolución efectiva.
+- **Uso del Lenguaje**: El lenguaje debe ser preciso, evocador y mostrar un dominio del español que destaque entre otras obras.
 
-### Tema:
-{theme}
+# Pasos
 
-Asegúrate de que toda la información generada sea coherente y adecuada para un thriller político de alta calidad.
+1. Definir un tema central y universal que resonará con una amplia audiencia.
+2. Crear un esquema para la estructura narrativa, asegurando un arco argumental sólido.
+3. Desarrollar personajes tridimensionales con sus propias motivaciones y conflictos.
+4. Escribir borradores, centrándose en el estilo literario y el lenguaje.
+5. Revisar y refinar el manuscrito varias veces para asegurar calidad y cohesión.
+
+# Formato de salida
+
+Escribe la novela en un documento detallado. Cada sección o capítulo debe comenzar con un título claro. La longitud de la novela debe ser adecuada para un libro completo, típicamente entre 60,000 y 100,000 palabras, dependiendo de la complejidad de la trama.
+
+# Ejemplos
+
+Este formulario no puede proporcionar ejemplos completos debido a la extensión de una novela, pero aquí hay un ejemplo abreviado de cómo debería desarrollarse un pasaje:
+
+**Tema central**: La búsqueda de identidad en un mundo cambiante.
+**Estructura narrativa**: Capítulo 1 - Introducción del protagonista y su conflicto interno.
+**Uso del lenguaje**: "En las sombras de la alborada, Juan miraba al horizonte, buscando en el amanecer respuestas a preguntas que aún no sabía formular."
+
+# Notas
+
+- Asegúrate de que el manuscrito aborda de manera única el tema seleccionado.
+- Equilibra descripción, diálogo y acción para una narrativa envolvente.
+- Considera recibir retroalimentación de críticos u otros escritores para refinar aún más el trabajo final.
 """
     estructura = call_openrouter_api(prompt)
     return estructura
@@ -168,7 +178,7 @@ def generar_escena(capitulo, escena, trama, subtramas, personajes, ambientacion,
     total_max_tokens = max_tokens_trama + max_tokens_subtramas
 
     prompt = f"""
-Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso político de alta calidad con las siguientes características:
+Escribe la Escena {escena} del Capítulo {capitulo} de una novela que tenga el potencial de ganar el Premio Cervantes, con las siguientes características:
 
 - **Trama Principal**: {trama}
 - **Subtramas**: {subtramas}
@@ -218,7 +228,7 @@ def generar_novela_completa(num_capitulos, num_escenas):
     ambientacion = st.session_state.ambientacion
     tecnica = st.session_state.tecnica
 
-    total_palabras = 60000  # Ajustado a 50,000 palabras
+    total_palabras = 80000  # Ajustado a 80,000 palabras como promedio
     total_escenas = num_capitulos * num_escenas
 
     # Distribuir las palabras entre trama principal y subtramas
@@ -429,28 +439,29 @@ def mostrar_aprobacion():
     st.write(st.session_state.tecnica)
 
     # Alinear los botones a la izquierda sin columnas
-    aprobar = st.button("Aprobar y Generar Novela", key="aprobar")
-    if aprobar:
-        st.session_state.etapa = "generacion"
+    aprobar, rechazar = st.columns([1, 1])
+    with aprobar:
+        if st.button("Aprobar y Generar Novela", key="aprobar"):
+            st.session_state.etapa = "generacion"
 
-    rechazar = st.button("Rechazar y Regenerar Estructura", key="rechazar")
-    if rechazar:
-        # Reiniciamos los valores
-        st.session_state.estructura = None
-        st.session_state.titulo = ""
-        st.session_state.trama = ""
-        st.session_state.subtramas = ""
-        st.session_state.personajes = ""
-        st.session_state.ambientacion = ""
-        st.session_state.tecnica = ""
-        st.session_state.etapa = "inicio"
+    with rechazar:
+        if st.button("Rechazar y Regenerar Estructura", key="rechazar"):
+            # Reiniciamos los valores
+            st.session_state.estructura = None
+            st.session_state.titulo = ""
+            st.session_state.trama = ""
+            st.session_state.subtramas = ""
+            st.session_state.personajes = ""
+            st.session_state.ambientacion = ""
+            st.session_state.tecnica = ""
+            st.session_state.etapa = "inicio"
 
 # Interfaz de usuario principal
 st.write(f"**Etapa actual:** {st.session_state.etapa}")  # Depuración
 
 if st.session_state.etapa == "inicio":
     st.header("Generación de Elementos Iniciales")
-    theme = st.text_input("Ingrese el tema para su thriller político:", "")
+    theme = st.text_input("Ingrese el tema para su novela:", "")
 
     if st.button("Generar Elementos Iniciales"):
         if not theme:
@@ -489,7 +500,7 @@ if st.session_state.etapa == "completado":
         st.download_button(
             label="Descargar Novela en Word",
             data=doc_buffer,
-            file_name=f"novela_thriller_politico_{int(time.time())}.docx",
+            file_name=f"novela_premio_cervantes_{int(time.time())}.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
         # Mostrar la novela en la interfaz
