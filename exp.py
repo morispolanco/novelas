@@ -1,153 +1,279 @@
 import streamlit as st
+import requests
+import json
 import time
 from docx import Document
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from io import BytesIO
 import re
-import random
 import matplotlib.pyplot as plt
-from together import Together
 
 # Nuevas importaciones necesarias para agregar la tabla de contenidos
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
-# Inicializar el cliente de Together
-client = Together()
-
 # Configuración de la página
 st.set_page_config(
-    page_title="Generador de Novelas de Suspenso Político",
+    page_title="Analizador de Novelas de Suspenso Político",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 # Título de la aplicación
-st.title("Generador de Novelas de Suspenso Político")
+st.title("Analizador de Novelas de Suspenso Político")
 st.write("""
-Esta aplicación genera una novela en el género de thriller político.
-Ingrese un tema y personalice el número de capítulos y escenas para crear una narrativa coherente y emocionante.
+Esta aplicación analiza una novela en el género de thriller político.
+Sube tu novela en formato `.docx` o `.txt` y recibe un informe detallado de errores y mejoras por escena.
 """)
 
 # Barra lateral para opciones de usuario
-st.sidebar.header("Configuración de la Novela")
-num_capitulos = st.sidebar.slider("Número de capítulos", min_value=15, max_value=20, value=18)
-num_escenas = st.sidebar.slider("Número de escenas por capítulo", min_value=4, max_value=6, value=5)
-porcentaje_trama_principal = st.sidebar.slider("Porcentaje de palabras para la trama principal (%)", min_value=60, max_value=80, value=70)
-porcentaje_subtramas = 100 - porcentaje_trama_principal
-st.sidebar.write(f"Porcentaje de palabras para subtramas: {porcentaje_subtramas}%")
+st.sidebar.header("Configuración de Análisis")
+file_upload = st.sidebar.file_uploader("Sube tu novela (.docx o .txt):", type=["docx", "txt"])
 
 # Inicializar el estado de la aplicación
 if 'etapa' not in st.session_state:
-    st.session_state.etapa = "inicio"  # etapas: inicio, aprobacion, generacion, completado
+    st.session_state.etapa = "inicio"  # etapas: inicio, analisis, completado
 
-if 'novela_completa' not in st.session_state:
-    st.session_state.novela_completa = ""
-if 'novela_doc' not in st.session_state:
-    st.session_state.novela_doc = Document()
+if 'novela' not in st.session_state:
+    st.session_state.novela = ""
+if 'informe' not in st.session_state:
+    st.session_state.informe = ""
 
-# Función para llamar a la API de Together y generar escenas
-def call_together_api(prompt, max_tokens=1200, temperature=0.7, top_p=0.9, top_k=50, repetition_penalty=1.2):
-    response = client.chat.completions.create(
-        model="Qwen/Qwen2.5-7B-Instruct-Turbo",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=max_tokens,
-        temperature=temperature,
-        top_p=top_p,
-        top_k=top_k,
-        repetition_penalty=repetition_penalty,
-        stop=["<|im_end|>"],
-        stream=True
-    )
-
-    # Generación de respuesta en tiempo real
-    respuesta_completa = ""
-    output_text = st.empty()  # Espacio para mostrar la respuesta en tiempo real
-
-    # Procesar cada token transmitido
-    for token in response:
-        if hasattr(token, 'choices'):
-            content = token.choices[0].delta.content
-            respuesta_completa += content
-            output_text.write(respuesta_completa)  # Actualizar en Streamlit
-
-    return respuesta_completa
-
-# Función para generar cada escena y agregarla al documento de Word
-def generar_escena(capitulo, escena, trama, subtramas, personajes, ambientacion, tecnica, palabras_trama, palabras_subtramas):
-    prompt = f"""
-Escribe la Escena {escena} del Capítulo {capitulo} de una novela de suspenso político de alta calidad con las siguientes características:
-
-- **Trama Principal**: {trama}
-- **Subtramas**: {subtramas}
-- **Personajes**: {personajes}
-- **Ambientación**: {ambientacion}
-- **Técnicas Literarias**: {tecnica}
-
-Asegúrate de mantener la coherencia y la cohesión en toda la escena, contribuyendo significativamente al desarrollo general de la novela.
-"""
-    # Llamar a la API para generar la escena
-    escena_texto = call_together_api(prompt, max_tokens=1200, temperature=0.7, top_p=0.9, top_k=50, repetition_penalty=1.2)
+# Función para llamar a la API de OpenRouter con reintentos y parámetros ajustables
+def call_openrouter_api(prompt, max_tokens=1500, temperature=0.5, top_p=0.9, top_k=50, repetition_penalty=1.2):
+    api_url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "openai/gpt-4o-mini",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "top_p": top_p,
+        "top_k": top_k,
+        "repetition_penalty": repetition_penalty,
+        "stop": ["[\"<|eot_id|>\"]"],
+        "stream": False
+    }
     
-    # Agregar la escena generada al contenido de la novela y al documento de Word
-    st.session_state.novela_completa += f"### Escena {escena} (Capítulo {capitulo})\n\n{escena_texto}\n\n"
+    session = requests.Session()
+    retries = Retry(total=5, backoff_factor=1, status_forcelist=[502, 503, 504])
+    session.mount('https://', HTTPAdapter(max_retries=retries))
+    
+    try:
+        response = session.post(api_url, headers=headers, data=json.dumps(payload))
+        response.raise_for_status()
+        response_json = response.json()
+        if 'choices' in response_json and len(response_json['choices']) > 0:
+            return response_json['choices'][0]['message']['content']
+        else:
+            st.error("La respuesta de la API no contiene 'choices'.")
+            st.write("Respuesta completa de la API:", response_json)
+            return None
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error en la llamada a la API: {e}")
+        return None
 
-    # Añadir capítulo y escena al documento de Word
-    st.session_state.novela_doc.add_heading(f"Capítulo {capitulo}", level=1)
-    st.session_state.novela_doc.add_heading(f"Escena {escena}", level=2)
-    for paragraph in escena_texto.split('\n'):
-        st.session_state.novela_doc.add_paragraph(paragraph.strip())
+# Función para dividir la novela en escenas
+def dividir_en_escenas(texto):
+    # Suponiendo que las escenas están marcadas con "### Escena X"
+    escenas = re.split(r'### Escena \d+', texto)
+    # Eliminar elementos vacíos y limpiar
+    escenas = [esc.strip() for esc in escenas if esc.strip()]
+    return escenas
 
-    return escena_texto
+# Función para analizar una escena
+def analizar_escena(escena_num, contenido):
+    prompt = f"""
+    Analiza la siguiente escena de una novela de suspenso político. Identifica errores gramaticales, de coherencia, desarrollo de personajes y cualquier otro aspecto que pueda mejorar la calidad de la escena. Proporciona recomendaciones claras y específicas para cada área de mejora.
 
-# Función para generar la novela completa
-def generar_novela_completa(num_capitulos, num_escenas, trama, subtramas, personajes, ambientacion, tecnica):
-    for cap in range(1, num_capitulos + 1):
-        for esc in range(1, num_escenas + 1):
-            palabras_trama = 600  # Número estimado de palabras para la trama principal por escena
-            palabras_subtramas = 200  # Número estimado de palabras para subtramas por escena
+    ### Escena {escena_num}:
+    {contenido}
 
-            with st.spinner(f"Generando Escena {esc} del Capítulo {cap}..."):
-                escena_texto = generar_escena(cap, esc, trama, subtramas, personajes, ambientacion, tecnica, palabras_trama, palabras_subtramas)
-                time.sleep(1)  # Retraso para evitar exceder los límites de la API
+    ### Informe de Análisis:
+    """
+    analisis = call_openrouter_api(prompt)
+    return analisis
 
-# Función para exportar la novela a Word
-def exportar_a_word():
+# Función para generar el informe completo
+def generar_informe(escenas, analisis_por_escena):
+    informe = f"# Informe de Análisis de la Novela\n\n"
+    total_escenas = len(escenas)
+    for i in range(total_escenas):
+        informe += f"## Escena {i+1}\n\n"
+        informe += f"**Contenido de la Escena:**\n\n{escenas[i]}\n\n"
+        informe += f"**Análisis y Recomendaciones:**\n\n{analisis_por_escena[i]}\n\n"
+        informe += "---\n\n"
+    return informe
+
+# Función para exportar el informe a Word
+def exportar_informe_word(informe):
+    document = Document()
+
+    # Configurar el tamaño de la página y márgenes
+    section = document.sections[0]
+    section.page_width = Inches(6)
+    section.page_height = Inches(9)
+    section.top_margin = Inches(0.7)
+    section.bottom_margin = Inches(0.7)
+    section.left_margin = Inches(0.7)
+    section.right_margin = Inches(0.7)
+
+    # Establecer el estilo normal con una fuente común
+    style = document.styles['Normal']
+    font = style.font
+    font.name = 'Times New Roman'  # Cambiado a una fuente común
+    font.size = Pt(12)
+
+    # Agregar el título
+    titulo_paragraph = document.add_heading("Informe de Análisis de la Novela", level=0)
+    titulo_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+    document.add_page_break()
+
+    # Separar el informe por escenas
+    escenas = re.split(r'## Escena \d+', informe)
+    escenas = [esc.strip() for esc in escenas if esc.strip()]
+    for esc in escenas:
+        # Dividir en contenido y análisis
+        contenido_match = re.search(r'\*\*Contenido de la Escena:\*\*(.*?)\*\*Análisis y Recomendaciones:\*\*(.*?)(?=---|$)', esc, re.DOTALL)
+        if contenido_match:
+            contenido = contenido_match.group(1).strip()
+            analisis = contenido_match.group(2).strip()
+
+            # Agregar contenido de la escena
+            document.add_heading("Contenido de la Escena", level=1)
+            document.add_paragraph(contenido)
+
+            # Agregar análisis y recomendaciones
+            document.add_heading("Análisis y Recomendaciones", level=1)
+            document.add_paragraph(analisis)
+
+            document.add_page_break()
+
+    # Agregar el conteo total de escenas analizadas al final del documento
+    total_escenas = len(escenas)
+    document.add_heading("Resumen del Análisis", level=1)
+    document.add_paragraph(f"**Total de escenas analizadas:** {total_escenas}")
+
+    # Guardar el documento en memoria
     buffer = BytesIO()
-    st.session_state.novela_doc.save(buffer)
+    document.save(buffer)
     buffer.seek(0)
     return buffer
 
-# Interfaz de usuario principal
-if st.session_state.etapa == "inicio":
-    st.header("Configuración Inicial")
-    theme = st.text_input("Ingrese el tema para su thriller político:", "")
-    if st.button("Generar Elementos Iniciales"):
-        if theme:
-            # Llamar a la API para generar la estructura inicial (simplificado)
-            st.session_state.trama = f"Trama principal basada en el tema: {theme}"
-            st.session_state.subtramas = "Varias subtramas que complementan la historia principal."
-            st.session_state.personajes = "Personajes complejos y bien desarrollados."
-            st.session_state.ambientacion = "Ambientación acorde a la trama de suspenso político."
-            st.session_state.tecnica = "Uso de técnicas literarias avanzadas."
+# Función para agregar una tabla de contenidos automática (opcional)
+def agregar_tabla_de_contenidos(document):
+    paragraph = document.add_paragraph()
+    run = paragraph.add_run()
+    fldChar1 = OxmlElement('w:fldChar')
+    fldChar1.set(qn('w:fldCharType'), 'begin')
+    instrText = OxmlElement('w:instrText')
+    instrText.text = 'TOC \\o "1-3" \\h \\z \\u'
+    fldChar2 = OxmlElement('w:fldChar')
+    fldChar2.set(qn('w:fldCharType'), 'separate')
+    fldChar3 = OxmlElement('w:fldChar')
+    fldChar3.set(qn('w:fldCharType'), 'end')
+    run._r.append(fldChar1)
+    run._r.append(instrText)
+    run._r.append(fldChar2)
+    run._r.append(fldChar3)
 
-            # Cambiar la etapa para empezar a generar la novela
-            st.session_state.etapa = "generacion"
+# Interfaz de usuario para aprobar la carga y comenzar el análisis
+def mostrar_inicio():
+    st.header("Carga y Análisis de la Novela")
+    if file_upload:
+        if file_upload.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            # Leer archivo .docx
+            doc = Document(file_upload)
+            texto = "\n".join([para.text for para in doc.paragraphs])
+        elif file_upload.type == "text/plain":
+            # Leer archivo .txt
+            texto = file_upload.read().decode("utf-8")
         else:
-            st.error("Por favor, ingrese un tema.")
+            st.error("Formato de archivo no soportado.")
+            return
+        
+        st.session_state.novela = texto
+        st.session_state.etapa = "analisis"
 
-if st.session_state.etapa == "generacion":
-    if st.button("Generar Novela Completa"):
-        generar_novela_completa(num_capitulos, num_escenas, st.session_state.trama, st.session_state.subtramas, st.session_state.personajes, st.session_state.ambientacion, st.session_state.tecnica)
-        st.session_state.etapa = "completado"
+# Interfaz de usuario para mostrar el análisis y generar el informe
+def mostrar_analisis():
+    st.header("Análisis en Proceso")
+    novela = st.session_state.novela
 
-if st.session_state.etapa == "completado":
-    st.success("Novela generada con éxito.")
+    # Dividir la novela en escenas
+    escenas = dividir_en_escenas(novela)
+    total_escenas = len(escenas)
+    st.write(f"**Total de escenas identificadas:** {total_escenas}")
+
+    if total_escenas == 0:
+        st.error("No se pudieron identificar escenas en la novela. Asegúrate de que las escenas estén correctamente marcadas.")
+        return
+
+    # Inicializar listas para almacenar análisis
+    analisis_por_escena = []
+
+    # Inicializar la barra de progreso
+    progress_bar = st.progress(0)
+    progress_text = st.empty()
+    current = 0
+
+    # Analizar cada escena
+    for i, escena in enumerate(escenas):
+        escena_num = i + 1
+        with st.spinner(f"Analizando Escena {escena_num} de {total_escenas}..."):
+            analisis = analizar_escena(escena_num, escena)
+            if analisis:
+                analisis_por_escena.append(analisis)
+            else:
+                analisis_por_escena.append("No se pudo generar el análisis para esta escena.")
+        # Actualizar la barra de progreso
+        current += 1
+        progress_bar.progress(current / total_escenas)
+        progress_text.text(f"Progreso: {current}/{total_escenas} escenas analizadas.")
+        # Retraso para evitar exceder los límites de la API
+        time.sleep(1)
+    
+    # Ocultar la barra de progreso y el texto de progreso
+    progress_bar.empty()
+    progress_text.empty()
+
+    # Generar el informe completo
+    informe = generar_informe(escenas, analisis_por_escena)
+    st.session_state.informe = informe
+    st.session_state.etapa = "completado"
+
+# Interfaz de usuario para mostrar el informe y opciones de descarga
+def mostrar_completado():
+    st.header("Informe de Análisis Generado")
+    informe = st.session_state.informe
+    st.text_area("Informe Detallado:", informe, height=600)
+
+    # Exportar a Word
+    doc_buffer = exportar_informe_word(informe)
     st.download_button(
-        label="Descargar Novela en Word",
-        data=exportar_a_word(),
-        file_name="novela_thriller_politico.docx",
+        label="Descargar Informe en Word",
+        data=doc_buffer,
+        file_name=f"informe_analisis_novela_{int(time.time())}.docx",
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
-    st.text_area("Novela Generada:", st.session_state.novela_completa, height=600)
+
+    # Opcional: Mostrar gráficas o resúmenes adicionales
+    # Por ejemplo, número de errores por escena, etc.
+    # Aquí puedes agregar cualquier visualización adicional que desees.
+
+# Interfaz de usuario principal
+if st.session_state.etapa == "inicio":
+    mostrar_inicio()
+
+elif st.session_state.etapa == "analisis":
+    mostrar_analisis()
+
+elif st.session_state.etapa == "completado":
+    mostrar_completado()
+
+# Manejo de estados adicionales si es necesario
