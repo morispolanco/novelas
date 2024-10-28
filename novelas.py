@@ -46,6 +46,8 @@ if 'estructura' not in st.session_state:
     st.session_state.estructura = None
 if 'novela_completa' not in st.session_state:
     st.session_state.novela_completa = None
+if 'descripcion' not in st.session_state:
+    st.session_state.descripcion = ""
 if 'contexto' not in st.session_state:
     st.session_state.contexto = ""
 if 'personajes' not in st.session_state:
@@ -101,6 +103,8 @@ Escribe una novela ambientada en el tema del terrorismo, desarrollando personaje
 
 Considera los siguientes puntos para elaborar tu novela:
 
+- **Descripción General**: Proporciona una descripción general que establezca el tono, el contexto y los elementos clave de la novela.
+
 - **Contexto y Escenario**: Describe el entorno en el que se desarrolla la acción. Puedes situar la trama en una ciudad específica, un lugar de conflicto o incluso a nivel internacional. Asegúrate de explicar cómo este entorno afecta a los personajes y sus acciones.
 
 - **Personajes Principales**: Crea personajes complejos y bien definidos. Considera incluir:
@@ -120,9 +124,11 @@ Considera los siguientes puntos para elaborar tu novela:
 
 # Output Format
 
-La novela debe organizarse en capítulos con una extensión que permita desarrollar completamente portales narrativos y arcos de personajes. Cada capítulo debe tener un inicio, desarrollo y cierre satisfactorios.
+La novela debe organizarse en capítulos con una extensión que permita desarrollar completamente portales narrativos y arcos de personajes. Cada capítulo debe comenzar con un título claro y una descripción inicial. Cada capítulo debe tener un inicio, desarrollo y cierre satisfactorios.
 
 # Examples 
+
+- **Descripción General**: Una novela intensa que explora las profundidades de la lucha contra el terrorismo, enfocándose en las vidas de aquellos que se enfrentan a él y las consecuencias personales y sociales que conlleva.
 
 - **Contexto**: Una ciudad europea en la década de 2020, con tensiones políticas crecientes.
 - **Protagonista**: Un periodista local con conexiones en la comunidad política.
@@ -142,8 +148,9 @@ def extraer_elementos(estructura):
     st.write("### Estructura generada por la API:")
     st.write(estructura)
 
-    # Patrón mejorado para extraer los elementos
+    # Patrón mejorado para extraer los elementos, incluyendo descripción
     patrones = {
+        'descripcion': r"Descripción General:\s*((?:.|\n)*?)\n(?:Contexto y Escenario|$)",
         'contexto': r"Contexto y Escenario:\s*((?:.|\n)*?)\n(?:Personajes Principales|$)",
         'personajes': r"Personajes Principales:\s*((?:.|\n)*?)\n(?:Trama Principal|$)",
         'trama': r"Trama Principal:\s*((?:.|\n)*?)\n(?:Clímax y Resolución|$)",
@@ -151,6 +158,7 @@ def extraer_elementos(estructura):
         'temas': r"Temas y Motivos:\s*((?:.|\n)*?)\n(?:#|$)",
     }
 
+    descripcion = re.search(patrones['descripcion'], estructura, re.IGNORECASE)
     contexto = re.search(patrones['contexto'], estructura, re.IGNORECASE)
     personajes = re.search(patrones['personajes'], estructura, re.IGNORECASE)
     trama = re.search(patrones['trama'], estructura, re.IGNORECASE)
@@ -158,16 +166,17 @@ def extraer_elementos(estructura):
     temas = re.search(patrones['temas'], estructura, re.IGNORECASE)
 
     # Extraer el contenido, manejando posibles espacios y formatos
+    descripcion = descripcion.group(1).strip() if descripcion else "Sin descripción"
     contexto = contexto.group(1).strip() if contexto else "Sin contexto"
     personajes = personajes.group(1).strip() if personajes else "Sin personajes"
     trama = trama.group(1).strip() if trama else "Sin trama principal"
     climax = climax.group(1).strip() if climax else "Sin clímax y resolución"
     temas = temas.group(1).strip() if temas else "Sin temas y motivos"
 
-    return contexto, personajes, trama, climax, temas
+    return descripcion, contexto, personajes, trama, climax, temas
 
 # Función para generar cada escena con subtramas y técnicas avanzadas de escritura
-def generar_escena(capitulo, escena, contexto, personajes, trama, climax, temas, palabras_trama, palabras_subtramas):
+def generar_escena(capitulo, escena, descripcion, contexto, personajes, trama, climax, temas, palabras_trama, palabras_subtramas):
     # Estimar tokens: 1 palabra ≈ 1.3 tokens
     max_tokens_trama = int(palabras_trama * 1.3)
     max_tokens_subtramas = int(palabras_subtramas * 1.3)
@@ -176,6 +185,7 @@ def generar_escena(capitulo, escena, contexto, personajes, trama, climax, temas,
     prompt = f"""
 Escribe la Escena {escena} del Capítulo {capitulo} de una novela ambientada en el tema del terrorismo, con las siguientes características:
 
+- **Descripción General**: {descripcion}
 - **Contexto y Escenario**: {contexto}
 - **Personajes Principales**: {personajes}
 - **Trama Principal**: {trama}
@@ -216,6 +226,7 @@ Asegúrate de mantener la coherencia y la cohesión en toda la escena, contribuy
 
 # Función para generar la novela completa después de la aprobación
 def generar_novela_completa(num_capitulos, num_escenas):
+    descripcion = st.session_state.descripcion
     contexto = st.session_state.contexto
     personajes = st.session_state.personajes
     trama = st.session_state.trama
@@ -261,7 +272,9 @@ def generar_novela_completa(num_capitulos, num_escenas):
     for i in range(palabras_restantes_subtramas):
         palabras_por_escena_subtramas_lista[i % total_escenas] += 1
 
-    novela = f"**{contexto.split(':')[1].strip()}**\n\n"  # Usando el contexto como título
+    # Usar la descripción como título principal de la novela
+    titulo = descripcion.split(':')[1].strip() if ':' in descripcion else "Título de la Novela"
+    novela = f"**{titulo}**\n\n"
 
     # Inicializar la barra de progreso
     progress_bar = st.progress(0)
@@ -281,7 +294,7 @@ def generar_novela_completa(num_capitulos, num_escenas):
 
             palabras_por_capitulo[cap].append(total_palabras_escena)
             with st.spinner(f"Generando Capítulo {cap}, Escena {esc} ({total_palabras_escena} palabras)..."):
-                escena = generar_escena(cap, esc, contexto, personajes, trama, climax, temas, 
+                escena = generar_escena(cap, esc, descripcion, contexto, personajes, trama, climax, temas, 
                                         palabras_trama_escena, palabras_subtramas_escena)
                 if not escena:
                     st.error(f"No se pudo generar la Escena {esc} del Capítulo {cap}.")
@@ -414,6 +427,9 @@ def agregar_tabla_de_contenidos(document):
 # Interfaz de usuario para aprobar la estructura inicial
 def mostrar_aprobacion():
     st.header("Aprobación de Elementos Iniciales")
+    st.subheader("Descripción General")
+    st.write(st.session_state.descripcion)
+
     st.subheader("Contexto y Escenario")
     st.write(st.session_state.contexto)
 
@@ -429,7 +445,7 @@ def mostrar_aprobacion():
     st.subheader("Temas y Motivos")
     st.write(st.session_state.temas)
 
-    # Alinear los botones a la izquierda sin columnas
+    # Alinear los botones de aprobación y rechazo usando columnas
     aprobar, rechazar = st.columns([1, 1])
     with aprobar:
         if st.button("Aprobar y Generar Novela", key="aprobar"):
@@ -439,6 +455,7 @@ def mostrar_aprobacion():
         if st.button("Rechazar y Regenerar Estructura", key="rechazar"):
             # Reiniciamos los valores
             st.session_state.estructura = None
+            st.session_state.descripcion = ""
             st.session_state.contexto = ""
             st.session_state.personajes = ""
             st.session_state.trama = ""
@@ -460,9 +477,10 @@ if st.session_state.etapa == "inicio":
             with st.spinner("Generando la estructura inicial..."):
                 estructura = generar_estructura(theme)
                 if estructura:
-                    contexto, personajes, trama, climax, temas = extraer_elementos(estructura)
+                    descripcion, contexto, personajes, trama, climax, temas = extraer_elementos(estructura)
                     # Guardar en el estado de la sesión
                     st.session_state.estructura = estructura
+                    st.session_state.descripcion = descripcion
                     st.session_state.contexto = contexto
                     st.session_state.personajes = personajes
                     st.session_state.trama = trama
@@ -485,7 +503,7 @@ if st.session_state.etapa == "completado":
     if st.session_state.novela_completa:
         st.success("Novela generada con éxito.")
         # Exportar a Word
-        doc_buffer = exportar_a_word(st.session_state.contexto.split(':')[1].strip(), st.session_state.novela_completa)
+        doc_buffer = exportar_a_word(titulo, st.session_state.novela_completa)
         st.download_button(
             label="Descargar Novela en Word",
             data=doc_buffer,
