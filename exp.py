@@ -49,7 +49,7 @@ def call_openrouter_api(prompt, max_tokens=3000, temperature=0.5, top_p=0.9, top
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "gpt-4",  # Asegúrate de que este es el nombre correcto del modelo
+        "model": "openai/gpt-4o-mini",  # Asegúrate de que este es el nombre correcto del modelo
         "messages": [{"role": "user", "content": prompt}],
         "temperature": temperature,
         "max_tokens": max_tokens,
@@ -99,9 +99,10 @@ def dividir_novela(texto, max_length=3000):
     return [texto[i:i+max_length] for i in range(0, len(texto), max_length)]
 
 # Función para analizar la novela completa
-def analizar_novela(texto):
+def analizar_novela(texto, progress_bar=None, progress_text=None):
     # Dividir el texto si es muy largo
     secciones = dividir_novela(texto)
+    total_secciones = len(secciones)
     analisis_completo = {
         "calificacion": [],
         "errores": [],
@@ -130,6 +131,12 @@ def analizar_novela(texto):
         else:
             st.error("No se recibió análisis para una sección.")
             return None
+        
+        # Actualizar la barra de progreso y el texto
+        if progress_bar and progress_text:
+            progreso_actual = (idx + 1) / total_secciones
+            progress_bar.progress(progreso_actual)
+            progress_text.text(f"Procesando sección {idx + 1} de {total_secciones} ({int(progreso_actual * 100)}%)")
     
     # Calcular la calificación promedio
     if analisis_completo["calificacion"]:
@@ -219,24 +226,20 @@ def exportar_informe_word(informe):
     buffer.seek(0)
     return buffer
 
-# Interfaz de usuario para aprobar la carga y comenzar el análisis
+# Interfaz de usuario para aprobar la carga y comenzar el análisis usando un formulario
 def mostrar_inicio():
     st.header("Carga y Análisis de la Novela")
-    if file_upload:
-        st.session_state.archivo_cargado = file_upload  # Almacenar el archivo en el estado
-        st.success("Archivo cargado exitosamente. Haz clic en 'Enviar' para proceder.")
-    else:
-        st.session_state.archivo_cargado = None
-
-    # Botón "Enviar" para confirmar la carga del archivo
-    enviar_btn = st.button("Enviar")
-
-    if enviar_btn:
-        if st.session_state.archivo_cargado:
-            texto = leer_archivo(st.session_state.archivo_cargado)
+    with st.form(key='form_carga'):
+        archivo = st.file_uploader("Sube tu novela (.docx o .txt):", type=["docx", "txt"])
+        submit_btn = st.form_submit_button(label='Enviar')
+    
+    if submit_btn:
+        if archivo is not None:
+            texto = leer_archivo(archivo)
             if texto:
                 st.session_state.novela = texto
                 st.session_state.etapa = "analisis"
+                st.success("Archivo cargado y listo para análisis.")
         else:
             st.error("Por favor, carga un archivo antes de hacer clic en 'Enviar'.")
 
@@ -250,9 +253,15 @@ def mostrar_analisis():
     st.text_area("Contenido de la Novela:", novela[:1000] + "..." if len(novela) > 1000 else novela, height=200)
 
     # Botón para iniciar el análisis
-    if st.button("Iniciar Análisis"):
+    iniciar_btn = st.button("Iniciar Análisis")
+
+    if iniciar_btn:
         with st.spinner("Analizando la novela..."):
-            analisis = analizar_novela(novela)
+            # Crear la barra de progreso y el texto de progreso
+            progreso = st.progress(0)
+            progreso_text = st.empty()
+            # Analizar la novela pasando la barra de progreso y el texto
+            analisis = analizar_novela(novela, progress_bar=progreso, progress_text=progreso_text)
             if analisis:
                 # Generar el informe
                 informe = generar_informe(analisis)
