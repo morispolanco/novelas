@@ -7,6 +7,12 @@ from io import BytesIO
 import re
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from docx.shared import Inches, Pt
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+import logging
+
+# Configurar el logging
+logging.basicConfig(level=logging.INFO)
 
 # Configuración de la página
 st.set_page_config(
@@ -43,14 +49,14 @@ def call_openrouter_api(prompt, max_tokens=3000, temperature=0.5, top_p=0.9, top
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "openai/gpt-4o-mini",
+        "model": "gpt-4",  # Asegúrate de que este es el nombre correcto del modelo
         "messages": [{"role": "user", "content": prompt}],
         "temperature": temperature,
         "max_tokens": max_tokens,
         "top_p": top_p,
         "top_k": top_k,
         "repetition_penalty": repetition_penalty,
-        "stop": ["[\"<|eot_id|>\"]"],
+        "stop": ["<|eot_id|>"],  # Asegúrate de que este es el token de detención correcto
         "stream": False
     }
     
@@ -62,6 +68,7 @@ def call_openrouter_api(prompt, max_tokens=3000, temperature=0.5, top_p=0.9, top
         response = session.post(api_url, headers=headers, data=json.dumps(payload))
         response.raise_for_status()
         response_json = response.json()
+        logging.info("API Response: %s", response_json)
         if 'choices' in response_json and len(response_json['choices']) > 0:
             return response_json['choices'][0]['message']['content']
         else:
@@ -69,6 +76,7 @@ def call_openrouter_api(prompt, max_tokens=3000, temperature=0.5, top_p=0.9, top
             st.write("Respuesta completa de la API:", response_json)
             return None
     except requests.exceptions.RequestException as e:
+        logging.error("Error en la llamada a la API: %s", e)
         st.error(f"Error en la llamada a la API: {e}")
         return None
 
@@ -86,18 +94,60 @@ def leer_archivo(file):
         return None
     return texto
 
+# Función para dividir la novela si es muy larga
+def dividir_novela(texto, max_length=3000):
+    return [texto[i:i+max_length] for i in range(0, len(texto), max_length)]
+
 # Función para analizar la novela completa
 def analizar_novela(texto):
-    prompt = f"""
-    Por favor, analiza la siguiente novela de suspenso político de manera global. Identifica errores gramaticales, de coherencia, desarrollo de personajes, ritmo y cualquier otro aspecto que pueda mejorar la calidad de la novela. Proporciona recomendaciones claras y específicas para cada área de mejora y asigna una calificación de 1 a 10 puntos basada en la calidad general de la novela. Responde en formato JSON con las siguientes claves: "calificacion", "errores", "recomendaciones".
+    # Dividir el texto si es muy largo
+    secciones = dividir_novela(texto)
+    analisis_completo = {
+        "calificacion": [],
+        "errores": [],
+        "recomendaciones": []
+    }
     
-    ### Novela:
-    {texto}
+    for idx, seccion in enumerate(secciones):
+        prompt = f"""
+        Por favor, analiza la siguiente sección de una novela de suspenso político. Identifica errores gramaticales, de coherencia, desarrollo de personajes, ritmo y cualquier otro aspecto que pueda mejorar la calidad de la novela. Proporciona recomendaciones claras y específicas para cada área de mejora y asigna una calificación de 1 a 10 puntos basada en la calidad general de la sección. Responde en formato JSON con las siguientes claves: "calificacion", "errores", "recomendaciones".
+        
+        ### Sección {idx+1}:
+        {seccion}
+        
+        ### Informe de Análisis:
+        """
+        analisis = call_openrouter_api(prompt)
+        if analisis:
+            try:
+                analisis_json = json.loads(analisis)
+                analisis_completo["calificacion"].append(float(analisis_json.get('calificacion', 0)))
+                analisis_completo["errores"].append(analisis_json.get('errores', 'No se identificaron errores.'))
+                analisis_completo["recomendaciones"].append(analisis_json.get('recomendaciones', 'No se proporcionaron recomendaciones.'))
+            except json.JSONDecodeError:
+                st.error("Error al decodificar la respuesta de la API.")
+                return None
+        else:
+            st.error("No se recibió análisis para una sección.")
+            return None
     
-    ### Informe de Análisis:
-    """
-    analisis = call_openrouter_api(prompt)
-    return analisis
+    # Calcular la calificación promedio
+    if analisis_completo["calificacion"]:
+        calificacion_promedio = sum(analisis_completo["calificacion"]) / len(analisis_completo["calificacion"])
+    else:
+        calificacion_promedio = "No disponible"
+    
+    # Combinar errores y recomendaciones
+    errores_completos = "\n".join([f"**Sección {i+1}:**\n{error}" for i, error in enumerate(analisis_completo["errores"])])
+    recomendaciones_completas = "\n".join([f"**Sección {i+1}:**\n{recomendacion}" for i, recomendacion in enumerate(analisis_completo["recomendaciones"])])
+    
+    informe = {
+        "calificacion": round(calificacion_promedio, 2) if isinstance(calificacion_promedio, float) else calificacion_promedio,
+        "errores": errores_completos,
+        "recomendaciones": recomendaciones_completas
+    }
+    
+    return json.dumps(informe, ensure_ascii=False)
 
 # Función para generar el informe completo
 def generar_informe(analisis):
@@ -136,7 +186,7 @@ def exportar_informe_word(informe):
     # Establecer el estilo normal con una fuente común
     style = document.styles['Normal']
     font = style.font
-    font.name = 'Times New Roman'  # Cambiado a una fuente común
+    font.name = 'Times New Roman'
     font.size = Pt(12)
 
     # Agregar el título
@@ -196,6 +246,7 @@ def mostrar_analisis():
                 informe = generar_informe(analisis)
                 st.session_state.informe = informe
                 st.session_state.etapa = "completado"
+                st.success("Análisis completado exitosamente.")
             else:
                 st.error("No se pudo generar el análisis. Por favor, intenta nuevamente.")
 
