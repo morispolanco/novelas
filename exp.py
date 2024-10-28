@@ -89,7 +89,7 @@ def leer_archivo(file):
 # Función para analizar la novela completa
 def analizar_novela(texto):
     prompt = f"""
-    Analiza la siguiente novela de suspenso político de manera global. Identifica errores gramaticales, de coherencia, desarrollo de personajes, ritmo y cualquier otro aspecto que pueda mejorar la calidad de la novela. Proporciona recomendaciones claras y específicas para cada área de mejora y asigna una calificación de 1 a 10 puntos basada en la calidad general de la novela.
+    Por favor, analiza la siguiente novela de suspenso político de manera global. Identifica errores gramaticales, de coherencia, desarrollo de personajes, ritmo y cualquier otro aspecto que pueda mejorar la calidad de la novela. Proporciona recomendaciones claras y específicas para cada área de mejora y asigna una calificación de 1 a 10 puntos basada en la calidad general de la novela. Responde en formato JSON con las siguientes claves: "calificacion", "errores", "recomendaciones".
     
     ### Novela:
     {texto}
@@ -101,11 +101,24 @@ def analizar_novela(texto):
 
 # Función para generar el informe completo
 def generar_informe(analisis):
-    informe = f"# Informe de Análisis de la Novela\n\n"
-    informe += f"**Calificación General:** {analisis.get('calificacion', 'No disponible')} / 10\n\n"
-    informe += f"**Errores Identificados:**\n{analisis.get('errores', 'No se identificaron errores.')}\n\n"
-    informe += f"**Recomendaciones para Mejoras:**\n{analisis.get('recomendaciones', 'No se proporcionaron recomendaciones.')}\n\n"
-    return informe
+    try:
+        # Intentar cargar la respuesta como JSON
+        analisis_json = json.loads(analisis)
+        calificacion = analisis_json.get('calificacion', 'No disponible')
+        errores = analisis_json.get('errores', 'No se identificaron errores.')
+        recomendaciones = analisis_json.get('recomendaciones', 'No se proporcionaron recomendaciones.')
+        
+        informe = f"# Informe de Análisis de la Novela\n\n"
+        informe += f"**Calificación General:** {calificacion} / 10\n\n"
+        informe += f"**Errores Identificados:**\n{errores}\n\n"
+        informe += f"**Recomendaciones para Mejoras:**\n{recomendaciones}\n\n"
+        return informe
+    except json.JSONDecodeError:
+        # Si la respuesta no es JSON, mostrar el contenido completo
+        informe = f"# Informe de Análisis de la Novela\n\n"
+        informe += f"**Calificación General:** No disponible\n\n"
+        informe += f"**Errores y Recomendaciones:**\n{analisis}\n\n"
+        return informe
 
 # Función para exportar el informe a Word
 def exportar_informe_word(informe):
@@ -137,9 +150,6 @@ def exportar_informe_word(informe):
         if line.startswith("# "):
             # Títulos
             document.add_heading(line.replace("# ", ""), level=1)
-        elif line.startswith("## "):
-            # Subtítulos
-            document.add_heading(line.replace("## ", ""), level=2)
         elif line.startswith("**"):
             # Negritas
             match = re.match(r'\*\*(.*?)\*\*:\s*(.*)', line)
@@ -165,11 +175,6 @@ def mostrar_inicio():
     if file_upload:
         texto = leer_archivo(file_upload)
         if texto:
-            if "### Escena" not in texto and file_upload.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-                st.warning("""
-                **Advertencia:** No se encontraron marcadores de escenas ("### Escena X") en tu novela.
-                Para un análisis global, no es necesario marcar las escenas, pero es recomendable revisar el formato de tu archivo.
-                """)
             st.session_state.novela = texto
             st.session_state.etapa = "analisis"
 
@@ -187,10 +192,9 @@ def mostrar_analisis():
         with st.spinner("Analizando la novela..."):
             analisis = analizar_novela(novela)
             if analisis:
-                # Asumiendo que la respuesta de la API incluye un JSON con 'calificacion', 'errores' y 'recomendaciones'
-                # Dependiendo de cómo OpenRouter formatee la respuesta, puede que necesites ajustar esto
-                # Aquí, simplemente almacenaremos el análisis completo
-                st.session_state.informe = analisis
+                # Generar el informe
+                informe = generar_informe(analisis)
+                st.session_state.informe = informe
                 st.session_state.etapa = "completado"
             else:
                 st.error("No se pudo generar el análisis. Por favor, intenta nuevamente.")
@@ -222,5 +226,3 @@ elif st.session_state.etapa == "analisis":
 
 elif st.session_state.etapa == "completado":
     mostrar_completado()
-
-# Manejo de estados adicionales si es necesario
