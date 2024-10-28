@@ -19,7 +19,7 @@ st.set_page_config(
 st.title("Analizador de Novelas de Suspenso Político")
 st.write("""
 Esta aplicación analiza una novela en el género de thriller político.
-Sube tu novela en formato `.docx` o `.txt` y recibe un informe detallado de errores y mejoras por escena.
+Sube tu novela en formato `.docx` o `.txt` y recibe un informe detallado de errores y mejoras, además de una calificación global.
 """)
 
 # Barra lateral para opciones de usuario
@@ -36,7 +36,7 @@ if 'informe' not in st.session_state:
     st.session_state.informe = ""
 
 # Función para llamar a la API de OpenRouter con reintentos y parámetros ajustables
-def call_openrouter_api(prompt, max_tokens=1500, temperature=0.5, top_p=0.9, top_k=50, repetition_penalty=1.2):
+def call_openrouter_api(prompt, max_tokens=3000, temperature=0.5, top_p=0.9, top_k=50, repetition_penalty=1.2):
     api_url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
@@ -72,36 +72,39 @@ def call_openrouter_api(prompt, max_tokens=1500, temperature=0.5, top_p=0.9, top
         st.error(f"Error en la llamada a la API: {e}")
         return None
 
-# Función para dividir la novela en escenas
-def dividir_en_escenas(texto):
-    # Suponiendo que las escenas están marcadas con "### Escena X"
-    escenas = re.split(r'### Escena \d+', texto)
-    # Eliminar elementos vacíos y limpiar
-    escenas = [esc.strip() for esc in escenas if esc.strip()]
-    return escenas
+# Función para leer el contenido del archivo subido
+def leer_archivo(file):
+    if file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        # Leer archivo .docx
+        doc = Document(file)
+        texto = "\n".join([para.text for para in doc.paragraphs])
+    elif file.type == "text/plain":
+        # Leer archivo .txt
+        texto = file.read().decode("utf-8")
+    else:
+        st.error("Formato de archivo no soportado.")
+        return None
+    return texto
 
-# Función para analizar una escena
-def analizar_escena(escena_num, contenido):
+# Función para analizar la novela completa
+def analizar_novela(texto):
     prompt = f"""
-    Analiza la siguiente escena de una novela de suspenso político. Identifica errores gramaticales, de coherencia, desarrollo de personajes y cualquier otro aspecto que pueda mejorar la calidad de la escena. Proporciona recomendaciones claras y específicas para cada área de mejora.
-
-    ### Escena {escena_num}:
-    {contenido}
-
+    Analiza la siguiente novela de suspenso político de manera global. Identifica errores gramaticales, de coherencia, desarrollo de personajes, ritmo y cualquier otro aspecto que pueda mejorar la calidad de la novela. Proporciona recomendaciones claras y específicas para cada área de mejora y asigna una calificación de 1 a 10 puntos basada en la calidad general de la novela.
+    
+    ### Novela:
+    {texto}
+    
     ### Informe de Análisis:
     """
     analisis = call_openrouter_api(prompt)
     return analisis
 
 # Función para generar el informe completo
-def generar_informe(escenas, analisis_por_escena):
+def generar_informe(analisis):
     informe = f"# Informe de Análisis de la Novela\n\n"
-    total_escenas = len(escenas)
-    for i in range(total_escenas):
-        informe += f"## Escena {i+1}\n\n"
-        informe += f"**Contenido de la Escena:**\n\n{escenas[i]}\n\n"
-        informe += f"**Análisis y Recomendaciones:**\n\n{analisis_por_escena[i]}\n\n"
-        informe += "---\n\n"
+    informe += f"**Calificación General:** {analisis.get('calificacion', 'No disponible')} / 10\n\n"
+    informe += f"**Errores Identificados:**\n{analisis.get('errores', 'No se identificaron errores.')}\n\n"
+    informe += f"**Recomendaciones para Mejoras:**\n{analisis.get('recomendaciones', 'No se proporcionaron recomendaciones.')}\n\n"
     return informe
 
 # Función para exportar el informe a Word
@@ -129,30 +132,26 @@ def exportar_informe_word(informe):
 
     document.add_page_break()
 
-    # Separar el informe por escenas
-    escenas = re.split(r'## Escena \d+', informe)
-    escenas = [esc.strip() for esc in escenas if esc.strip()]
-    for esc in escenas:
-        # Dividir en contenido y análisis
-        contenido_match = re.search(r'\*\*Contenido de la Escena:\*\*(.*?)\*\*Análisis y Recomendaciones:\*\*(.*?)(?=---|$)', esc, re.DOTALL)
-        if contenido_match:
-            contenido = contenido_match.group(1).strip()
-            analisis = contenido_match.group(2).strip()
-
-            # Agregar contenido de la escena
-            document.add_heading("Contenido de la Escena", level=1)
-            document.add_paragraph(contenido)
-
-            # Agregar análisis y recomendaciones
-            document.add_heading("Análisis y Recomendaciones", level=1)
-            document.add_paragraph(analisis)
-
-            document.add_page_break()
-
-    # Agregar el conteo total de escenas analizadas al final del documento
-    total_escenas = len(escenas)
-    document.add_heading("Resumen del Análisis", level=1)
-    document.add_paragraph(f"**Total de escenas analizadas:** {total_escenas}")
+    # Agregar el contenido del informe
+    for line in informe.split('\n'):
+        if line.startswith("# "):
+            # Títulos
+            document.add_heading(line.replace("# ", ""), level=1)
+        elif line.startswith("## "):
+            # Subtítulos
+            document.add_heading(line.replace("## ", ""), level=2)
+        elif line.startswith("**"):
+            # Negritas
+            match = re.match(r'\*\*(.*?)\*\*:\s*(.*)', line)
+            if match:
+                term, desc = match.groups()
+                p = document.add_paragraph()
+                p.add_run(f"{term}: ").bold = True
+                p.add_run(desc)
+        else:
+            # Párrafos normales
+            if line.strip() != "":
+                document.add_paragraph(line)
 
     # Guardar el documento en memoria
     buffer = BytesIO()
@@ -164,86 +163,46 @@ def exportar_informe_word(informe):
 def mostrar_inicio():
     st.header("Carga y Análisis de la Novela")
     if file_upload:
-        if file_upload.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-            # Leer archivo .docx
-            doc = Document(file_upload)
-            texto = "\n".join([para.text for para in doc.paragraphs])
-        elif file_upload.type == "text/plain":
-            # Leer archivo .txt
-            texto = file_upload.read().decode("utf-8")
-        else:
-            st.error("Formato de archivo no soportado.")
-            return
-        
-        if "### Escena" not in texto:
-            st.warning("""
-            **Advertencia:** No se encontraron marcadores de escenas ("### Escena X") en tu novela.
-            Asegúrate de que cada escena esté marcada de la siguiente manera para un análisis correcto:
-
-            ```
-            ### Escena 1
-            [Contenido de la Escena 1]
-
-            ### Escena 2
-            [Contenido de la Escena 2]
-            ```
-            """)
-        
-        st.session_state.novela = texto
-        st.session_state.etapa = "analisis"
+        texto = leer_archivo(file_upload)
+        if texto:
+            if "### Escena" not in texto and file_upload.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                st.warning("""
+                **Advertencia:** No se encontraron marcadores de escenas ("### Escena X") en tu novela.
+                Para un análisis global, no es necesario marcar las escenas, pero es recomendable revisar el formato de tu archivo.
+                """)
+            st.session_state.novela = texto
+            st.session_state.etapa = "analisis"
 
 # Interfaz de usuario para mostrar el análisis y generar el informe
 def mostrar_analisis():
     st.header("Análisis en Proceso")
     novela = st.session_state.novela
 
-    # Dividir la novela en escenas
-    escenas = dividir_en_escenas(novela)
-    total_escenas = len(escenas)
-    st.write(f"**Total de escenas identificadas:** {total_escenas}")
+    # Mostrar un extracto de la novela para confirmar
+    st.subheader("Extracto de la Novela:")
+    st.text_area("Contenido de la Novela:", novela[:1000] + "..." if len(novela) > 1000 else novela, height=200)
 
-    if total_escenas == 0:
-        st.error("No se pudieron identificar escenas en la novela. Asegúrate de que las escenas estén correctamente marcadas.")
-        return
-
-    # Inicializar listas para almacenar análisis
-    analisis_por_escena = []
-
-    # Inicializar la barra de progreso
-    progress_bar = st.progress(0)
-    progress_text = st.empty()
-    current = 0
-
-    # Analizar cada escena
-    for i, escena in enumerate(escenas):
-        escena_num = i + 1
-        with st.spinner(f"Analizando Escena {escena_num} de {total_escenas}..."):
-            analisis = analizar_escena(escena_num, escena)
+    # Botón para iniciar el análisis
+    if st.button("Iniciar Análisis"):
+        with st.spinner("Analizando la novela..."):
+            analisis = analizar_novela(novela)
             if analisis:
-                analisis_por_escena.append(analisis)
+                # Asumiendo que la respuesta de la API incluye un JSON con 'calificacion', 'errores' y 'recomendaciones'
+                # Dependiendo de cómo OpenRouter formatee la respuesta, puede que necesites ajustar esto
+                # Aquí, simplemente almacenaremos el análisis completo
+                st.session_state.informe = analisis
+                st.session_state.etapa = "completado"
             else:
-                analisis_por_escena.append("No se pudo generar el análisis para esta escena.")
-        # Actualizar la barra de progreso
-        current += 1
-        progress_bar.progress(current / total_escenas)
-        progress_text.text(f"Progreso: {current}/{total_escenas} escenas analizadas.")
-        # Retraso para evitar exceder los límites de la API
-        time.sleep(1)
-    
-    # Ocultar la barra de progreso y el texto de progreso
-    progress_bar.empty()
-    progress_text.empty()
-
-    # Generar el informe completo
-    informe = generar_informe(escenas, analisis_por_escena)
-    st.session_state.informe = informe
-    st.session_state.etapa = "completado"
+                st.error("No se pudo generar el análisis. Por favor, intenta nuevamente.")
 
 # Interfaz de usuario para mostrar el informe y opciones de descarga
 def mostrar_completado():
     st.header("Informe de Análisis Generado")
     informe = st.session_state.informe
-    st.text_area("Informe Detallado:", informe, height=600)
+
+    # Mostrar el informe en la interfaz
+    st.subheader("Informe Detallado:")
+    st.text_area("Informe:", informe, height=600)
 
     # Exportar a Word
     doc_buffer = exportar_informe_word(informe)
@@ -253,12 +212,6 @@ def mostrar_completado():
         file_name=f"informe_analisis_novela_{int(time.time())}.docx",
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
-
-    # Opcional: Mostrar resúmenes adicionales
-    st.subheader("Resumen General")
-    total_escenas = len(re.findall(r'## Escena \d+', informe))
-    st.write(f"**Total de escenas analizadas:** {total_escenas}")
-    # Puedes agregar más resúmenes o visualizaciones aquí según tus necesidades
 
 # Interfaz de usuario principal
 if st.session_state.etapa == "inicio":
