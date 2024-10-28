@@ -7,6 +7,9 @@ from io import BytesIO
 import re
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from docx.shared import Inches, Pt
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+from datetime import datetime
 
 # Configuración de la página
 st.set_page_config(
@@ -35,15 +38,28 @@ if 'novela' not in st.session_state:
 if 'informe' not in st.session_state:
     st.session_state.informe = ""
 
-# Función para llamar a la API de OpenRouter con reintentos y parámetros ajustables
 def call_openrouter_api(prompt, max_tokens=3000, temperature=0.5, top_p=0.9, top_k=50, repetition_penalty=1.2):
+    """
+    Llama a la API de OpenRouter para obtener una respuesta basada en el prompt proporcionado.
+    
+    Parámetros:
+        prompt (str): El texto de entrada para enviar a la API.
+        max_tokens (int): Número máximo de tokens en la respuesta.
+        temperature (float): Parámetro de temperatura para la generación.
+        top_p (float): Parámetro top_p para la generación.
+        top_k (int): Parámetro top_k para la generación.
+        repetition_penalty (float): Penalización por repetición.
+    
+    Retorna:
+        str or None: La respuesta de la API o None si ocurre un error.
+    """
     api_url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "openai/gpt-4o-mini",
+        "model": "gpt-4",  # Asegúrate de que este modelo sea compatible
         "messages": [{"role": "user", "content": prompt}],
         "temperature": temperature,
         "max_tokens": max_tokens,
@@ -72,22 +88,42 @@ def call_openrouter_api(prompt, max_tokens=3000, temperature=0.5, top_p=0.9, top
         st.error(f"Error en la llamada a la API: {e}")
         return None
 
-# Función para leer el contenido del archivo subido
 def leer_archivo(file):
-    if file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        # Leer archivo .docx
-        doc = Document(file)
-        texto = "\n".join([para.text for para in doc.paragraphs])
-    elif file.type == "text/plain":
-        # Leer archivo .txt
-        texto = file.read().decode("utf-8")
-    else:
-        st.error("Formato de archivo no soportado.")
+    """
+    Lee el contenido del archivo subido, soportando .docx y .txt.
+    
+    Parámetros:
+        file: El archivo subido por el usuario.
+    
+    Retorna:
+        str or None: El texto del archivo o None si ocurre un error.
+    """
+    try:
+        if file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            # Leer archivo .docx
+            doc = Document(file)
+            texto = "\n".join([para.text for para in doc.paragraphs])
+        elif file.type == "text/plain":
+            # Leer archivo .txt
+            texto = file.read().decode("utf-8")
+        else:
+            st.error("Formato de archivo no soportado.")
+            return None
+        return texto
+    except Exception as e:
+        st.error(f"Error al leer el archivo: {e}")
         return None
-    return texto
 
-# Función para analizar la novela completa
 def analizar_novela(texto):
+    """
+    Analiza la novela enviándola a la API y obteniendo un análisis detallado.
+    
+    Parámetros:
+        texto (str): El texto completo de la novela.
+    
+    Retorna:
+        str or None: El análisis obtenido de la API o None si falla.
+    """
     prompt = f"""
     Por favor, analiza la siguiente novela de suspenso político de manera global. Identifica errores gramaticales, de coherencia, desarrollo de personajes, ritmo y cualquier otro aspecto que pueda mejorar la calidad de la novela. Proporciona recomendaciones claras y específicas para cada área de mejora y asigna una calificación de 1 a 10 puntos basada en la calidad general de la novela. Responde en formato JSON con las siguientes claves: "calificacion", "errores", "recomendaciones".
     
@@ -99,11 +135,27 @@ def analizar_novela(texto):
     analisis = call_openrouter_api(prompt)
     return analisis
 
-# Función para generar el informe completo
 def generar_informe(analisis):
+    """
+    Genera un informe formateado a partir del análisis JSON obtenido de la API.
+    
+    Parámetros:
+        analisis (str): La respuesta JSON de la API.
+    
+    Retorna:
+        str: El informe formateado o None si falla.
+    """
+    if not analisis:
+        st.error("No hay análisis para generar el informe.")
+        return None
     try:
         # Intentar cargar la respuesta como JSON
         analisis_json = json.loads(analisis)
+        # Validar que las claves existen
+        required_keys = {"calificacion", "errores", "recomendaciones"}
+        if not required_keys.issubset(analisis_json.keys()):
+            st.error("La respuesta JSON de la API está incompleta.")
+            return None
         calificacion = analisis_json.get('calificacion', 'No disponible')
         errores = analisis_json.get('errores', 'No se identificaron errores.')
         recomendaciones = analisis_json.get('recomendaciones', 'No se proporcionaron recomendaciones.')
@@ -120,36 +172,44 @@ def generar_informe(analisis):
         informe += f"**Errores y Recomendaciones:**\n{analisis}\n\n"
         return informe
 
-# Función para exportar el informe a Word
 def exportar_informe_word(informe):
+    """
+    Exporta el informe de análisis a un documento Word.
+    
+    Parámetros:
+        informe (str): El informe formateado.
+    
+    Retorna:
+        BytesIO: El buffer del documento Word.
+    """
     document = Document()
 
-    # Configurar el tamaño de la página y márgenes
+    # Configurar el tamaño de la página y márgenes (A4)
     section = document.sections[0]
-    section.page_width = Inches(6)
-    section.page_height = Inches(9)
-    section.top_margin = Inches(0.7)
-    section.bottom_margin = Inches(0.7)
-    section.left_margin = Inches(0.7)
-    section.right_margin = Inches(0.7)
+    section.page_width = Inches(8.27)
+    section.page_height = Inches(11.69)
+    section.top_margin = Inches(1)
+    section.bottom_margin = Inches(1)
+    section.left_margin = Inches(1)
+    section.right_margin = Inches(1)
 
     # Establecer el estilo normal con una fuente común
     style = document.styles['Normal']
     font = style.font
-    font.name = 'Times New Roman'  # Cambiado a una fuente común
+    font.name = 'Times New Roman'
     font.size = Pt(12)
 
     # Agregar el título
-    titulo_paragraph = document.add_heading("Informe de Análisis de la Novela", level=0)
+    titulo_paragraph = document.add_heading("Informe de Análisis de la Novela", level=1)
     titulo_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
 
-    document.add_page_break()
+    document.add_paragraph()  # Añadir un párrafo en blanco
 
     # Agregar el contenido del informe
     for line in informe.split('\n'):
         if line.startswith("# "):
             # Títulos
-            document.add_heading(line.replace("# ", ""), level=1)
+            document.add_heading(line.replace("# ", ""), level=2)
         elif line.startswith("**"):
             # Negritas
             match = re.match(r'\*\*(.*?)\*\*:\s*(.*)', line)
@@ -160,7 +220,7 @@ def exportar_informe_word(informe):
                 p.add_run(desc)
         else:
             # Párrafos normales
-            if line.strip() != "":
+            if line.strip():
                 document.add_paragraph(line)
 
     # Guardar el documento en memoria
@@ -169,8 +229,10 @@ def exportar_informe_word(informe):
     buffer.seek(0)
     return buffer
 
-# Interfaz de usuario para aprobar la carga y comenzar el análisis
 def mostrar_inicio():
+    """
+    Muestra la interfaz de inicio donde el usuario puede cargar su novela.
+    """
     st.header("Carga y Análisis de la Novela")
     if file_upload:
         texto = leer_archivo(file_upload)
@@ -178,42 +240,76 @@ def mostrar_inicio():
             st.session_state.novela = texto
             st.session_state.etapa = "analisis"
 
-# Interfaz de usuario para mostrar el análisis y generar el informe
 def mostrar_analisis():
+    """
+    Muestra la interfaz de análisis donde el usuario puede iniciar el análisis de la novela.
+    """
     st.header("Análisis en Proceso")
     novela = st.session_state.novela
 
     # Mostrar un extracto de la novela para confirmar
     st.subheader("Extracto de la Novela:")
-    st.text_area("Contenido de la Novela:", novela[:1000] + "..." if len(novela) > 1000 else novela, height=200)
+    extracto = novela[:1000] + "..." if len(novela) > 1000 else novela
+    st.text_area("Contenido de la Novela:", extracto, height=200, disabled=True)
 
     # Botón para iniciar el análisis
-    if st.button("Iniciar Análisis"):
-        with st.spinner("Analizando la novela..."):
-            analisis = analizar_novela(novela)
-            if analisis:
-                # Generar el informe
-                informe = generar_informe(analisis)
-                st.session_state.informe = informe
-                st.session_state.etapa = "completado"
-            else:
-                st.error("No se pudo generar el análisis. Por favor, intenta nuevamente.")
+    enviar = st.button("Enviar")
 
-# Interfaz de usuario para mostrar el informe y opciones de descarga
+    if enviar:
+        # Crear una barra de progreso
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+
+        try:
+            # Paso 1: Analizar la novela
+            status_text.text("Iniciando el análisis de la novela...")
+            progress_bar.progress(10)
+            analisis = analizar_novela(novela)
+            if not analisis:
+                st.error("No se pudo generar el análisis. Por favor, intenta nuevamente.")
+                progress_bar.progress(0)
+                return
+
+            progress_bar.progress(50)
+
+            # Paso 2: Generar el informe
+            status_text.text("Generando el informe...")
+            informe = generar_informe(analisis)
+            if not informe:
+                st.error("No se pudo generar el informe de análisis.")
+                progress_bar.progress(0)
+                return
+
+            progress_bar.progress(80)
+
+            # Paso 3: Finalizar y mostrar completado
+            st.session_state.informe = informe
+            st.session_state.etapa = "completado"
+            progress_bar.progress(100)
+            status_text.text("Análisis completado exitosamente.")
+
+        except Exception as e:
+            st.error(f"Ocurrió un error durante el análisis: {e}")
+            progress_bar.progress(0)
+            status_text.text("Error durante el análisis.")
+
 def mostrar_completado():
+    """
+    Muestra el informe de análisis generado y proporciona opciones para descargarlo.
+    """
     st.header("Informe de Análisis Generado")
     informe = st.session_state.informe
 
     # Mostrar el informe en la interfaz
     st.subheader("Informe Detallado:")
-    st.text_area("Informe:", informe, height=600)
+    st.text_area("Informe:", informe, height=600, disabled=True)
 
     # Exportar a Word
     doc_buffer = exportar_informe_word(informe)
     st.download_button(
         label="Descargar Informe en Word",
         data=doc_buffer,
-        file_name=f"informe_analisis_novela_{int(time.time())}.docx",
+        file_name=f"informe_analisis_novela_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx",
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
 
