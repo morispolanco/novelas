@@ -39,25 +39,23 @@ porcentaje_subtramas = 100 - porcentaje_trama_principal
 st.sidebar.write(f"Porcentaje de palabras para subtramas: {porcentaje_subtramas}%")
 
 # Inicializar el estado de la aplicación
-if 'etapa' not in st.session_state:
-    st.session_state.etapa = "inicio"  # etapas: inicio, aprobacion, generacion, completado
+def inicializar_estado():
+    default_values = {
+        'etapa': 'inicio',
+        'estructura': None,
+        'novela_completa': None,
+        'titulo': '',
+        'trama': '',
+        'subtramas': '',
+        'personajes': '',
+        'ambientacion': '',
+        'tecnica': ''
+    }
+    for key, value in default_values.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
 
-if 'estructura' not in st.session_state:
-    st.session_state.estructura = None
-if 'novela_completa' not in st.session_state:
-    st.session_state.novela_completa = None
-if 'titulo' not in st.session_state:
-    st.session_state.titulo = ""
-if 'trama' not in st.session_state:
-    st.session_state.trama = ""
-if 'subtramas' not in st.session_state:
-    st.session_state.subtramas = ""
-if 'personajes' not in st.session_state:
-    st.session_state.personajes = ""
-if 'ambientacion' not in st.session_state:
-    st.session_state.ambientacion = ""
-if 'tecnica' not in st.session_state:
-    st.session_state.tecnica = ""
+inicializar_estado()
 
 # Función para llamar a la API de OpenRouter con reintentos y parámetros ajustables
 def call_openrouter_api(prompt, max_tokens=1800, temperature=0.7, top_p=0.9, top_k=50, repetition_penalty=1.2):
@@ -218,7 +216,7 @@ def generar_novela_completa(num_capitulos, num_escenas):
     ambientacion = st.session_state.ambientacion
     tecnica = st.session_state.tecnica
 
-    total_palabras = 50000  # Ajustado a 50,000 palabras
+    total_palabras = 60000  # Ajustado a 60,000 palabras
     total_escenas = num_capitulos * num_escenas
 
     # Distribuir las palabras entre trama principal y subtramas
@@ -236,18 +234,18 @@ def generar_novela_completa(num_capitulos, num_escenas):
     palabras_por_escena_subtramas = palabras_subtramas_total // total_escenas
     palabras_restantes_subtramas = palabras_subtramas_total - (palabras_por_escena_subtramas * total_escenas)
 
-    # Crear listas de palabras por escena con variación del ±50 palabras
+    # Crear listas de palabras por escena con variación del ±75 palabras para trama y ±45 para subtramas
     palabras_por_escena_trama_lista = []
     palabras_por_escena_subtramas_lista = []
     for _ in range(total_escenas):
-        variacion_trama = random.randint(-50, 50)
+        variacion_trama = random.randint(-75, 75)  # Ajustado para mayor variación
         palabras_trama = palabras_por_escena_trama + variacion_trama
-        palabras_trama = max(300, palabras_trama)  # Mínimo 300 palabras por escena de trama principal
+        palabras_trama = max(350, palabras_trama)  # Mínimo 350 palabras por escena de trama principal
         palabras_por_escena_trama_lista.append(palabras_trama)
 
-        variacion_subtramas = random.randint(-30, 30)
+        variacion_subtramas = random.randint(-45, 45)  # Ajustado para mayor variación
         palabras_subtramas = palabras_por_escena_subtramas + variacion_subtramas
-        palabras_subtramas = max(150, palabras_subtramas)  # Mínimo 150 palabras por escena de subtramas
+        palabras_subtramas = max(175, palabras_subtramas)  # Mínimo 175 palabras por escena de subtramas
         palabras_por_escena_subtramas_lista.append(palabras_subtramas)
 
     # Ajustar las palabras restantes
