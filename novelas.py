@@ -18,16 +18,16 @@ from docx.oxml.ns import qn
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Generador de Novelas para el Premio Cervantes",
+    page_title="Generador de Novelas sobre Terrorismo",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 # Título de la aplicación
-st.title("Generador de Novelas para el Premio Cervantes")
+st.title("Generador de Novelas sobre Terrorismo")
 st.write("""
-Esta aplicación genera una novela con el potencial de ganar el Premio Cervantes.
-Ingrese un tema y personalice el número de capítulos y escenas para crear una narrativa profunda, reflexiva y de alta calidad literaria.
+Esta aplicación genera una novela ambientada en el tema del terrorismo.
+Ingrese un tema y personalice el número de capítulos y escenas para crear una narrativa convincente y profunda.
 """)
 
 # Barra lateral para opciones de usuario
@@ -46,18 +46,16 @@ if 'estructura' not in st.session_state:
     st.session_state.estructura = None
 if 'novela_completa' not in st.session_state:
     st.session_state.novela_completa = None
-if 'titulo' not in st.session_state:
-    st.session_state.titulo = ""
-if 'trama' not in st.session_state:
-    st.session_state.trama = ""
-if 'subtramas' not in st.session_state:
-    st.session_state.subtramas = ""
+if 'contexto' not in st.session_state:
+    st.session_state.contexto = ""
 if 'personajes' not in st.session_state:
     st.session_state.personajes = ""
-if 'ambientacion' not in st.session_state:
-    st.session_state.ambientacion = ""
-if 'tecnica' not in st.session_state:
-    st.session_state.tecnica = ""
+if 'trama' not in st.session_state:
+    st.session_state.trama = ""
+if 'climax' not in st.session_state:
+    st.session_state.climax = ""
+if 'temas' not in st.session_state:
+    st.session_state.temas = ""
 
 # Función para llamar a la API de OpenRouter con reintentos y parámetros ajustables
 def call_openrouter_api(prompt, max_tokens=2800, temperature=0.7, top_p=0.9, top_k=50, repetition_penalty=1.2):
@@ -96,43 +94,44 @@ def call_openrouter_api(prompt, max_tokens=2800, temperature=0.7, top_p=0.9, top
         st.error(f"Error en la llamada a la API: {e}")
         return None
 
-# Función para generar la estructura inicial de la novela con enfoque en Premio Cervantes
+# Función para generar la estructura inicial de la novela con enfoque en Terrorismo
 def generar_estructura(theme):
     prompt = f"""
-Escribe una novela que tenga el potencial de ganar el premio Cervantes, tomando en cuenta la calidad literaria, la profundidad temática y el uso del lenguaje.
+Escribe una novela ambientada en el tema del terrorismo, desarrollando personajes y una trama convincente.
 
-# Elementos a considerar
-- **Calidad Literaria**: Usa un estilo único, refinado y consistente a lo largo de la obra. Emplea recursos literarios como metáforas, simbolismo y diálogos efectivos.
-- **Profundidad Temática**: Aborda temas universales o contemporáneos de manera profunda y reflexiva. La historia debe provocar un análisis y reflexión en el lector.
-- **Construcción de Personajes**: Los personajes deben ser complejos, bien desarrollados y mostrarse a través de sus acciones, pensamientos y evolución a lo largo de la trama.
-- **Estructura Narrativa**: La novela debe tener una estructura coherente, con un desarrollo claro, un clímax y resolución efectiva.
-- **Uso del Lenguaje**: El lenguaje debe ser preciso, evocador y mostrar un dominio del español que destaque entre otras obras.
+Considera los siguientes puntos para elaborar tu novela:
 
-# Pasos
+- **Contexto y Escenario**: Describe el entorno en el que se desarrolla la acción. Puedes situar la trama en una ciudad específica, un lugar de conflicto o incluso a nivel internacional. Asegúrate de explicar cómo este entorno afecta a los personajes y sus acciones.
 
-1. Definir un tema central y universal que resonará con una amplia audiencia.
-2. Crear un esquema para la estructura narrativa, asegurando un arco argumental sólido.
-3. Desarrollar personajes tridimensionales con sus propias motivaciones y conflictos.
-4. Escribir borradores, centrándose en el estilo literario y el lenguaje.
-5. Revisar y refinar el manuscrito varias veces para asegurar calidad y cohesión.
+- **Personajes Principales**: Crea personajes complejos y bien definidos. Considera incluir:
+  - Un protagonista, como un detective, periodista o ciudadano común que se ve involucrado de alguna manera en el tema.
+  - Un antagonista ligado de alguna forma al terrorismo.
+  - Personajes secundarios que enriquezcan la historia.
 
-# Formato de salida
+- **Trama Principal**: Desarrolla una historia central en torno a un incidente terrorista o una amenaza. Considera:
+  - El acontecimiento o ataque que inicia la narrativa.
+  - Las motivaciones de los involucrados en el terrorismo.
+  - Los actos y decisiones que toman los protagonistas para enfrentar la situación.
+  - El dilema moral o personal que enfrentan los personajes.
 
-Escribe la novela en un documento detallado. Cada sección o capítulo debe comenzar con un título claro. La longitud de la novela debe ser adecuada para un libro completo, típicamente entre 60,000 y 100,000 palabras, dependiendo de la complejidad de la trama.
+- **Clímax y Resolución**: Construye un punto culminante intenso y resuelve las tensiones planteadas a lo largo de la narrativa.
 
-# Ejemplos
+- **Temas y Motivos**: Explora temas como la política, la ideología, la venganza, el sacrificio o la redención.
 
-Este formulario no puede proporcionar ejemplos completos debido a la extensión de una novela, pero aquí hay un ejemplo abreviado de cómo debería desarrollarse un pasaje:
+# Output Format
 
-**Tema central**: La búsqueda de identidad en un mundo cambiante.
-**Estructura narrativa**: Capítulo 1 - Introducción del protagonista y su conflicto interno.
-**Uso del lenguaje**: "En las sombras de la alborada, Juan miraba al horizonte, buscando en el amanecer respuestas a preguntas que aún no sabía formular."
+La novela debe organizarse en capítulos con una extensión que permita desarrollar completamente portales narrativos y arcos de personajes. Cada capítulo debe tener un inicio, desarrollo y cierre satisfactorios.
 
-# Notas
+# Examples 
 
-- Asegúrate de que el manuscrito aborda de manera única el tema seleccionado.
-- Equilibra descripción, diálogo y acción para una narrativa envolvente.
-- Considera recibir retroalimentación de críticos u otros escritores para refinar aún más el trabajo final.
+- **Contexto**: Una ciudad europea en la década de 2020, con tensiones políticas crecientes.
+- **Protagonista**: Un periodista local con conexiones en la comunidad política.
+- **Trama**: Un atentado durante un evento público desencadena una serie de descubrimientos sobre conspiraciones internacionales.
+
+# Notes
+
+- Asegúrate de investigar y representar el tema con sensibilidad y precisión, considerando el impacto que puede tener en las audiencias.
+- Evita estereotipos y simplificaciones excesivas al describir a los personajes y situaciones. Usa fuentes fidedignas para una representación adecuada.
 """
     estructura = call_openrouter_api(prompt)
     return estructura
@@ -143,67 +142,63 @@ def extraer_elementos(estructura):
     st.write("### Estructura generada por la API:")
     st.write(estructura)
 
-    # Patrón mejorado para extraer los elementos, incluyendo subtramas
+    # Patrón mejorado para extraer los elementos
     patrones = {
-        'titulo': r"(?:Título|Titulo):\s*(.*)",
-        'trama': r"Trama Principal:\s*((?:.|\n)*?)\n(?:Subtramas|Subtrama)",
-        'subtramas': r"Subtramas?:\s*((?:.|\n)*?)\n(?:Personajes|Ambientación|Ambientacion|Técnicas literarias|$)",
-        'personajes': r"Personajes:\s*((?:.|\n)*?)\n(?:Ambientación|Ambientacion|Técnicas literarias|$)",
-        'ambientacion': r"Ambientación:\s*((?:.|\n)*?)\n(?:Técnicas literarias|$)",
-        'tecnica': r"Técnicas literarias(?: a utilizar)?:\s*((?:.|\n)*)"
+        'contexto': r"Contexto y Escenario:\s*((?:.|\n)*?)\n(?:Personajes Principales|$)",
+        'personajes': r"Personajes Principales:\s*((?:.|\n)*?)\n(?:Trama Principal|$)",
+        'trama': r"Trama Principal:\s*((?:.|\n)*?)\n(?:Clímax y Resolución|$)",
+        'climax': r"Clímax y Resolución:\s*((?:.|\n)*?)\n(?:Temas y Motivos|$)",
+        'temas': r"Temas y Motivos:\s*((?:.|\n)*?)\n(?:#|$)",
     }
 
-    titulo = re.search(patrones['titulo'], estructura, re.IGNORECASE)
-    trama = re.search(patrones['trama'], estructura, re.IGNORECASE)
-    subtramas = re.search(patrones['subtramas'], estructura, re.IGNORECASE)
+    contexto = re.search(patrones['contexto'], estructura, re.IGNORECASE)
     personajes = re.search(patrones['personajes'], estructura, re.IGNORECASE)
-    ambientacion = re.search(patrones['ambientacion'], estructura, re.IGNORECASE)
-    tecnica = re.search(patrones['tecnica'], estructura, re.IGNORECASE)
+    trama = re.search(patrones['trama'], estructura, re.IGNORECASE)
+    climax = re.search(patrones['climax'], estructura, re.IGNORECASE)
+    temas = re.search(patrones['temas'], estructura, re.IGNORECASE)
 
     # Extraer el contenido, manejando posibles espacios y formatos
-    titulo = titulo.group(1).strip() if titulo else "Sin título"
-    trama = trama.group(1).strip() if trama else "Sin trama principal"
-    subtramas = subtramas.group(1).strip() if subtramas else "Sin subtramas"
+    contexto = contexto.group(1).strip() if contexto else "Sin contexto"
     personajes = personajes.group(1).strip() if personajes else "Sin personajes"
-    ambientacion = ambientacion.group(1).strip() if ambientacion else "Sin ambientación"
-    tecnica = tecnica.group(1).strip() if tecnica else "Sin técnicas literarias"
+    trama = trama.group(1).strip() if trama else "Sin trama principal"
+    climax = climax.group(1).strip() if climax else "Sin clímax y resolución"
+    temas = temas.group(1).strip() if temas else "Sin temas y motivos"
 
-    return titulo, trama, subtramas, personajes, ambientacion, tecnica
+    return contexto, personajes, trama, climax, temas
 
 # Función para generar cada escena con subtramas y técnicas avanzadas de escritura
-def generar_escena(capitulo, escena, trama, subtramas, personajes, ambientacion, tecnica, palabras_trama, palabras_subtramas):
+def generar_escena(capitulo, escena, contexto, personajes, trama, climax, temas, palabras_trama, palabras_subtramas):
     # Estimar tokens: 1 palabra ≈ 1.3 tokens
     max_tokens_trama = int(palabras_trama * 1.3)
     max_tokens_subtramas = int(palabras_subtramas * 1.3)
     total_max_tokens = max_tokens_trama + max_tokens_subtramas
 
     prompt = f"""
-Escribe la Escena {escena} del Capítulo {capitulo} de una novela que tenga el potencial de ganar el Premio Cervantes, con las siguientes características:
+Escribe la Escena {escena} del Capítulo {capitulo} de una novela ambientada en el tema del terrorismo, con las siguientes características:
 
+- **Contexto y Escenario**: {contexto}
+- **Personajes Principales**: {personajes}
 - **Trama Principal**: {trama}
-- **Subtramas**: {subtramas}
-- **Personajes**: {personajes}
-- **Ambientación**: {ambientacion}
-- **Técnicas Literarias**: {tecnica}
+- **Clímax y Resolución**: {climax}
+- **Temas y Motivos**: {temas}
 
 ### Requisitos de la Escena:
 1. **Trama**: Desarrolla la trama principal con profundidad y añade giros inesperados que mantengan al lector intrigado.
-2. **Subtramas**: Integra las subtramas de manera que complementen y enriquezcan la trama principal, asegurando que cada una contribuya al desarrollo de los personajes y al avance de la historia.
-3. **Desarrollo de Personajes**: Asegúrate de que las interacciones entre personajes muestren sus arcos de desarrollo y relaciones complejas.
-4. **Ritmo**: Mantén un ritmo dinámico que equilibre la acción, el suspense y el desarrollo emocional.
-5. **Descripciones**: Utiliza descripciones vivas y detalladas, evitando que sean demasiado extensas. **Evita frases hechas y comunes** como “un silencio ensordecedor” o “el corazón latía apresuradamente”. **No repitas frases o clichés**; procura que cada descripción aporte frescura y claridad sin extenderse demasiado.
-6. **Inicio de Escena**: Los inicios de escena deben ser originales y no predecibles, evitando que se repitan patrones o comienzos que resulten similares en escenas consecutivas.
-7. **Detalles de Personajes**: Incluye detalles sutiles de la vida pasada de los personajes, pensamientos internos o conflictos personales que expliquen sus acciones y decisiones. Asegúrate de que cada personaje tenga una voz única, usando pequeñas descripciones o acciones para dar contexto a sus palabras y reflejar su personalidad.
-8. **Calidad Literaria**: Emplea técnicas literarias avanzadas como metáforas, simbolismo y foreshadowing para enriquecer la narrativa.
-9. **Coherencia y Cohesión**: Asegúrate de que los eventos y desarrollos sean lógicos y estén bien conectados con el resto de la historia.
-10. **Condensación de Escenas**: Condensa las escenas que no añadan mucha información nueva y enfócate en momentos clave que impulsen la historia o revelen aspectos críticos de la trama.
-11. **Vínculos con Giros**: Vincula cada escena de tensión o suspenso con un giro importante o una revelación para que el lector perciba un avance constante en la historia.
-12. **Variedad de Lenguaje**: Usa sinónimos o reformula las ideas para evitar la repetición y hacer el texto más variado.
-13. **Optimización de Descripciones**: Identifica las descripciones esenciales para el ambiente y reduce o simplifica las que no aportan directamente al desarrollo de la trama.
-14. **Orientación del Lector**: Añadir nombres de personajes o pequeñas indicaciones al cambiar de escena o personaje para mantener al lector orientado.
-15. **Consistencia de Tono**: Mantén un tono consistente, especialmente en escenas que comparten una misma intensidad emocional. Si se va a cambiar, utiliza un recurso narrativo claro para evitar confusión.
-16. **Fluidez entre Escenas**: Asegúrate de que cada escena fluya suavemente a la siguiente. Podrías usar frases que conecten o introduzcan el cambio en el espacio o la acción para guiar mejor al lector.
-17. **Naturalidad de Acciones**: Asegúrate de que las acciones de los personajes se sientan naturales. Proporciona pistas o justificaciones previas para sus movimientos estratégicos.
+2. **Personajes**: Asegúrate de que las interacciones entre personajes muestren sus arcos de desarrollo y relaciones complejas.
+3. **Ritmo**: Mantén un ritmo dinámico que equilibre la acción, el suspense y el desarrollo emocional.
+4. **Descripciones**: Utiliza descripciones vivas y detalladas, evitando que sean demasiado extensas. **Evita frases hechas y comunes** como “un silencio ensordecedor” o “el corazón latía apresuradamente”. **No repitas frases o clichés**; procura que cada descripción aporte frescura y claridad sin extenderse demasiado.
+5. **Inicio de Escena**: Los inicios de escena deben ser originales y no predecibles, evitando que se repitan patrones o comienzos que resulten similares en escenas consecutivas.
+6. **Detalles de Personajes**: Incluye detalles sutiles de la vida pasada de los personajes, pensamientos internos o conflictos personales que expliquen sus acciones y decisiones. Asegúrate de que cada personaje tenga una voz única, usando pequeñas descripciones o acciones para dar contexto a sus palabras y reflejar su personalidad.
+7. **Calidad Literaria**: Emplea técnicas literarias avanzadas como metáforas, simbolismo y foreshadowing para enriquecer la narrativa.
+8. **Coherencia y Cohesión**: Asegúrate de que los eventos y desarrollos sean lógicos y estén bien conectados con el resto de la historia.
+9. **Condensación de Escenas**: Condensa las escenas que no añadan mucha información nueva y enfócate en momentos clave que impulsen la historia o revelen aspectos críticos de la trama.
+10. **Vínculos con Giros**: Vincula cada escena de tensión o suspenso con un giro importante o una revelación para que el lector perciba un avance constante en la historia.
+11. **Variedad de Lenguaje**: Usa sinónimos o reformula las ideas para evitar la repetición y hacer el texto más variado.
+12. **Optimización de Descripciones**: Identifica las descripciones esenciales para el ambiente y reduce o simplifica las que no aportan directamente al desarrollo de la trama.
+13. **Orientación del Lector**: Añadir nombres de personajes o pequeñas indicaciones al cambiar de escena o personaje para mantener al lector orientado.
+14. **Consistencia de Tono**: Mantén un tono consistente, especialmente en escenas que comparten una misma intensidad emocional. Si se va a cambiar, utiliza un recurso narrativo claro para evitar confusión.
+15. **Fluidez entre Escenas**: Asegúrate de que cada escena fluya suavemente a la siguiente. Podrías usar frases que conecten o introduzcan el cambio en el espacio o la acción para guiar mejor al lector.
+16. **Naturalidad de Acciones**: Asegúrate de que las acciones de los personajes se sientan naturales. Proporciona pistas o justificaciones previas para sus movimientos estratégicos.
 
 ### Distribución de Palabras:
 - **Trama Principal**: Aproximadamente {palabras_trama} palabras.
@@ -221,12 +216,11 @@ Asegúrate de mantener la coherencia y la cohesión en toda la escena, contribuy
 
 # Función para generar la novela completa después de la aprobación
 def generar_novela_completa(num_capitulos, num_escenas):
-    titulo = st.session_state.titulo
-    trama = st.session_state.trama
-    subtramas = st.session_state.subtramas
+    contexto = st.session_state.contexto
     personajes = st.session_state.personajes
-    ambientacion = st.session_state.ambientacion
-    tecnica = st.session_state.tecnica
+    trama = st.session_state.trama
+    climax = st.session_state.climax
+    temas = st.session_state.temas
 
     total_palabras = 80000  # Ajustado a 80,000 palabras como promedio
     total_escenas = num_capitulos * num_escenas
@@ -267,7 +261,7 @@ def generar_novela_completa(num_capitulos, num_escenas):
     for i in range(palabras_restantes_subtramas):
         palabras_por_escena_subtramas_lista[i % total_escenas] += 1
 
-    novela = f"**{titulo}**\n\n"
+    novela = f"**{contexto.split(':')[1].strip()}**\n\n"  # Usando el contexto como título
 
     # Inicializar la barra de progreso
     progress_bar = st.progress(0)
@@ -287,7 +281,7 @@ def generar_novela_completa(num_capitulos, num_escenas):
 
             palabras_por_capitulo[cap].append(total_palabras_escena)
             with st.spinner(f"Generando Capítulo {cap}, Escena {esc} ({total_palabras_escena} palabras)..."):
-                escena = generar_escena(cap, esc, trama, subtramas, personajes, ambientacion, tecnica, 
+                escena = generar_escena(cap, esc, contexto, personajes, trama, climax, temas, 
                                         palabras_trama_escena, palabras_subtramas_escena)
                 if not escena:
                     st.error(f"No se pudo generar la Escena {esc} del Capítulo {cap}.")
@@ -420,23 +414,20 @@ def agregar_tabla_de_contenidos(document):
 # Interfaz de usuario para aprobar la estructura inicial
 def mostrar_aprobacion():
     st.header("Aprobación de Elementos Iniciales")
-    st.subheader("Título")
-    st.write(st.session_state.titulo)
+    st.subheader("Contexto y Escenario")
+    st.write(st.session_state.contexto)
+
+    st.subheader("Personajes Principales")
+    st.write(st.session_state.personajes)
 
     st.subheader("Trama Principal")
     st.write(st.session_state.trama)
 
-    st.subheader("Subtramas")
-    st.write(st.session_state.subtramas)
+    st.subheader("Clímax y Resolución")
+    st.write(st.session_state.climax)
 
-    st.subheader("Personajes")
-    st.write(st.session_state.personajes)
-
-    st.subheader("Ambientación")
-    st.write(st.session_state.ambientacion)
-
-    st.subheader("Técnicas Literarias")
-    st.write(st.session_state.tecnica)
+    st.subheader("Temas y Motivos")
+    st.write(st.session_state.temas)
 
     # Alinear los botones a la izquierda sin columnas
     aprobar, rechazar = st.columns([1, 1])
@@ -448,12 +439,11 @@ def mostrar_aprobacion():
         if st.button("Rechazar y Regenerar Estructura", key="rechazar"):
             # Reiniciamos los valores
             st.session_state.estructura = None
-            st.session_state.titulo = ""
-            st.session_state.trama = ""
-            st.session_state.subtramas = ""
+            st.session_state.contexto = ""
             st.session_state.personajes = ""
-            st.session_state.ambientacion = ""
-            st.session_state.tecnica = ""
+            st.session_state.trama = ""
+            st.session_state.climax = ""
+            st.session_state.temas = ""
             st.session_state.etapa = "inicio"
 
 # Interfaz de usuario principal
@@ -470,15 +460,14 @@ if st.session_state.etapa == "inicio":
             with st.spinner("Generando la estructura inicial..."):
                 estructura = generar_estructura(theme)
                 if estructura:
-                    titulo, trama, subtramas, personajes, ambientacion, tecnica = extraer_elementos(estructura)
+                    contexto, personajes, trama, climax, temas = extraer_elementos(estructura)
                     # Guardar en el estado de la sesión
                     st.session_state.estructura = estructura
-                    st.session_state.titulo = titulo
-                    st.session_state.trama = trama
-                    st.session_state.subtramas = subtramas
+                    st.session_state.contexto = contexto
                     st.session_state.personajes = personajes
-                    st.session_state.ambientacion = ambientacion
-                    st.session_state.tecnica = tecnica
+                    st.session_state.trama = trama
+                    st.session_state.climax = climax
+                    st.session_state.temas = temas
                     st.session_state.etapa = "aprobacion"
                 else:
                     st.error("No se pudo generar la estructura inicial. Por favor, intente nuevamente.")
@@ -496,11 +485,11 @@ if st.session_state.etapa == "completado":
     if st.session_state.novela_completa:
         st.success("Novela generada con éxito.")
         # Exportar a Word
-        doc_buffer = exportar_a_word(st.session_state.titulo, st.session_state.novela_completa)
+        doc_buffer = exportar_a_word(st.session_state.contexto.split(':')[1].strip(), st.session_state.novela_completa)
         st.download_button(
             label="Descargar Novela en Word",
             data=doc_buffer,
-            file_name=f"novela_premio_cervantes_{int(time.time())}.docx",
+            file_name=f"novela_terrorismo_{int(time.time())}.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
         # Mostrar la novela en la interfaz
