@@ -59,7 +59,7 @@ def call_openrouter_api(prompt, max_tokens=3000, temperature=0.5, top_p=0.9, top
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "gpt-4",  # Asegúrate de que este modelo sea compatible
+        "model": "openai/gpt-4o-mini",  # Asegúrate de que este modelo sea compatible
         "messages": [{"role": "user", "content": prompt}],
         "temperature": temperature,
         "max_tokens": max_tokens,
@@ -114,9 +114,24 @@ def leer_archivo(file):
         st.error(f"Error al leer el archivo: {e}")
         return None
 
+def dividir_en_escenas(texto):
+    """
+    Divide el texto de la novela en escenas basadas en encabezados o cambios de línea dobles.
+    
+    Parámetros:
+        texto (str): El texto completo de la novela.
+    
+    Retorna:
+        list: Lista de escenas divididas.
+    """
+    # Suponiendo que las escenas están separadas por dos saltos de línea
+    escenas = texto.split('\n\n')
+    escenas = [escena.strip() for escena in escenas if escena.strip()]
+    return escenas
+
 def analizar_novela(texto):
     """
-    Analiza la novela enviándola a la API y obteniendo un análisis detallado.
+    Analiza la novela enviándola a la API y obteniendo un análisis detallado, incluyendo recomendaciones específicas por escena.
     
     Parámetros:
         texto (str): El texto completo de la novela.
@@ -124,20 +139,48 @@ def analizar_novela(texto):
     Retorna:
         str or None: El análisis obtenido de la API o None si falla.
     """
-    prompt = f"""
-    Por favor, analiza la siguiente novela de suspenso político de manera global. Identifica errores gramaticales, de coherencia, desarrollo de personajes, ritmo y cualquier otro aspecto que pueda mejorar la calidad de la novela. Proporciona recomendaciones claras y específicas para cada área de mejora y asigna una calificación de 1 a 10 puntos basada en la calidad general de la novela. Responde en formato JSON con las siguientes claves: "calificacion", "errores", "recomendaciones".
+    escenas = dividir_en_escenas(texto)
+    mejoras_por_escena = []
+
+    for idx, escena in enumerate(escenas, start=1):
+        prompt = f"""
+        Por favor, analiza la siguiente escena de una novela de suspenso político. Identifica errores gramaticales, de coherencia, desarrollo de personajes, ritmo y cualquier otro aspecto que pueda mejorar la calidad de la escena. Proporciona recomendaciones claras y específicas para cada área de mejora. Responde en formato JSON con las siguientes claves: "escena", "issues", "suggestions".
+        
+        ### Escena {idx}:
+        {escena}
+        
+        ### Informe de Análisis:
+        """
+        analisis = call_openrouter_api(prompt)
+        if analisis:
+            try:
+                analisis_json = json.loads(analisis)
+                mejoras_por_escena.append({
+                    "escena": analisis_json.get("escena", f"Escena {idx}"),
+                    "issues": analisis_json.get("issues", "No se identificaron problemas específicos."),
+                    "suggestions": analisis_json.get("suggestions", "No se proporcionaron sugerencias específicas.")
+                })
+            except json.JSONDecodeError:
+                st.error(f"Error al decodificar la respuesta JSON para la Escena {idx}.")
+                continue
+        else:
+            st.error(f"No se pudo obtener análisis para la Escena {idx}.")
+
+    # Una vez analizadas todas las escenas, generar el informe global
+    prompt_global = f"""
+    Por favor, proporciona un análisis global de la novela basada en las mejoras específicas de cada escena. Identifica errores gramaticales, de coherencia, desarrollo de personajes, ritmo y cualquier otro aspecto que pueda mejorar la calidad de la novela. Proporciona recomendaciones claras y específicas para cada área de mejora y asigna una calificación de 1 a 10 puntos basada en la calidad general de la novela. Responde en formato JSON con las siguientes claves: "calificacion", "errores", "recomendaciones", "mejoras_por_escena".
     
-    ### Novela:
-    {texto}
+    ### Mejoras por Escena:
+    {json.dumps(mejoras_por_escena, ensure_ascii=False)}
     
-    ### Informe de Análisis:
+    ### Informe de Análisis Global:
     """
-    analisis = call_openrouter_api(prompt)
-    return analisis
+    analisis_global = call_openrouter_api(prompt_global)
+    return analisis_global
 
 def generar_informe(analisis):
     """
-    Genera un informe formateado a partir del análisis JSON obtenido de la API.
+    Genera un informe formateado a partir del análisis JSON obtenido de la API, incluyendo mejoras específicas por escena.
     
     Parámetros:
         analisis (str): La respuesta JSON de la API.
@@ -152,18 +195,30 @@ def generar_informe(analisis):
         # Intentar cargar la respuesta como JSON
         analisis_json = json.loads(analisis)
         # Validar que las claves existen
-        required_keys = {"calificacion", "errores", "recomendaciones"}
+        required_keys = {"calificacion", "errores", "recomendaciones", "mejoras_por_escena"}
         if not required_keys.issubset(analisis_json.keys()):
             st.error("La respuesta JSON de la API está incompleta.")
             return None
         calificacion = analisis_json.get('calificacion', 'No disponible')
         errores = analisis_json.get('errores', 'No se identificaron errores.')
         recomendaciones = analisis_json.get('recomendaciones', 'No se proporcionaron recomendaciones.')
+        mejoras_por_escena = analisis_json.get('mejoras_por_escena', [])
         
         informe = f"# Informe de Análisis de la Novela\n\n"
         informe += f"**Calificación General:** {calificacion} / 10\n\n"
         informe += f"**Errores Identificados:**\n{errores}\n\n"
         informe += f"**Recomendaciones para Mejoras:**\n{recomendaciones}\n\n"
+        informe += f"## Mejoras Específicas por Escena\n\n"
+        
+        for mejora in mejoras_por_escena:
+            escena = mejora.get('escena', 'No especificada')
+            issues = mejora.get('issues', 'No se identificaron problemas específicos.')
+            suggestions = mejora.get('suggestions', 'No se proporcionaron sugerencias específicas.')
+            
+            informe += f"### Escena: {escena}\n\n"
+            informe += f"**Problemas Identificados:** {issues}\n\n"
+            informe += f"**Sugerencias de Mejora:** {suggestions}\n\n"
+        
         return informe
     except json.JSONDecodeError:
         # Si la respuesta no es JSON, mostrar el contenido completo
@@ -174,7 +229,7 @@ def generar_informe(analisis):
 
 def exportar_informe_word(informe):
     """
-    Exporta el informe de análisis a un documento Word.
+    Exporta el informe de análisis a un documento Word, incluyendo mejoras específicas por escena.
     
     Parámetros:
         informe (str): El informe formateado.
@@ -210,6 +265,12 @@ def exportar_informe_word(informe):
         if line.startswith("# "):
             # Títulos
             document.add_heading(line.replace("# ", ""), level=2)
+        elif line.startswith("## "):
+            # Subtítulos para mejoras por escena
+            document.add_heading(line.replace("## ", ""), level=3)
+        elif line.startswith("### "):
+            # Subtítulos de escena
+            document.add_heading(line.replace("### ", ""), level=4)
         elif line.startswith("**"):
             # Negritas
             match = re.match(r'\*\*(.*?)\*\*:\s*(.*)', line)
@@ -302,7 +363,7 @@ def mostrar_completado():
 
     # Mostrar el informe en la interfaz
     st.subheader("Informe Detallado:")
-    st.text_area("Informe:", informe, height=600, disabled=True)
+    st.markdown(informe)  # Usar markdown para una mejor visualización
 
     # Exportar a Word
     doc_buffer = exportar_informe_word(informe)
