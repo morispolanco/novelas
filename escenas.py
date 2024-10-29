@@ -7,14 +7,24 @@ import time
 # Clave API almacenada en los Secrets de Streamlit
 api_key = st.secrets["OPENROUTER_API_KEY"]
 
+# Función para formatear el diálogo con raya
+def formatear_dialogo(texto):
+    lineas = texto.split('\n')
+    texto_formateado = ""
+    for linea in lineas:
+        if linea.strip().startswith('"'):
+            linea = '—' + linea[1:]  # Reemplaza comillas iniciales por raya
+        texto_formateado += linea + '\n'
+    return texto_formateado
+
 # Función para conectarse a la API de OpenRouter y generar texto
-def generar_escena(capitulo, escena, tema, max_tokens=1000):
+def generar_escena(capitulo, escena, tema, max_tokens=1800):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"
     }
-    prompt = f"Escribe la escena {escena + 1} del capítulo {capitulo + 1} de una novela sobre '{tema}'."
+    prompt = f"Escribe la escena {escena + 1} del capítulo {capitulo + 1} de una novela sobre '{tema}', usando la raya (—) para todos los diálogos."
     data = {
         "model": "openai/gpt-4o-mini",
         "messages": [
@@ -28,9 +38,10 @@ def generar_escena(capitulo, escena, tema, max_tokens=1000):
     
     try:
         response = requests.post(url, headers=headers, json=data)
-        response.raise_for_status()  # Verifica si la respuesta tiene un error
+        response.raise_for_status()
         resultado = response.json()
         texto = resultado["choices"][0]["message"]["content"]
+        texto = formatear_dialogo(texto)
         return texto
     except Exception as e:
         st.error(f"Error al generar la escena: {e}")
@@ -39,16 +50,17 @@ def generar_escena(capitulo, escena, tema, max_tokens=1000):
 # Función principal para escribir la novela
 def escribir_novela(tema):
     st.write("Iniciando la escritura de la novela...")
+    titulo = f"Novela sobre {tema}"
     texto_novela = ''
     documento = Document()
-    documento.add_heading('Novela Generada', level=1)
+    documento.add_heading(titulo, level=1)
     documento.add_paragraph(f"Tema: {tema}")
     
     progreso_total = 10 * 4  # 10 capítulos con 4 escenas cada uno
     progreso_actual = 0
     
     for capitulo in range(10):
-        documento.add_heading(f"Capítulo {capitulo + 1}", level=2)
+        documento.add_heading(titulo, level=2)  # Mantiene el mismo título en todos los capítulos
         st.subheader(f"Capítulo {capitulo + 1}")
         
         for escena in range(4):
