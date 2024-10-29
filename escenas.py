@@ -205,7 +205,7 @@ def mostrar_analisis():
             status_text.text("Generando el informe...")
             informe = generar_informe(analisis)
             progress_bar.progress(80)
-
+  
             st.session_state.informe = informe
             st.session_state.etapa = "completado"
             progress_bar.progress(100)
