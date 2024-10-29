@@ -17,10 +17,10 @@ st.title("📚 Analizador de Novelas Escena por Escena")
 
 # Instrucciones
 st.markdown("""
-Esta aplicación permite subir una novela en formato de texto (.txt), analizar cada escena en busca de errores y posibles mejoras, y generar un informe completo en un documento de Word.
+Esta aplicación permite subir una novela en formato de texto (.txt) o Word (.docx), analizar cada escena en busca de errores y posibles mejoras, y generar un informe completo en un documento de Word.
 
 **Pasos a seguir:**
-1. Sube tu novela en formato de texto.
+1. Sube tu novela en formato .txt o .docx.
 2. Haz clic en "Iniciar Análisis".
 3. Espera mientras se analiza cada escena.
 4. Descarga el informe generado.
@@ -89,15 +89,38 @@ def generar_informe(analisis_por_escena):
     buffer.seek(0)
     return buffer
 
+# Función para extraer texto de un archivo .docx
+def extraer_texto_docx(archivo):
+    """
+    Extrae el texto de un archivo .docx.
+    """
+    try:
+        doc = Document(archivo)
+        texto = "\n".join([p.text for p in doc.paragraphs])
+        return texto
+    except Exception as e:
+        st.error(f"Error al leer el archivo .docx: {e}")
+        return ""
+
 # Interfaz de usuario
-uploaded_file = st.file_uploader("Sube tu novela en formato .txt", type=["txt"])
+uploaded_file = st.file_uploader("Sube tu novela en formato .txt o .docx", type=["txt", "docx"])
 
 if uploaded_file is not None:
     # Leer el contenido del archivo
     try:
-        contenido = uploaded_file.read().decode('utf-8')
+        if uploaded_file.type == "text/plain":
+            contenido = uploaded_file.read().decode('utf-8')
+        elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            contenido = extraer_texto_docx(uploaded_file)
+        else:
+            st.error("Formato de archivo no soportado.")
+            st.stop()
     except UnicodeDecodeError:
-        st.error("El archivo debe estar en formato de texto UTF-8.")
+        st.error("El archivo de texto debe estar en formato UTF-8.")
+        st.stop()
+
+    if not contenido:
+        st.error("No se pudo extraer contenido del archivo subido.")
         st.stop()
 
     # Mostrar una vista previa
