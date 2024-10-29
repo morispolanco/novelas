@@ -56,22 +56,20 @@ def escribir_novela(tema):
     documento.add_heading(titulo, level=1)
     documento.add_paragraph(f"Tema: {tema}")
     
-    # Títulos específicos de capítulos
-    titulos_capitulos = [f"Capítulo {i + 1}: Título fijo" for i in range(10)]
-    
     progreso_total = 10 * 4  # 10 capítulos con 4 escenas cada uno
     progreso_actual = 0
     
     for capitulo in range(10):
-        documento.add_heading(titulos_capitulos[capitulo], level=2)  # Título fijo para cada capítulo
-        st.subheader(titulos_capitulos[capitulo])
+        st.subheader(f"Capítulo {capitulo + 1}")  # Visualización en Streamlit
+        documento.add_paragraph(f"Capítulo {capitulo + 1}", style='Heading 2')  # Número de capítulo en el documento
         
         for escena in range(4):
-            st.write(f"Generando escena {escena + 1} del {titulos_capitulos[capitulo]}...")
+            st.write(f"Generando escena {escena + 1} del capítulo {capitulo + 1}...")
             texto_escena = generar_escena(capitulo, escena, tema)
             
             if texto_escena:
                 texto_novela += texto_escena + '\n'
+                documento.add_paragraph(f"Escena {escena + 1}", style='Heading 3')  # Número de escena en el documento
                 documento.add_paragraph(texto_escena)
                 st.write(texto_escena)
             
