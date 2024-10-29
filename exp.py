@@ -146,7 +146,7 @@ def analizar_novela(texto):
         prompt = f"""
         Por favor, analiza la siguiente escena de una novela de suspenso político. Identifica errores gramaticales, de coherencia, desarrollo de personajes, ritmo y cualquier otro aspecto que pueda mejorar la calidad de la escena. Proporciona recomendaciones claras y específicas para cada área de mejora. Responde en formato JSON con las siguientes claves: "escena", "issues", "suggestions".
         
-        ### Escena {idx}:
+        Escena {idx}:
         {escena}
         
         ### Informe de Análisis:
