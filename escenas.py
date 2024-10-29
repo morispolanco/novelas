@@ -11,7 +11,7 @@ API_URL = "https://openrouter.ai/api/v1/chat/completions"
 def generar_escena(tema, capitulo, escena):
     prompt = f"Escribe una escena de una novela original de cuarenta mil palabras sobre el tema '{tema}'. \
 Capítulo {capitulo}, Escena {escena}. Incluye descripciones detalladas, diálogos con raya en cada intervención de los personajes, \
-y desarrolla las motivaciones de los personajes. Mantén un ritmo trepidante y evita colocar nombres a los capítulos o escenas."
+y desarrolla las motivaciones de los personajes. Mantén un ritmo trepidante."
 
     headers = {
         "Content-Type": "application/json",
@@ -29,14 +29,22 @@ y desarrolla las motivaciones de los personajes. Mantén un ritmo trepidante y e
         st.error("Error al generar la escena. Por favor, intenta de nuevo.")
         return None
 
-# Función para generar toda la novela
+# Función para generar toda la novela con barra de progreso
 def generar_novela(tema):
     document = Document()
+    progreso_total = 10 * 4  # 10 capítulos, 4 escenas por capítulo
+    progreso_actual = 0
+
+    # Agregar barra de progreso en Streamlit
+    barra_progreso = st.progress(0)
     for capitulo in range(1, 11):
+        document.add_paragraph(f"Capítulo {capitulo}", style="Heading 1")
         for escena in range(1, 5):
             escena_texto = generar_escena(tema, capitulo, escena)
             if escena_texto:
                 document.add_paragraph(escena_texto)
+                progreso_actual += 1
+                barra_progreso.progress(progreso_actual / progreso_total)
             else:
                 st.error(f"No se pudo generar la Escena {escena} del Capítulo {capitulo}.")
                 break
