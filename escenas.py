@@ -18,7 +18,7 @@ def formatear_dialogo(texto):
     return texto_formateado
 
 # Función para conectarse a la API de OpenRouter y generar texto
-def generar_escena(capitulo, escena, tema, max_tokens=1800):
+def generar_escena(capitulo, escena, tema, max_tokens=1500):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",
@@ -56,15 +56,18 @@ def escribir_novela(tema):
     documento.add_heading(titulo, level=1)
     documento.add_paragraph(f"Tema: {tema}")
     
+    # Títulos específicos de capítulos
+    titulos_capitulos = [f"Capítulo {i + 1}: Título fijo" for i in range(10)]
+    
     progreso_total = 10 * 4  # 10 capítulos con 4 escenas cada uno
     progreso_actual = 0
     
     for capitulo in range(10):
-        documento.add_heading(titulo, level=2)  # Mantiene el mismo título en todos los capítulos
-        st.subheader(f"Capítulo {capitulo + 1}")
+        documento.add_heading(titulos_capitulos[capitulo], level=2)  # Título fijo para cada capítulo
+        st.subheader(titulos_capitulos[capitulo])
         
         for escena in range(4):
-            st.write(f"Generando escena {escena + 1} del capítulo {capitulo + 1}...")
+            st.write(f"Generando escena {escena + 1} del {titulos_capitulos[capitulo]}...")
             texto_escena = generar_escena(capitulo, escena, tema)
             
             if texto_escena:
