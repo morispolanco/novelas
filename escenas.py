@@ -9,9 +9,17 @@ API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Función para generar el contenido de cada escena
 def generar_escena(tema, capitulo, escena):
-    prompt = f"Escribe una escena de una novela original de cuarenta mil palabras sobre el tema '{tema}'. \
-Capítulo {capitulo}, Escena {escena}. Incluye descripciones detalladas, diálogos con raya en cada intervención de los personajes, \
-y desarrolla las motivaciones de los personajes. Mantén un ritmo trepidante."
+    prompt = f"Una novela de suspenso político suele centrarse en conflictos de poder, conspiraciones gubernamentales, y temas de espionaje, aprovechando elementos de la política para crear una trama tensa y llena de intriga. Aquí tienes algunas características claves:\n\n\
+1. **Contexto político realista y contemporáneo**: La historia se desarrolla en un escenario político reconocible, a menudo inspirado en situaciones de conflicto geopolítico, corrupción, o crisis gubernamentales. Esto agrega realismo y relevancia al suspenso, haciendo que los lectores se sientan inmersos en el trasfondo político.\n\
+2. **Conspiraciones y secretos de estado**: Las novelas de suspenso político giran en torno a secretos ocultos por gobiernos, agencias de inteligencia, o figuras de poder. Las conspiraciones pueden involucrar desde operaciones encubiertas hasta traiciones de alto nivel, presentando una constante amenaza de revelación.\n\
+3. **Personajes en posiciones de influencia**: Los personajes suelen ocupar roles importantes, como diplomáticos, agentes secretos, periodistas o políticos. La interacción entre ellos revela sus motivaciones complejas, dilemas morales, y lealtades divididas, lo que añade profundidad psicológica.\n\
+4. **Amenazas a la seguridad y consecuencias globales**: Estas novelas suelen exponer amenazas graves, como el riesgo de guerra, terrorismo, o colapso económico. La tensión aumenta al saber que los errores de los personajes podrían tener consecuencias devastadoras para naciones enteras.\n\
+5. **Trama compleja y ritmo acelerado**: Las novelas de suspenso político son conocidas por tener tramas enredadas y giros inesperados. El ritmo suele ser rápido, con capítulos cortos que cambian de perspectiva o saltan entre escenas de acción e investigación, manteniendo la tensión.\n\
+6. **Ética y moralidad en conflicto**: Los personajes suelen enfrentarse a decisiones éticamente ambiguas que los ponen en conflicto entre el deber, la lealtad y la moralidad personal. Este dilema moral realza el suspenso y lleva a los lectores a cuestionarse qué harían en situaciones similares.\n\
+7. **Diálogos y debates políticos**: El diálogo en estas novelas es fundamental y a menudo está cargado de lenguaje político y estratégico, lo cual ayuda a establecer la autenticidad del contexto. Las discusiones políticas y las reuniones de alto nivel pueden ser tan emocionantes como las escenas de acción.\n\
+8. **Ambientación detallada**: Las descripciones de edificios gubernamentales, oficinas de inteligencia, y lugares de reunión secretos son típicas y dan un tono sombrío o serio a la atmósfera. El detalle en la ambientación ayuda a crear un sentido de verosimilitud.\n\
+9. **Final impactante y revelador**: Las novelas de suspenso político tienden a tener finales que revelan secretos que cambian la comprensión de la historia, ya sea exponiendo la verdadera lealtad de los personajes o revelando la magnitud de la conspiración.\n\n\
+Escribe una escena para una novela de suspenso político sobre el tema '{tema}'. Capítulo {capitulo}, Escena {escena}. Incluye descripciones detalladas, diálogos con raya en cada intervención de los personajes, y desarrolla las motivaciones de los personajes. Mantén un ritmo trepidante y evita colocar nombres a los capítulos o escenas."
 
     headers = {
         "Content-Type": "application/json",
@@ -56,8 +64,8 @@ def generar_novela(tema):
     return buffer
 
 # Interfaz de la aplicación
-st.title("Generador de Novelas en Streamlit")
-st.write("Introduce el tema de la novela para generar una historia original dividida en diez capítulos y exportar el resultado en un archivo Word.")
+st.title("Generador de Novelas de Suspenso Político en Streamlit")
+st.write("Introduce el tema de la novela para generar una historia de suspenso político dividida en diez capítulos y exportar el resultado en un archivo Word.")
 
 # Entrada del usuario para el tema de la novela
 tema = st.text_input("Tema de la novela", help="Introduce el tema principal para la novela.")
