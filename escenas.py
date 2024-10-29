@@ -4,7 +4,7 @@ import requests
 import time
 
 # Clave API almacenada en los Secrets de Streamlit
-api_key = st.secrets["OPEN_ROUTER_API_KEY"]
+api_key = st.secrets["OPENROUTER_API_KEY"]
 
 # Función para conectarse a la API de OpenRouter y generar texto
 def generar_escena(capitulo, escena, max_tokens=1000):
