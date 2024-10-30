@@ -16,7 +16,7 @@ st.title("Editor de Escenas de Novela con Sugerencias")
 # Descripción
 st.markdown("""
 Esta aplicación te permite pegar el texto de una escena de una novela y tus críticas o sugerencias de mejora. 
-Al aplicar las sugerencias, la escena será regenerada con las modificaciones propuestas.
+Al aplicar las sugerencias, la escena será regenerada con las modificaciones propuestas. Además, podrás descargar la escena mejorada en un archivo `.txt`.
 """)
 
 # Área de texto para la escena
@@ -114,6 +114,14 @@ if st.button("Aplicar Críticas y Sugerencias"):
                     "Aquí está la escena con las mejoras aplicadas:",
                     value=updated_scene,
                     height=300
+                )
+                
+                # Botón para descargar la escena regenerada como archivo .txt
+                st.download_button(
+                    label="Descargar Escena Regenerada (.txt)",
+                    data=updated_scene,
+                    file_name="escena_regenerada.txt",
+                    mime="text/plain"
                 )
 
 # Opcional: Mostrar información sobre la API utilizada
