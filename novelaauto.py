@@ -4,7 +4,6 @@ import time
 from docx import Document
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
-from docx.oxml.ns import qn
 from docx.enum.style import WD_STYLE_TYPE
 from io import BytesIO
 import json
@@ -34,10 +33,17 @@ def call_openrouter_api(messages):
         st.stop()
     
     try:
-        content = response.json()["choices"][0]["message"]["content"].strip()
-    except (KeyError, IndexError, json.JSONDecodeError) as e:
-        st.error(f"Error al parsear la respuesta de la API: {e}")
+        response_json = response.json()
+    except json.JSONDecodeError:
+        st.error("La respuesta de la API no es un JSON válido.")
         st.write("Respuesta completa de la API:", response.text)
+        st.stop()
+    
+    try:
+        content = response_json["choices"][0]["message"]["content"].strip()
+    except (KeyError, IndexError) as e:
+        st.error(f"Error al parsear la respuesta de la API: {e}")
+        st.write("Respuesta completa de la API:", response_json)
         st.stop()
     
     return content
@@ -139,7 +145,7 @@ def create_word_document(chapters, sections_content):
     footer_paragraph = footer.paragraphs[0]
     footer_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
     footer_paragraph.add_run("Página ").italic = True
-    footer_paragraph.add_run().field = 'PAGE'
+    footer_paragraph.add_run().add_field('PAGE')
     
     # Guardar el documento en un objeto BytesIO
     byte_io = BytesIO()
@@ -234,6 +240,8 @@ if st.session_state.step == 2:
         sections_description_data = json.loads(st.session_state.sections_description)
     except json.JSONDecodeError:
         st.error("Error al procesar la respuesta de la API. Asegúrate de que el formato sea JSON válido.")
+        st.write("Distribución recibida:", st.session_state.distribution)
+        st.write("Descripción de secciones recibida:", st.session_state.sections_description)
         st.stop()
 
     # Crear una estructura de capítulos y secciones
