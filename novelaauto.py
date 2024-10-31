@@ -25,7 +25,7 @@ def parse_plan(plan_text):
     chapters = re.split(r'Capítulo \d+:', plan_text)
     for chapter_text in chapters[1:]:
         chapter = []
-        sections = re.split(r'Sección \d+:', chapter_text)
+        sections = re.split(r'Escena \d+:', chapter_text)
         for section_text in sections[1:]:
             lines = section_text.strip().split('\n', 1)
             if len(lines) >= 2:
@@ -36,7 +36,7 @@ def parse_plan(plan_text):
     return plan
 
 # Título de la aplicación
-st.title("Generador de Novelas Thriller Políticas")
+st.title("Generador de Novelas Juveniles de Aventuras")
 
 # Paso 1: Ingreso del tema
 tema = st.text_input("Introduce el tema principal de la novela:")
@@ -48,7 +48,7 @@ if tema:
     if not st.session_state.plan_generado:
         st.write("Generando el plan de la novela...")
         messages = [
-            {"role": "user", "content": f"Planea una novela thriller política sobre el tema: '{tema}'. Debe tener 12 capítulos y 5 secciones por capítulo. Para cada sección, proporciona un título y una breve descripción de lo que sucede. Organiza la trama y las subtramas de manera coherente a lo largo de las 60 secciones. Formatea el plan claramente indicando 'Capítulo X:' y 'Sección Y:'."}
+            {"role": "user", "content": f"Planea una novela juvenil de aventuras sobre el tema: '{tema}'. Debe tener 10 capítulos y 3 escenas por capítulo. Para cada escena, proporciona un título y una breve descripción de lo que sucede. Organiza la trama y las subtramas de manera coherente a lo largo de las 30 escenas. Formatea el plan claramente indicando 'Capítulo X:' y 'Escena Y:'."}
         ]
         respuesta = openrouter_api(messages)
         plan_texto = respuesta['choices'][0]['message']['content']
@@ -78,23 +78,23 @@ if 'aprobacion_plan' in st.session_state and st.session_state.aprobacion_plan:
         st.write("Generando descripciones detalladas de las escenas...")
         st.session_state.descripciones = []
         progress_bar = st.progress(0)
-        total_secciones = 12 * 5
+        total_secciones = 10 * 3
         contador = 0
 
         for capitulo_num, capitulo in enumerate(st.session_state.plan, start=1):
             capitulo_descripciones = []
-            for seccion_num, seccion in enumerate(capitulo, start=1):
-                titulo_seccion = seccion['titulo']
-                descripcion_seccion = seccion['descripcion']
+            for escena_num, escena in enumerate(capitulo, start=1):
+                titulo_escena = escena['titulo']
+                descripcion_escena = escena['descripcion']
                 messages = [
-                    {"role": "user", "content": f"Detalle la escena para la Sección {seccion_num} del Capítulo {capitulo_num}, titulada '{titulo_seccion}'. Basándose en la siguiente descripción: {descripcion_seccion}. Asegúrese de que sea coherente con la trama general y evite frases cliché."}
+                    {"role": "user", "content": f"Detalle la escena para la Escena {escena_num} del Capítulo {capitulo_num}, titulada '{titulo_escena}'. Basándose en la siguiente descripción: {descripcion_escena}. Asegúrese de que sea coherente con la trama general y evite frases cliché."}
                 ]
                 respuesta = openrouter_api(messages)
-                detalle_seccion = respuesta['choices'][0]['message']['content']
+                detalle_escena = respuesta['choices'][0]['message']['content']
                 capitulo_descripciones.append({
-                    'titulo': titulo_seccion,
-                    'descripcion': descripcion_seccion,
-                    'detalle': detalle_seccion
+                    'titulo': titulo_escena,
+                    'descripcion': descripcion_escena,
+                    'detalle': detalle_escena
                 })
                 contador += 1
                 progress_bar.progress(contador / total_secciones)
@@ -105,9 +105,9 @@ if 'aprobacion_plan' in st.session_state and st.session_state.aprobacion_plan:
     st.subheader("Descripciones detalladas de las escenas:")
     for capitulo_num, capitulo in enumerate(st.session_state.descripciones, start=1):
         st.write(f"**Capítulo {capitulo_num}**")
-        for seccion_num, seccion in enumerate(capitulo, start=1):
-            st.write(f"Sección {seccion_num}: {seccion['titulo']}")
-            st.write(seccion['detalle'])
+        for escena_num, escena in enumerate(capitulo, start=1):
+            st.write(f"Escena {escena_num}: {escena['titulo']}")
+            st.write(escena['detalle'])
     if 'aprobacion_descripciones' not in st.session_state:
         st.session_state.aprobacion_descripciones = False
 
@@ -115,7 +115,7 @@ if 'aprobacion_plan' in st.session_state and st.session_state.aprobacion_plan:
         if st.button("Aprobar Descripciones"):
             st.session_state.aprobacion_descripciones = True
 
-# Paso 3: Generar las secciones de la novela
+# Paso 3: Generar las escenas de la novela
 if 'aprobacion_descripciones' in st.session_state and st.session_state.aprobacion_descripciones:
     if 'novela_generada' not in st.session_state:
         st.session_state.novela_generada = False
@@ -124,20 +124,20 @@ if 'aprobacion_descripciones' in st.session_state and st.session_state.aprobacio
         st.write("Generando la novela...")
         progress_bar = st.progress(0)
         novela = ""
-        total_secciones = 12 * 5
+        total_secciones = 10 * 3
         contador = 0
 
         for capitulo_num, capitulo in enumerate(st.session_state.descripciones, start=1):
             novela += f"\n\nCapítulo {capitulo_num}\n"
-            for seccion_num, seccion in enumerate(capitulo, start=1):
-                titulo_seccion = seccion['titulo']
-                detalle_seccion = seccion['detalle']
+            for escena_num, escena in enumerate(capitulo, start=1):
+                titulo_escena = escena['titulo']
+                detalle_escena = escena['detalle']
                 messages = [
-                    {"role": "user", "content": f"Escribe la Sección {seccion_num} del Capítulo {capitulo_num}, titulada '{titulo_seccion}'. La escena debe tener aproximadamente 1000 palabras y seguir las características de un thriller político: mucha acción, ritmo rápido, descripciones vívidas y finales de escena con ganchos. Utiliza la siguiente descripción detallada: {detalle_seccion}. Usa raya en los diálogos y evita frases cliché."}
+                    {"role": "user", "content": f"Escribe la Escena {escena_num} del Capítulo {capitulo_num}, titulada '{titulo_escena}'. La escena debe tener aproximadamente 1000 palabras y seguir las características de una novela juvenil de aventuras: lenguaje accesible, tono emocionante, descripciones vívidas y finales de escena que mantengan el interés del lector. Utiliza la siguiente descripción detallada: {detalle_escena}. Usa raya en los diálogos y evita frases cliché."}
                 ]
                 respuesta = openrouter_api(messages)
-                texto_seccion = respuesta['choices'][0]['message']['content']
-                novela += f"\n\nSección {seccion_num}: {titulo_seccion}\n\n{texto_seccion}"
+                texto_escena = respuesta['choices'][0]['message']['content']
+                novela += f"\n\nEscena {escena_num}: {titulo_escena}\n\n{texto_escena}"
                 contador += 1
                 progress_bar.progress(contador / total_secciones)
         st.session_state.novela = novela
@@ -148,7 +148,7 @@ if 'aprobacion_descripciones' in st.session_state and st.session_state.aprobacio
     st.write("La novela ha sido generada exitosamente.")
     if st.button("Descargar Novela en Word"):
         doc = Document()
-        doc.add_heading("Novela Thriller Política", 0)
+        doc.add_heading("Novela Juvenil de Aventuras", 0)
         for line in st.session_state.novela.split('\n'):
             if line.strip() != '':
                 doc.add_paragraph(line)
