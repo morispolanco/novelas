@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 import time
 from docx import Document
-from docx.shared import Pt, Inches
+from docx.shared import Pt
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.enum.style import WD_STYLE_TYPE
 from io import BytesIO
@@ -58,21 +58,35 @@ def plan_novel(theme):
 # Función para distribuir la trama en capítulos y secciones
 def distribute_plot(plot):
     prompt = [
-        {"role": "user", "content": f"Distribuye la siguiente trama en 12 capítulos, cada uno con 5 secciones. Proporciona una lista estructurada con capítulos y secciones en formato JSON.\n\nTrama: {plot}"}
+        {"role": "user", "content": (
+            "Distribuye la siguiente trama en 12 capítulos, cada uno con 5 secciones. "
+            "Proporciona una lista estructurada con capítulos y secciones en formato JSON, "
+            "asegurándote de que el JSON esté bien formado y sea válido.\n\n"
+            f"Trama: {plot}"
+        )}
     ]
     return call_openrouter_api(prompt)
 
 # Función para describir cada sección
 def describe_sections(distribution):
     prompt = [
-        {"role": "user", "content": f"Describe detalladamente qué sucede en cada una de las siguientes 60 secciones para asegurar coherencia y consistencia en la trama.\n\nDistribución: {distribution}"}
+        {"role": "user", "content": (
+            "Describe detalladamente qué sucede en cada una de las siguientes 60 secciones para asegurar coherencia y consistencia en la trama. "
+            "Proporciona las descripciones en formato JSON, asegurándote de que el JSON esté bien formado y sea válido.\n\n"
+            f"Distribución: {distribution}"
+        )}
     ]
     return call_openrouter_api(prompt)
 
 # Función para escribir una sección
 def write_section(section_description):
     prompt = [
-        {"role": "user", "content": f"Escribe una sección de aproximadamente 1000 palabras con las siguientes características de un thriller político: mucha acción, ritmo rápido, descripciones vívidas, finales de escena con ganchos para mantener la atención del lector. Evita descripciones excesivas y frases cliché. Utiliza raya para los diálogos.\n\nDescripción de la sección: {section_description}"}
+        {"role": "user", "content": (
+            "Escribe una sección de aproximadamente 1000 palabras con las siguientes características de un thriller político: mucha acción, ritmo rápido, "
+            "descripciones vívidas, finales de escena con ganchos para mantener la atención del lector. Evita descripciones excesivas y frases cliché. "
+            "Utiliza raya para los diálogos.\n\n"
+            f"Descripción de la sección: {section_description}"
+        )}
     ]
     return call_openrouter_api(prompt)
 
@@ -214,7 +228,7 @@ if st.session_state.step == 1 and st.session_state.plan:
             reset_process()
             st.info("Proceso cancelado.")
 
-# Continuar con la generación si el plan fue aprobado
+# Continuar con la distribución de la trama si el plan fue aprobado
 if st.session_state.step == 2:
     # Barra de progreso
     progress_bar = st.progress(0)
@@ -264,9 +278,38 @@ if st.session_state.step == 2:
     status_text.text("Descripción de secciones completada.")
     time.sleep(1)
 
+    # Mostrar las descripciones de las escenas para aprobación
+    st.subheader("Descripciones de las Escenas")
+    st.write("A continuación se presentan las descripciones generadas para cada sección. ¿Deseas aprobarlas y continuar con la generación de las escenas?")
+    
+    # Mostrar las descripciones en un formato legible
+    for chapter in st.session_state.chapters:
+        st.markdown(f"### {chapter['title']}")
+        for section in chapter['sections']:
+            section_key = f"{st.session_state.chapters.index(chapter)+1}.{chapter['sections'].index(section)+1}"
+            st.markdown(f"#### {section_key}: {section['title']}")
+            st.write(st.session_state.sections_content.get(section_key, "Descripción no disponible."))
+    
+    # Botones de aprobación
+    st.write("¿Deseas aprobar estas descripciones y proceder a generar las escenas?")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Aprobar y Continuar"):
+            st.session_state.step = 3
+    with col2:
+        if st.button("Cancelar"):
+            reset_process()
+            st.info("Proceso cancelado.")
+
+# Continuar con la generación de escenas si las descripciones fueron aprobadas
+if st.session_state.step == 3:
+    # Barra de progreso
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+
     # Paso 4: Escribir cada sección
     status_text.text("Escribiendo cada sección de la novela...")
-    total_sections = 12 * 5
+    total_sections = 12 * 5  # 12 capítulos, 5 secciones cada uno
     for idx in range(1, total_sections + 1):
         chapter_num = (idx - 1) // 5 + 1
         section_num = (idx - 1) % 5 + 1
@@ -284,7 +327,7 @@ if st.session_state.step == 2:
 
     progress_bar.progress(100)
     status_text.text("Generación de la novela completada.")
-    st.session_state.step = 3
+    st.session_state.step = 4
 
     # Paso 5: Crear y ofrecer el documento Word
     with st.spinner("Creando el documento Word..."):
@@ -297,6 +340,9 @@ if st.session_state.step == 2:
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
 
+    # Finalizar el proceso
+    st.session_state.completed = True
+
 # Mostrar progreso si el proceso está en curso
-if st.session_state.step == 3 and st.session_state.completed:
+if st.session_state.step == 4 and st.session_state.completed:
     st.balloons()
