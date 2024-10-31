@@ -75,24 +75,8 @@ def describe_sections(distribution):
     return call_openrouter_api(prompt)
 
 def write_section(section_description):
-    # Instrucciones detalladas para asegurar alta calidad
-    detailed_instructions = (
-        "Basado en el tema proporcionado, genera una estructura detallada para una novela de suspenso político de alta calidad. "
-        "Asegúrate de que la novela obtenga una calificación de 10 sobre 10 en los siguientes aspectos:\n"
-        "- **Trama**: Compleja, bien desarrollada y llena de giros inesperados.\n"
-        "- **Originalidad**: Ideas frescas y únicas que distinguen la novela de otras en el mismo género.\n"
-        "- **Desarrollo de Personajes**: Personajes profundos, multidimensionales y realistas con arcos de desarrollo claros.\n"
-        "- **Ritmo**: Fluido y bien equilibrado, manteniendo el interés del lector en todo momento.\n"
-        "- **Descripciones**: Vivas y detalladas que permiten al lector visualizar escenas y emociones con claridad, sin extenderse demasiado. **Evita frases hechas** como 'un silencio ensordecedor' o 'el corazón latía apresuradamente'.\n"
-        "- **Calidad General**: Cohesión, coherencia y excelencia literaria en todo momento.\n"
-        "- **Técnicas Avanzadas de Escritura**:\n"
-        "    - **Foreshadowing**: Introduce pistas sutiles sobre eventos futuros.\n"
-        "    - **Metáforas y Simbolismo**: Utiliza figuras retóricas para enriquecer la narrativa.\n"
-        "    - **Show, Don't Tell**: Enfócate en mostrar acciones y emociones en lugar de simplemente describirlas.\n\n"
-        f"Escribe una sección de aproximadamente 1000 palabras con las siguientes características de un thriller político: mucha acción, ritmo rápido, descripciones vívidas, finales de escena con ganchos para mantener la atención del lector. Evita descripciones excesivas y frases cliché. Utiliza raya para los diálogos.\n\nDescripción de la sección: {section_description}"
-    )
     prompt = [
-        {"role": "user", "content": detailed_instructions}
+        {"role": "user", "content": f"Escribe una sección de aproximadamente 1000 palabras con las siguientes características de un thriller político: mucha acción, ritmo rápido, descripciones vívidas, finales de escena con ganchos para mantener la atención del lector. Evita descripciones excesivas y frases cliché. Utiliza raya para los diálogos.\n\nDescripción de la sección: {section_description}"}
     ]
     return call_openrouter_api(prompt)
 
@@ -171,13 +155,10 @@ if st.button("Generar Novela"):
             for process in existing_processes:
                 st.write(f"**ID del Proceso:** {process['id']}")
                 st.write(f"**Fecha de Inicio:** {process['id'].split('_')[-2]}")
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button(f"Continuar con el Proceso {process['id']}"):
-                        st.session_state.current_process_id = process['id']
-                with col2:
-                    if st.button(f"Reiniciar el Proceso {process['id']}"):
-                        reset_process(process['id'])
+                if st.button(f"Continuar con el Proceso {process['id']}"):
+                    st.session_state.current_process_id = process['id']
+                if st.button(f"Reiniciar el Proceso {process['id']}"):
+                    reset_process(process['id'])
         else:
             # Crear un nuevo proceso
             new_id = generate_unique_id(theme)
@@ -206,19 +187,7 @@ if st.session_state.current_process_id:
         chapters = json.loads(process['chapters'])
 
         # Barra de progreso
-        progress_percent = 0
-        if step == 0:
-            progress_percent = 0
-        elif step == 1:
-            progress_percent = 25
-        elif step == 2:
-            progress_percent = 50
-        elif step == 3:
-            progress_percent = 75
-        elif step >= 4:
-            progress_percent = 100
-
-        progress_bar = st.progress(progress_percent)
+        progress_bar = st.progress((step / 4) * 100)
         status_text = st.empty()
 
         # Paso 1: Planificación de la novela
@@ -281,20 +250,18 @@ if st.session_state.current_process_id:
                 for chapter in distribution_data.get("capítulos", []):
                     chapter_dict = {
                         "title": chapter.get("título", f"Capítulo {len(chapters)+1}"),
-                        "sections": [{"title": sec.get("título", f"Sección {i+1}"), "description": ""} for i, sec in enumerate(chapter.get("secciones", []))]
+                        "sections": [{"title": sec.get("título", f"Sección {i+1}"), "description": sec.get("descripción", "")} for i, sec in enumerate(chapter.get("secciones", []))]
                     }
                     chapters.append(chapter_dict)
                 cursor.execute("UPDATE novel_progress SET chapters = ? WHERE id = ?", (json.dumps(chapters), process_id))
                 conn.commit()
 
             # Asignar descripciones a cada sección si aún no se ha hecho
-            descriptions_assigned = all(sec['description'] for chap in chapters for sec in chap['sections'])
-            if not descriptions_assigned:
+            if not any("description" in sec for chap in chapters for sec in chap['sections']):
                 for chap_idx, chapter in enumerate(chapters):
                     for sec_idx, section in enumerate(chapter['sections']):
                         section_key = f"{chap_idx + 1}.{sec_idx + 1}"
-                        if chap_idx * 5 + sec_idx < len(sections_description_data.get("secciones", [])):
-                            section['description'] = sections_description_data["secciones"][chap_idx * 5 + sec_idx].get("descripción", "")
+                        section['description'] = sections_description_data.get("secciones", [])[chap_idx * 5 + sec_idx].get("descripción", "")
                 cursor.execute("UPDATE novel_progress SET chapters = ? WHERE id = ?", (json.dumps(chapters), process_id))
                 conn.commit()
 
