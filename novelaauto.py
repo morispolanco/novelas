@@ -2,7 +2,10 @@ import streamlit as st
 import requests
 import time
 from docx import Document
-from docx.shared import Pt
+from docx.shared import Pt, Inches
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+from docx.oxml.ns import qn
+from docx.enum.style import WD_STYLE_TYPE
 from io import BytesIO
 import json
 
@@ -17,14 +20,27 @@ def call_openrouter_api(messages):
         "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
     }
     data = {
-        "model": "openai/gpt-4o-mini",
+        "model": "openai/gpt-4o-mini",  # Verifica el nombre correcto del modelo
         "messages": messages
     }
-    response = requests.post(api_url, headers=headers, json=data)
-    if response.status_code != 200:
-        st.error(f"Error en la API de OpenRouter: {response.status_code} - {response.text}")
+    try:
+        response = requests.post(api_url, headers=headers, json=data)
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as http_err:
+        st.error(f"HTTP error occurred: {http_err}")
         st.stop()
-    return response.json()["choices"][0]["message"]["content"].strip()
+    except Exception as err:
+        st.error(f"Other error occurred: {err}")
+        st.stop()
+    
+    try:
+        content = response.json()["choices"][0]["message"]["content"].strip()
+    except (KeyError, IndexError, json.JSONDecodeError) as e:
+        st.error(f"Error al parsear la respuesta de la API: {e}")
+        st.write("Respuesta completa de la API:", response.text)
+        st.stop()
+    
+    return content
 
 # Función para planificar la novela
 def plan_novel(theme):
@@ -36,7 +52,7 @@ def plan_novel(theme):
 # Función para distribuir la trama en capítulos y secciones
 def distribute_plot(plot):
     prompt = [
-        {"role": "user", "content": f"Distribuye la siguiente trama en 12 capítulos, cada uno con 5 secciones. Proporciona una lista estructurada con capítulos y secciones.\n\nTrama: {plot}"}
+        {"role": "user", "content": f"Distribuye la siguiente trama en 12 capítulos, cada uno con 5 secciones. Proporciona una lista estructurada con capítulos y secciones en formato JSON.\n\nTrama: {plot}"}
     ]
     return call_openrouter_api(prompt)
 
@@ -54,17 +70,76 @@ def write_section(section_description):
     ]
     return call_openrouter_api(prompt)
 
-# Función para crear el documento Word
+# Función mejorada para crear el documento Word
 def create_word_document(chapters, sections_content):
+    # Crear un nuevo documento
     doc = Document()
-    doc.add_heading("Novela de Thriller Político", 0)
-
+    
+    # Definir estilos personalizados
+    styles = doc.styles
+    
+    # Estilo para el título principal
+    if 'TitleStyle' not in styles:
+        title_style = styles.add_style('TitleStyle', WD_STYLE_TYPE.PARAGRAPH)
+        title_style.font.name = 'Arial'
+        title_style.font.size = Pt(24)
+        title_style.font.bold = True
+        title_style.paragraph_format.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+    
+    # Estilo para los capítulos
+    if 'ChapterStyle' not in styles:
+        chapter_style = styles.add_style('ChapterStyle', WD_STYLE_TYPE.PARAGRAPH)
+        chapter_style.font.name = 'Arial'
+        chapter_style.font.size = Pt(18)
+        chapter_style.font.bold = True
+        chapter_style.paragraph_format.space_before = Pt(12)
+        chapter_style.paragraph_format.space_after = Pt(6)
+    
+    # Estilo para las secciones
+    if 'SectionStyle' not in styles:
+        section_style = styles.add_style('SectionStyle', WD_STYLE_TYPE.PARAGRAPH)
+        section_style.font.name = 'Arial'
+        section_style.font.size = Pt(14)
+        section_style.font.bold = True
+        section_style.paragraph_format.space_before = Pt(6)
+        section_style.paragraph_format.space_after = Pt(3)
+    
+    # Estilo para el contenido de las secciones
+    if 'ContentStyle' not in styles:
+        content_style = styles.add_style('ContentStyle', WD_STYLE_TYPE.PARAGRAPH)
+        content_style.font.name = 'Calibri'
+        content_style.font.size = Pt(12)
+        content_style.paragraph_format.space_before = Pt(0)
+        content_style.paragraph_format.space_after = Pt(6)
+        content_style.paragraph_format.line_spacing = 1.15
+    
+    # Añadir título principal
+    title = doc.add_paragraph("Novela de Thriller Político", style='TitleStyle')
+    title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+    doc.add_paragraph()  # Línea en blanco
+    
+    # Iterar sobre los capítulos
     for chapter_num, chapter in enumerate(chapters, start=1):
-        doc.add_heading(f"Capítulo {chapter_num}: {chapter['title']}", level=1)
+        # Añadir título del capítulo
+        chapter_title = doc.add_paragraph(f"Capítulo {chapter_num}: {chapter['title']}", style='ChapterStyle')
+        
+        # Iterar sobre las secciones del capítulo
         for section_num, section in enumerate(chapter['sections'], start=1):
-            doc.add_heading(f"Sección {chapter_num}.{section_num}: {section['title']}", level=2)
-            paragraph = doc.add_paragraph(sections_content[f"{chapter_num}.{section_num}"])
-            paragraph.style.font.size = Pt(12)
+            # Añadir título de la sección
+            section_title = doc.add_paragraph(f"Sección {chapter_num}.{section_num}: {section['title']}", style='SectionStyle')
+            
+            # Añadir contenido de la sección
+            section_key = f"{chapter_num}.{section_num}"
+            content_text = sections_content.get(section_key, "Contenido no disponible.")
+            content_paragraph = doc.add_paragraph(content_text, style='ContentStyle')
+    
+    # Agregar número de página en el pie de página
+    section = doc.sections[-1]
+    footer = section.footer
+    footer_paragraph = footer.paragraphs[0]
+    footer_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+    footer_paragraph.add_run("Página ").italic = True
+    footer_paragraph.add_run().field = 'PAGE'
     
     # Guardar el documento en un objeto BytesIO
     byte_io = BytesIO()
