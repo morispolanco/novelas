@@ -26,10 +26,10 @@ def call_openrouter_api(messages):
         response = requests.post(api_url, headers=headers, json=data)
         response.raise_for_status()
     except requests.exceptions.HTTPError as http_err:
-        st.error(f"HTTP error occurred: {http_err}")
+        st.error(f"Ocurrió un error HTTP: {http_err}")
         st.stop()
     except Exception as err:
-        st.error(f"Other error occurred: {err}")
+        st.error(f"Ocurrió un error: {err}")
         st.stop()
     
     try:
@@ -42,7 +42,7 @@ def call_openrouter_api(messages):
     try:
         content = response_json["choices"][0]["message"]["content"].strip()
     except (KeyError, IndexError) as e:
-        st.error(f"Error al parsear la respuesta de la API: {e}")
+        st.error(f"Error al analizar la respuesta de la API: {e}")
         st.write("Respuesta completa de la API:", response_json)
         st.stop()
     
@@ -90,7 +90,7 @@ def write_scene(scene_description):
     ]
     return call_openrouter_api(prompt)
 
-# Función mejorada para crear el documento Word
+# Función para crear el documento Word
 def create_word_document(chapters, scenes_content):
     # Crear un nuevo documento
     doc = Document()
@@ -221,10 +221,10 @@ if st.session_state.step == 1 and st.session_state.plan:
     st.write("¿Deseas aprobar este plan y continuar con la generación de la novela?")
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("Aprobar y Continuar"):
+        if st.button("Aprobar y Continuar", key='approve_plan'):
             st.session_state.step = 2
     with col2:
-        if st.button("Cancelar"):
+        if st.button("Cancelar", key='cancel_plan'):
             reset_process()
             st.info("Proceso cancelado.")
 
@@ -294,10 +294,10 @@ if st.session_state.step == 2:
     st.write("¿Deseas aprobar estas descripciones y proceder a generar las escenas?")
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("Aprobar y Continuar"):
+        if st.button("Aprobar y Continuar", key='approve_descriptions'):
             st.session_state.step = 3
     with col2:
-        if st.button("Cancelar"):
+        if st.button("Cancelar", key='cancel_descriptions'):
             reset_process()
             st.info("Proceso cancelado.")
 
