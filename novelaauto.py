@@ -69,54 +69,8 @@ if tema:
         if st.button("Aprobar Plan"):
             st.session_state.aprobacion_plan = True
 
-# Paso 2: Generar descripciones de escenas
+# Paso 2: Generar las escenas de la novela directamente
 if 'aprobacion_plan' in st.session_state and st.session_state.aprobacion_plan:
-    if 'descripciones_generadas' not in st.session_state:
-        st.session_state.descripciones_generadas = False
-
-    if not st.session_state.descripciones_generadas:
-        st.write("Generando descripciones detalladas de las escenas...")
-        st.session_state.descripciones = []
-        progress_bar = st.progress(0)
-        total_secciones = 10 * 3
-        contador = 0
-
-        for capitulo_num, capitulo in enumerate(st.session_state.plan, start=1):
-            capitulo_descripciones = []
-            for escena_num, escena in enumerate(capitulo, start=1):
-                titulo_escena = escena['titulo']
-                descripcion_escena = escena['descripcion']
-                messages = [
-                    {"role": "user", "content": f"Detalle la escena para la Escena {escena_num} del Capítulo {capitulo_num}, titulada '{titulo_escena}'. Basándose en la siguiente descripción: {descripcion_escena}. Asegúrese de que sea coherente con la trama general y evite frases cliché."}
-                ]
-                respuesta = openrouter_api(messages)
-                detalle_escena = respuesta['choices'][0]['message']['content']
-                capitulo_descripciones.append({
-                    'titulo': titulo_escena,
-                    'descripcion': descripcion_escena,
-                    'detalle': detalle_escena
-                })
-                contador += 1
-                progress_bar.progress(contador / total_secciones)
-            st.session_state.descripciones.append(capitulo_descripciones)
-        st.session_state.descripciones_generadas = True
-
-    # Mostrar descripciones y solicitar aprobación
-    st.subheader("Descripciones detalladas de las escenas:")
-    for capitulo_num, capitulo in enumerate(st.session_state.descripciones, start=1):
-        st.write(f"**Capítulo {capitulo_num}**")
-        for escena_num, escena in enumerate(capitulo, start=1):
-            st.write(f"Escena {escena_num}: {escena['titulo']}")
-            st.write(escena['detalle'])
-    if 'aprobacion_descripciones' not in st.session_state:
-        st.session_state.aprobacion_descripciones = False
-
-    if not st.session_state.aprobacion_descripciones:
-        if st.button("Aprobar Descripciones"):
-            st.session_state.aprobacion_descripciones = True
-
-# Paso 3: Generar las escenas de la novela
-if 'aprobacion_descripciones' in st.session_state and st.session_state.aprobacion_descripciones:
     if 'novela_generada' not in st.session_state:
         st.session_state.novela_generada = False
 
@@ -124,22 +78,22 @@ if 'aprobacion_descripciones' in st.session_state and st.session_state.aprobacio
         st.write("Generando la novela...")
         progress_bar = st.progress(0)
         novela = ""
-        total_secciones = 10 * 3
+        total_escenas = 10 * 3
         contador = 0
 
-        for capitulo_num, capitulo in enumerate(st.session_state.descripciones, start=1):
+        for capitulo_num, capitulo in enumerate(st.session_state.plan, start=1):
             novela += f"\n\nCapítulo {capitulo_num}\n"
             for escena_num, escena in enumerate(capitulo, start=1):
                 titulo_escena = escena['titulo']
-                detalle_escena = escena['detalle']
+                descripcion_escena = escena['descripcion']
                 messages = [
-                    {"role": "user", "content": f"Escribe la Escena {escena_num} del Capítulo {capitulo_num}, titulada '{titulo_escena}'. La escena debe tener aproximadamente 1000 palabras y seguir las características de una novela juvenil de aventuras: lenguaje accesible, tono emocionante, descripciones vívidas y finales de escena que mantengan el interés del lector. Utiliza la siguiente descripción detallada: {detalle_escena}. Usa raya en los diálogos y evita frases cliché."}
+                    {"role": "user", "content": f"Escribe la Escena {escena_num} del Capítulo {capitulo_num}, titulada '{titulo_escena}'. La escena debe tener aproximadamente 1000 palabras y seguir las características de una novela juvenil de aventuras: lenguaje accesible, tono emocionante, descripciones vívidas y finales de escena que mantengan el interés del lector. Basa la escena en la siguiente descripción: {descripcion_escena}. Usa raya en los diálogos y evita frases cliché."}
                 ]
                 respuesta = openrouter_api(messages)
                 texto_escena = respuesta['choices'][0]['message']['content']
                 novela += f"\n\nEscena {escena_num}: {titulo_escena}\n\n{texto_escena}"
                 contador += 1
-                progress_bar.progress(contador / total_secciones)
+                progress_bar.progress(contador / total_escenas)
         st.session_state.novela = novela
         st.session_state.novela_generada = True
 
