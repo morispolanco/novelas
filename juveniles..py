@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 st.title("📝 Generador de Novelas Juveniles")
-st.write("Esta aplicación genera una novela juvenil basada en el tema o idea que ingreses, dividida en capítulos evitando la repetición de contenido.")
+st.write("Esta aplicación genera una novela juvenil basada en el tema o idea que ingreses, dividida en capítulos con títulos, evitando la repetición de contenido.")
 
 # Inicializar estado de la sesión
 if 'capitulos' not in st.session_state:
@@ -64,12 +64,13 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas):
         "Content-Type": "application/json",
         "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
     }
-    # Instrucciones específicas para novelas juveniles
+    # Instrucciones específicas para novelas juveniles con títulos de capítulos
     instrucciones = (
         "Asegúrate de que el contenido generado cumpla con las características de una novela juvenil. "
         "Debes utilizar un lenguaje accesible, desarrollar personajes jóvenes y cercanos a la audiencia, "
         "abordar temas relevantes para adolescentes y jóvenes adultos, y mantener una narrativa ágil con diálogos auténticos. "
         "Evita repetir información ya mencionada en capítulos anteriores."
+        " Además, cada capítulo debe comenzar con un título apropiado."
     )
     if resumen_previas:
         resumen_texto = " Hasta ahora, la novela ha cubierto los siguientes puntos: " + resumen_previas
@@ -79,7 +80,7 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas):
     mensaje = (
         f"**Características de la novela juvenil:** {caracteristicas_novela_juvenil}\n\n"
         f"Escribe el capítulo {capitulo_num} de una novela juvenil sobre el siguiente tema: {prompt}. "
-        f"El capítulo debe tener aproximadamente 2000 palabras y no debe contener subdivisiones ni subcapítulos.{resumen_texto} {instrucciones}"
+        f"El capítulo debe comenzar con un título apropiado y tener aproximadamente 2000 palabras. No debe contener subdivisiones ni subcapítulos.{resumen_texto} {instrucciones}"
     )
     data = {
         "model": "openai/gpt-4o-mini",
@@ -95,14 +96,24 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas):
         response.raise_for_status()
         respuesta = response.json()
         if 'choices' in respuesta and len(respuesta['choices']) > 0:
-            contenido = respuesta['choices'][0]['message']['content']
-            return contenido
+            contenido_completo = respuesta['choices'][0]['message']['content']
+            # Separar el título del capítulo y el contenido
+            # Asumimos que el modelo responde con el título en la primera línea seguida del contenido
+            lineas = contenido_completo.strip().split('\n', 1)
+            if len(lineas) == 2:
+                titulo_capitulo = lineas[0].strip().replace("Título:", "").replace("Titulo:", "").strip()
+                contenido = lineas[1].strip()
+                return titulo_capitulo, contenido
+            else:
+                # Si no se puede separar, devolver sin título
+                st.warning(f"No se pudo extraer el título del Capítulo {capitulo_num}.")
+                return f"Capítulo {capitulo_num}", contenido_completo
         else:
             st.error(f"Respuesta inesperada de la API al generar el capítulo {capitulo_num}.")
-            return None
+            return None, None
     except requests.exceptions.RequestException as e:
         st.error(f"Error al generar el capítulo {capitulo_num}: {e}")
-        return None
+        return None, None
 
 # Función para resumir un capítulo utilizando la API de OpenRouter
 def resumir_capitulo(capitulo):
@@ -141,12 +152,12 @@ def resumir_capitulo(capitulo):
         st.error(f"Error al resumir el capítulo: {e}")
         return None
 
-# Función para crear el documento Word
+# Función para crear el documento Word con títulos
 def crear_documento(capitulo_list, titulo):
     doc = Document()
     doc.add_heading(titulo, 0)
-    for idx, capitulo in enumerate(capitulo_list, 1):
-        doc.add_heading(f"Capítulo {idx}", level=1)
+    for idx, (titulo_capitulo, capitulo) in enumerate(capitulo_list, 1):
+        doc.add_heading(f"Capítulo {idx}: {titulo_capitulo}", level=1)
         doc.add_paragraph(capitulo)
     # Guardar el documento en un buffer
     buffer = BytesIO()
@@ -157,7 +168,7 @@ def crear_documento(capitulo_list, titulo):
 # Interfaz de usuario para generar la novela juvenil
 with st.form(key='form_novela_juvenil'):
     prompt = st.text_area("Ingresa el tema o idea para la novela juvenil:", height=200)
-    num_capitulos = st.slider("Número de capítulos:", min_value=5, max_value=20, value=10)
+    num_capitulos = st.slider("Número de capítulos:", min_value=5, max_value=24, value=10)
     submit_button = st.form_submit_button(label='Generar Novela Juvenil')
 
 if submit_button:
@@ -177,9 +188,9 @@ if submit_button:
                 resumen_previas = ' '.join(st.session_state.resumenes)
             else:
                 resumen_previas = ''
-            capitulo = generar_capitulo(prompt, i, resumen_previas)
+            titulo_capitulo, capitulo = generar_capitulo(prompt, i, resumen_previas)
             if capitulo:
-                st.session_state.capitulos.append(capitulo)
+                st.session_state.capitulos.append((titulo_capitulo, capitulo))
                 # Resumir el capítulo generado
                 resumen = resumir_capitulo(capitulo)
                 if resumen:
@@ -209,6 +220,6 @@ if st.session_state.capitulos and st.session_state.proceso_generado:
     st.markdown("---")
     st.header("📖 Novela Juvenil Generada")
     # Mostrar los capítulos generados
-    for idx, capitulo in enumerate(st.session_state.capitulos, 1):
-        st.subheader(f"Capítulo {idx}")
+    for idx, (titulo_capitulo, capitulo) in enumerate(st.session_state.capitulos, 1):
+        st.subheader(f"Capítulo {idx}: {titulo_capitulo}")
         st.write(capitulo)
