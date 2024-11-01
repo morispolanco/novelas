@@ -77,12 +77,21 @@ def summarize_chapter(chapter_text):
 def generate_image_prompt(summary, character_descriptions):
     """
     Genera un prompt detallado para la ilustración usando el resumen del capítulo y las descripciones de los personajes.
+    Además, añade prompts positivos y negativos para controlar el estilo de la imagen.
     """
+    # Prompts adicionales proporcionados por el usuario
+    positive_prompt = "((abstract illustration, pastel tones, soft lighting, high resolution, detailed brush strokes, delicate composition, impressionist style, art medium, soft color palette, smooth textures, ethereal atmosphere, dreamy))"
+    negative_prompt = "(no text, no hard edges, no vibrant colors, no harsh lighting, no digital art, no watermarks, no low resolution, no pixelation, no bad art, no beginner, no amateur)"
+    
+    # Construcción del prompt final
     prompt = f"Basado en el siguiente resumen del capítulo, crea una descripción detallada para una ilustración: {summary}\n\n"
     prompt += "Descripción de personajes:\n"
     for character, desc in character_descriptions.items():
         prompt += f"- {character}: {desc}\n"
-    prompt += "Asegúrate de que los personajes sean consistentes con las descripciones proporcionadas."
+    prompt += "Asegúrate de que los personajes sean consistentes con las descripciones proporcionadas.\n\n"
+    prompt += f"Estilo de la imagen: {positive_prompt}\n"
+    prompt += f"Restricciones: {negative_prompt}"
+    
     detailed_prompt = call_openrouter_api(prompt)
     return detailed_prompt if detailed_prompt else "Descripción de ilustración no disponible."
 
