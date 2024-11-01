@@ -4,24 +4,14 @@ import requests
 import io
 
 # Configuración básica
-st.set_page_config(page_title="Evaluación de Novelas", layout="wide")
-st.title("Evaluación y Regeneración de Novela")
+st.set_page_config(page_title="Análisis de Novelas", layout="wide")
+st.title("Análisis Crítico de tu Novela")
 
 def read_docx(file):
     doc = Document(file)
     return "\n".join([paragraph.text for paragraph in doc.paragraphs])
 
-def create_docx(text):
-    doc = Document()
-    for line in text.split('\n'):
-        if line.strip():
-            doc.add_paragraph(line)
-    buffer = io.BytesIO()
-    doc.save(buffer)
-    buffer.seek(0)
-    return buffer
-
-def call_api(text, is_analysis=True):
+def analyze_novel(text):
     try:
         url = "https://openrouter.ai/api/v1/chat/completions"
         headers = {
@@ -29,21 +19,38 @@ def call_api(text, is_analysis=True):
             "Content-Type": "application/json"
         }
         
-        if is_analysis:
-            prompt = "Analiza esta novela y proporciona una crítica constructiva detallada:"
-        else:
-            prompt = """Reescribe esta novela mejorando su calidad literaria. 
-            Mantén la misma historia pero mejora:
-            1. La narrativa y el ritmo
-            2. Las descripciones
-            3. Los diálogos
-            4. El desarrollo de personajes
-            
-            Devuelve la novela completa reescrita:"""
+        analysis_prompt = """Realiza un análisis crítico detallado de esta novela, evaluando:
+
+        1. ESTRUCTURA Y RITMO
+        - Coherencia de la estructura narrativa
+        - Ritmo y pacing de la historia
+        - Balance entre descripción, narración y diálogo
+        
+        2. PERSONAJES
+        - Profundidad y desarrollo
+        - Coherencia en sus acciones y motivaciones
+        - Arcos de desarrollo
+        
+        3. TRAMA
+        - Consistencia y lógica interna
+        - Resolución de conflictos
+        - Manejo de subtramas
+        
+        4. ESTILO Y TÉCNICA
+        - Calidad de la prosa
+        - Uso del lenguaje
+        - Técnicas narrativas empleadas
+        
+        5. PUNTOS A MEJORAR
+        - Identificar áreas específicas que necesitan revisión
+        - Sugerir mejoras concretas
+        - Señalar posibles inconsistencias
+        
+        Proporciona ejemplos específicos del texto para ilustrar cada punto."""
         
         data = {
-            "model": "openai/gpt-4-turbo",
-            "messages": [{"role": "user", "content": f"{prompt}\n\n{text}"}],
+            "model": "openai/gpt-4o-mini",
+            "messages": [{"role": "user", "content": f"{analysis_prompt}\n\nNOVELA:\n\n{text}"}],
             "max_tokens": 4000
         }
         
@@ -51,11 +58,22 @@ def call_api(text, is_analysis=True):
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
     
+    except requests.exceptions.Timeout:
+        st.error("⏱️ La solicitud excedió el tiempo límite. Intenta con una sección más corta del texto.")
+    except requests.exceptions.HTTPError as http_err:
+        st.error(f"❌ Error en la API: {http_err}")
     except Exception as e:
-        st.error(f"Error en la API: {str(e)}")
-        return None
+        st.error(f"❌ Error inesperado: {str(e)}")
+    return None
 
 # Interfaz principal
+st.write("""
+### 📚 Instrucciones
+1. Sube tu novela en formato .docx
+2. Haz clic en 'Analizar' para recibir un análisis crítico detallado
+3. El análisis evaluará estructura, personajes, trama y estilo
+""")
+
 uploaded_file = st.file_uploader("Sube tu novela (formato .docx)", type="docx")
 
 if uploaded_file:
@@ -65,41 +83,36 @@ if uploaded_file:
         st.success("✅ Archivo cargado correctamente")
         
         # Mostrar vista previa
-        with st.expander("Ver contenido original"):
-            st.text_area("Texto original:", novel_text[:1000] + "...", height=200)
+        with st.expander("📄 Ver contenido del archivo"):
+            st.text_area(
+                "Primeras 1000 palabras del texto:",
+                novel_text[:1000] + "...",
+                height=200
+            )
         
-        # Columnas para análisis y regeneración
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button("📝 Analizar Novela"):
-                with st.spinner("Analizando..."):
-                    analysis = call_api(novel_text, is_analysis=True)
-                    if analysis:
-                        st.write("### Análisis")
-                        st.write(analysis)
-        
-        with col2:
-            if st.button("🔄 Regenerar Novela"):
-                with st.spinner("Regenerando... (esto puede tomar varios minutos)"):
-                    regenerated = call_api(novel_text, is_analysis=False)
-                    if regenerated:
-                        st.success("✨ ¡Regeneración completada!")
-                        
-                        # Crear documento regenerado
-                        doc_buffer = create_docx(regenerated)
-                        
-                        # Botón de descarga
-                        st.download_button(
-                            "⬇️ Descargar Novela Regenerada",
-                            doc_buffer,
-                            "novela_regenerada.docx",
-                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                        )
-                        
-                        # Mostrar vista previa
-                        with st.expander("Ver novela regenerada"):
-                            st.text_area("Texto regenerado:", regenerated[:1000] + "...", height=200)
+        # Botón de análisis
+        if st.button("🔍 Analizar Novela"):
+            with st.spinner("Analizando el texto... (esto puede tomar unos minutos)"):
+                analysis = analyze_novel(novel_text)
+                
+                if analysis:
+                    st.write("## 📝 Análisis Crítico")
+                    
+                    # Crear tabs para organizar el análisis
+                    tab1, tab2 = st.tabs(["📊 Análisis Completo", "📋 Resumen"])
+                    
+                    with tab1:
+                        st.markdown(analysis)
+                    
+                    with tab2:
+                        st.write("""
+                        ### Principales aspectos analizados:
+                        - ⚡ Estructura y ritmo narrativo
+                        - 👥 Desarrollo de personajes
+                        - 📈 Coherencia de la trama
+                        - ✍️ Estilo y técnica literaria
+                        - 🎯 Puntos específicos a mejorar
+                        """)
     
     except Exception as e:
         st.error(f"Error al procesar el archivo: {str(e)}")
