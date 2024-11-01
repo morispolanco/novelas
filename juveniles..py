@@ -19,6 +19,16 @@ st.set_page_config(
 st.title("📝 Generador de Obras de Ficción")
 st.write("Esta aplicación genera una obra de ficción basada en el prompt que ingreses, dividida en capítulos evitando la repetición de contenido.")
 
+# Inicializar estado de la sesión
+if 'capitulos' not in st.session_state:
+    st.session_state.capitulos = []
+if 'resumenes' not in st.session_state:
+    st.session_state.resumenes = []
+if 'informe_evaluacion' not in st.session_state:
+    st.session_state.informe_evaluacion = None
+if 'novela_regenerada' not in st.session_state:
+    st.session_state.novela_regenerada = False
+
 # Función para generar un capítulo de la obra
 def generar_capitulo(prompt, capitulo_num, resumen_previas):
     url = "https://openrouter.ai/api/v1/chat/completions"
@@ -104,49 +114,171 @@ def crear_documento(capitulo_list, titulo):
     buffer.seek(0)
     return buffer
 
-# Interfaz de usuario
+# Función para evaluar críticamente la novela
+def evaluar_novela(novela_completa):
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
+    }
+    prompt_evaluacion = (
+        "Evalúa críticamente la siguiente obra de ficción. Identifica errores narrativos, inconsistencias en la trama, desarrollo de personajes y otros aspectos que podrían mejorarse. "
+        "Proporciona un informe detallado con puntos de mejora y sugerencias para cada aspecto identificado.\n\n"
+        f"Obra de Ficción:\n{novela_completa}\n\nInforme de Evaluación:"
+    )
+    data = {
+        "model": "openai/gpt-4o-mini",
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt_evaluacion
+            }
+        ]
+    }
+    try:
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+        respuesta = response.json()
+        informe = respuesta['choices'][0]['message']['content']
+        return informe
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error al evaluar la novela: {e}")
+        return None
+
+# Función para regenerar la novela basada en el informe de evaluación
+def regenerar_novela(prompt, informe_evaluacion, num_capitulos):
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
+    }
+    # Instrucciones para regenerar la novela con mejoras
+    mensaje = (
+        f"Reescribe la obra de ficción basada en el siguiente tema: {prompt}. "
+        f"Aplica las siguientes mejoras y sugerencias para corregir errores y enriquecer la trama y los personajes:\n\n{informe_evaluacion}\n\n"
+        f"La obra debe estar dividida en {num_capitulos} capítulos, cada uno de aproximadamente 1000 palabras, manteniendo coherencia y creatividad."
+    )
+    data = {
+        "model": "openai/gpt-4o-mini",
+        "messages": [
+            {
+                "role": "user",
+                "content": mensaje
+            }
+        ]
+    }
+    try:
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+        respuesta = response.json()
+        novela_regenerada = respuesta['choices'][0]['message']['content']
+        return novela_regenerada
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error al regenerar la novela: {e}")
+        return None
+
+# Interfaz de usuario para generar la obra
 with st.form(key='form_obra'):
     prompt = st.text_area("Ingresa el tema o idea para la obra de ficción:", height=200)
     num_capitulos = st.slider("Número de capítulos:", min_value=5, max_value=20, value=10)
     submit_button = st.form_submit_button(label='Generar Obra')
-    
-if submit_button:
-    if not prompt.strip():
-        st.error("Por favor, ingresa un tema o idea válida para la obra de ficción.")
-    else:
-        st.success("Iniciando la generación de la obra de ficción...")
-        capitulos = []
-        resumenes = []
-        progreso = st.progress(0)
-        for i in range(1, num_capitulos + 1):
-            st.write(f"Generando **Capítulo {i}**...")
-            # Crear un resumen de capítulos previos para evitar repeticiones
-            if resumenes:
-                resumen_previas = ' '.join(resumenes)
-            else:
-                resumen_previas = ''
-            capitulo = generar_capitulo(prompt, i, resumen_previas)
-            if capitulo:
-                capitulos.append(capitulo)
-                # Resumir el capítulo generado
-                resumen = resumir_capitulo(capitulo)
-                if resumen:
-                    resumenes.append(resumen)
+
+# Botón para evaluar la novela (visible solo después de generar la novela)
+if st.session_state.capitulos and st.session_state.informe_evaluacion is None:
+    st.markdown("---")
+    st.header("Evaluación Crítica de la Novela")
+    evaluar_button = st.button("Evaluar la novela")
+    if evaluar_button:
+        with st.spinner("Evaluando la novela..."):
+            novela_completa = "\n\n".join(st.session_state.capitulos)
+            informe = evaluar_novela(novela_completa)
+            if informe:
+                st.session_state.informe_evaluacion = informe
+                st.subheader("Informe de Evaluación")
+                st.write(informe)
+                st.markdown("---")
+                # Preguntar si desea regenerar la novela
+                regenerate = st.radio(
+                    "¿Deseas regenerar la novela basada en el informe de evaluación?",
+                    ("No", "Sí")
+                )
+                if regenerate == "Sí":
+                    with st.spinner("Regenerando la novela con base en el informe..."):
+                        novela_regen = regenerar_novela(prompt, informe, num_capitulos)
+                        if novela_regen:
+                            # Asumiendo que la novela regenerada está dividida por capítulos
+                            capitulos_regen = novela_regen.split("Capítulo ")
+                            capitulos_regen = [cap.strip() for cap in capitulos_regen if cap.strip()]
+                            # Re-formatear capítulos para que cada uno comience con "Capítulo X"
+                            capitulos_regen = ["Capítulo " + cap.split('\n')[0] + "\n" + "\n".join(cap.split('\n')[1:]) for cap in capitulos_regen]
+                            st.session_state.capitulos = capitulos_regen
+                            st.session_state.resumenes = []  # Resetear resúmenes
+                            st.session_state.informe_evaluacion = None  # Resetear informe
+                            st.session_state.novela_regenerada = True
+                            st.success("Novela regenerada exitosamente.")
+                            # Opcional: Descargar la novela regenerada
+                            titulo_obra = st.text_input("Título de la obra:", value="Obra de Ficción (Regenerada)")
+                            documento = crear_documento(st.session_state.capitulos, titulo_obra)
+                            st.download_button(
+                                label="Descargar Obra Regenerada en Word",
+                                data=documento,
+                                file_name="obra_de_ficcion_regenerada.docx",
+                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                            )
+else:
+    # Generación de la obra
+    if submit_button:
+        if not prompt.strip():
+            st.error("Por favor, ingresa un tema o idea válida para la obra de ficción.")
+        else:
+            st.success("Iniciando la generación de la obra de ficción...")
+            st.session_state.capitulos = []
+            st.session_state.resumenes = []
+            st.session_state.informe_evaluacion = None
+            st.session_state.novela_regenerada = False
+            progreso = st.progress(0)
+            for i in range(1, num_capitulos + 1):
+                st.write(f"Generando **Capítulo {i}**...")
+                # Crear un resumen de capítulos previos para evitar repeticiones
+                if st.session_state.resumenes:
+                    resumen_previas = ' '.join(st.session_state.resumenes)
                 else:
-                    st.warning(f"No se pudo generar un resumen para el Capítulo {i}.")
-            else:
-                st.error("La generación de la obra se ha detenido debido a un error.")
-                break
-            progreso.progress(i / num_capitulos)
-            time.sleep(5)  # Pausa de 5 segundos entre capítulos
-        if len(capitulos) == num_capitulos:
-            titulo_obra = st.text_input("Título de la obra:", value="Obra de Ficción")
-            documento = crear_documento(capitulos, titulo_obra)
-            st.success("Obra de ficción generada exitosamente.")
-            st.download_button(
-                label="Descargar Obra en Word",
-                data=documento,
-                file_name="obra_de_ficcion.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            )
-        progreso.empty()
+                    resumen_previas = ''
+                capitulo = generar_capitulo(prompt, i, resumen_previas)
+                if capitulo:
+                    st.session_state.capitulos.append(capitulo)
+                    # Resumir el capítulo generado
+                    resumen = resumir_capitulo(capitulo)
+                    if resumen:
+                        st.session_state.resumenes.append(resumen)
+                    else:
+                        st.warning(f"No se pudo generar un resumen para el Capítulo {i}.")
+                else:
+                    st.error("La generación de la obra se ha detenido debido a un error.")
+                    break
+                progreso.progress(i / num_capitulos)
+                time.sleep(5)  # Pausa de 5 segundos entre capítulos
+            progreso.empty()
+            if len(st.session_state.capitulos) == num_capitulos:
+                titulo_obra = st.text_input("Título de la obra:", value="Obra de Ficción")
+                documento = crear_documento(st.session_state.capitulos, titulo_obra)
+                st.success("Obra de ficción generada exitosamente.")
+                st.download_button(
+                    label="Descargar Obra en Word",
+                    data=documento,
+                    file_name="obra_de_ficcion.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
+
+# Mostrar la novela regenerada si aplica
+if st.session_state.novela_regenerada:
+    st.markdown("---")
+    st.header("Novela Regenerada")
+    titulo_obra_regen = st.text_input("Título de la obra (Regenerada):", value="Obra de Ficción (Regenerada)")
+    documento_regen = crear_documento(st.session_state.capitulos, titulo_obra_regen)
+    st.download_button(
+        label="Descargar Obra Regenerada en Word",
+        data=documento_regen,
+        file_name="obra_de_ficcion_regenerada.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
