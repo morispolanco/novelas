@@ -12,10 +12,10 @@ st.title("Generador de Ilustraciones de Escenas")
 
 # Instrucciones
 st.markdown("""
-Ingresa una descripción de la escena que deseas ilustrar y selecciona un estilo artístico. 
+Ingresa una descripción de la escena que deseas ilustrar, selecciona un estilo artístico y elige el tamaño de la imagen. 
 La aplicación transformará esta información en un prompt adecuado para el modelo FLUX de Stable Diffusion, 
 incluyendo un prompt negativo para controlar la calidad y características de la imagen, 
-y generará una imagen de 1024x768 píxeles.
+y generará una imagen con las dimensiones especificadas.
 """)
 
 def transform_description_and_style_to_prompt(description, style):
@@ -64,10 +64,10 @@ def transform_description_and_style_to_prompt(description, style):
         st.error(f"Error al transformar la descripción y estilo: {e}")
     return None
 
-def generate_image(prompt):
+def generate_image(prompt, width, height):
     """
     Genera una imagen utilizando la API de Together (Stable Diffusion) a partir de un prompt.
-    La imagen tendrá un tamaño de 1024x768 píxeles utilizando el modelo FLUX.
+    La imagen tendrá el tamaño especificado por el usuario.
     """
     api_key = st.secrets["TOGETHER_API_KEY"]
     headers = {
@@ -77,8 +77,8 @@ def generate_image(prompt):
     data = {
         "model": "black-forest-labs/FLUX.1-pro",
         "prompt": prompt,
-        "width": 1024,
-        "height": 768,
+        "width": width,
+        "height": height,
         "steps": 28,
         "n": 1,
         "response_format": "b64_json"
@@ -116,7 +116,6 @@ supported_styles = [
     "Arte Deco",
     "Arte Futurista",
     "Arte Fantástico",
-    "Arte Steampunk",
     "Arte Sci-Fi",
     "Arte Barroco",
     "Arte Moderno"
@@ -144,28 +143,87 @@ custom_style = st.text_input(
     placeholder="Por ejemplo: cyberpunk, arte gótico, etc."
 )
 
+# Selección del tamaño de la imagen
+st.markdown("**Selecciona el tamaño de la imagen:**")
+
+# Opciones de tamaños predefinidos
+predefined_sizes = {
+    "Pequeño (512x512)": (512, 512),
+    "Mediano (768x768)": (768, 768),
+    "Grande (1024x768)": (1024, 768),
+    "Personalizado": None  # Indica que se ingresarán dimensiones personalizadas
+}
+
+size_option = st.selectbox(
+    "Tamaño de la Imagen",
+    options=list(predefined_sizes.keys()),
+    index=0,
+    help="Selecciona un tamaño predefinido o elige 'Personalizado' para ingresar dimensiones específicas."
+)
+
+# Variables para almacenar el tamaño seleccionado
+selected_width = None
+selected_height = None
+
+if size_option == "Personalizado":
+    col1, col2 = st.columns(2)
+    with col1:
+        selected_width = st.number_input(
+            "Ancho (px)",
+            min_value=64,
+            max_value=2048,
+            value=1024,
+            step=64,
+            help="Ingresa el ancho de la imagen en píxeles. Valores recomendados entre 64 y 2048."
+        )
+    with col2:
+        selected_height = st.number_input(
+            "Alto (px)",
+            min_value=64,
+            max_value=2048,
+            value=768,
+            step=64,
+            help="Ingresa el alto de la imagen en píxeles. Valores recomendados entre 64 y 2048."
+        )
+else:
+    selected_width, selected_height = predefined_sizes[size_option]
+
 # Botón para generar la ilustración
 if st.button("Generar Ilustración"):
     if not scene_description.strip():
         st.warning("Por favor, ingresa una descripción de la escena.")
     elif not (selected_style.strip() or custom_style.strip()):
         st.warning("Por favor, selecciona un estilo artístico o ingresa uno personalizado.")
+    elif size_option == "Personalizado" and (selected_width is None or selected_height is None):
+        st.warning("Por favor, ingresa las dimensiones personalizadas para la imagen.")
     else:
         # Determinar el estilo a utilizar
         style_to_use = custom_style.strip() if custom_style.strip() else selected_style.strip()
         
-        with st.spinner("Transformando la descripción y estilo en un prompt para el modelo FLUX..."):
-            prompt = transform_description_and_style_to_prompt(scene_description, style_to_use)
+        # Determinar el tamaño de la imagen
+        width = selected_width
+        height = selected_height
         
-        if prompt:
-            st.subheader("Prompt Generado para el Modelo FLUX de Stable Diffusion")
-            st.write(prompt)
+        # Validación adicional de dimensiones (opcional)
+        if width % 64 != 0 or height % 64 != 0:
+            st.warning("Por favor, ingresa dimensiones que sean múltiplos de 64 para garantizar la compatibilidad.")
+        elif width < 64 or height < 64:
+            st.warning("Las dimensiones mínimas recomendadas son 64x64 píxeles.")
+        elif width > 2048 or height > 2048:
+            st.warning("Las dimensiones máximas recomendadas son 2048x2048 píxeles.")
+        else:
+            with st.spinner("Transformando la descripción y estilo en un prompt para el modelo FLUX..."):
+                prompt = transform_description_and_style_to_prompt(scene_description, style_to_use)
             
-            with st.spinner("Generando la imagen con el modelo FLUX de Stable Diffusion..."):
-                image = generate_image(prompt)
-        
-            if image:
-                st.subheader("Ilustración Generada")
-                st.image(image, caption="Imagen generada por FLUX de Stable Diffusion", use_column_width=True)
-            else:
-                st.error("No se pudo generar la imagen.")
+            if prompt:
+                st.subheader("Prompt Generado para el Modelo FLUX de Stable Diffusion")
+                st.write(prompt)
+                
+                with st.spinner("Generando la imagen con el modelo FLUX de Stable Diffusion..."):
+                    image = generate_image(prompt, width, height)
+            
+                if image:
+                    st.subheader("Ilustración Generada")
+                    st.image(image, caption="Imagen generada por FLUX de Stable Diffusion", use_column_width=True)
+                else:
+                    st.error("No se pudo generar la imagen.")
