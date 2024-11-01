@@ -98,23 +98,28 @@ def generate_image(prompt):
         st.error(f"Error al generar la imagen: {e}")
     return None
 
-# Opciones de estilos artísticos predefinidos
-predefined_styles = [
-    "realismo",
-    "impresionismo",
-    "expresionismo",
-    "surrealismo",
-    "arte abstracto",
-    "arte digital",
-    "estilo manga",
-    "estilo de cómic",
-    "arte minimalista",
-    "arte pop",
-    "cyberpunk",
-    "arte gótico",
-    "arte steampunk",
-    "arte deco",
-    "arte futurista"
+# Opciones de estilos artísticos soportados por FLUX
+supported_styles = [
+    "Realismo",
+    "Impresionismo",
+    "Expresionismo",
+    "Surrealismo",
+    "Arte Abstracto",
+    "Arte Digital",
+    "Estilo Manga",
+    "Estilo de Cómic",
+    "Arte Minimalista",
+    "Arte Pop",
+    "Cyberpunk",
+    "Arte Gótico",
+    "Steampunk",
+    "Arte Deco",
+    "Arte Futurista",
+    "Arte Fantástico",
+    "Arte Steampunk",
+    "Arte Sci-Fi",
+    "Arte Barroco",
+    "Arte Moderno"
 ]
 
 # Entrada del usuario: Descripción de la escena
@@ -128,7 +133,7 @@ scene_description = st.text_area(
 st.markdown("**Selecciona un estilo artístico para la ilustración:**")
 selected_style = st.selectbox(
     "Estilo Artístico",
-    options=predefined_styles,
+    options=supported_styles,
     index=0,
     help="Selecciona un estilo artístico para guiar la generación de la ilustración."
 )
