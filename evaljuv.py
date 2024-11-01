@@ -3,6 +3,7 @@ from docx import Document
 import requests
 import io
 import re
+import json
 
 # Configuración de la página
 st.set_page_config(page_title="Evaluación Crítica de Novelas", layout="wide")
@@ -37,10 +38,19 @@ def call_openrouter_api(messages, model="openai/gpt-4o-mini"):
         response = requests.post(api_url, headers=headers, json=data)
         response.raise_for_status()
         response_json = response.json()
-        # Depuración: Mostrar la respuesta completa (puedes comentar esto en producción)
+        
+        # Depuración: Mostrar la respuesta completa
         st.write("**Respuesta de la API:**")
         st.json(response_json)
-        return response_json["choices"][0]["message"]["content"]
+        
+        # Validar la estructura de la respuesta
+        if "choices" in response_json and len(response_json["choices"]) > 0:
+            if "message" in response_json["choices"][0] and "content" in response_json["choices"][0]["message"]:
+                return response_json["choices"][0]["message"]["content"]
+            else:
+                st.error("La respuesta de la API no contiene 'message' o 'content'.")
+        else:
+            st.error("La respuesta de la API no contiene 'choices' o está vacía.")
     except requests.exceptions.HTTPError as http_err:
         st.error(f"Error HTTP en la API: {response.status_code} - {response.text}")
     except requests.exceptions.RequestException as req_err:
@@ -83,6 +93,17 @@ def create_docx(text):
     except Exception as e:
         st.error(f"Error al crear el archivo .docx: {e}")
         return None
+
+# Bloque de prueba de la API (Opcional)
+if st.button("Probar API con Mensaje Simple"):
+    with st.spinner("Probando la API..."):
+        test_messages = [
+            {"role": "user", "content": "Hola, ¿cómo estás?"}
+        ]
+        test_response = call_openrouter_api(test_messages)
+    if test_response:
+        st.write("**Respuesta de Prueba:**")
+        st.write(test_response)
 
 # Sección para subir el archivo .docx
 uploaded_file = st.file_uploader("Sube tu novela en formato .docx", type=["docx"])
@@ -128,6 +149,13 @@ if uploaded_file is not None:
                     
                     st.write(f"**Número de capítulos detectados:** {len(chapters)}")
                     
+                    # Mostrar los títulos de los capítulos detectados
+                    st.write("**Capítulos Detectados:**")
+                    for idx, chapter in enumerate(chapters, start=1):
+                        # Asumiendo que el título del capítulo está al inicio
+                        title = chapter.split('\n')[0]
+                        st.write(f"Capítulo {idx}: {title}")
+                    
                     if not chapters or len(chapters) == 0:
                         st.error("No se pudieron detectar capítulos en la novela. Asegúrate de que estén correctamente formateados.")
                     else:
@@ -151,8 +179,10 @@ if uploaded_file is not None:
                             
                             if regenerated_chapter:
                                 regenerated_novel += f"{regenerated_chapter}\n\n"
+                                st.write(f"**Capítulo {idx} generado correctamente.**")
                             else:
                                 regenerated_novel += f"Capítulo {idx}\n[Error al regenerar este capítulo]\n\n"
+                                st.write(f"**Capítulo {idx} falló al regenerar.**")
                             
                             # Actualizar la barra de progreso
                             progress_bar.progress(idx / total_chapters)
@@ -173,6 +203,8 @@ if uploaded_file is not None:
                                 file_name="novela_regenerada.docx",
                                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                             )
+                        else:
+                            st.error("No se pudo crear el archivo .docx regenerado.")
                         
                         # Opcional: Mostrar una vista previa limitada
                         preview_length_regen = 2000
