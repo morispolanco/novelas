@@ -6,8 +6,8 @@ from io import BytesIO
 import nltk
 from nltk.tokenize import sent_tokenize
 
-# Descargar recursos de NLTK
-nltk.download('punkt')
+# Descargar recursos de NLTK si no están ya descargados
+nltk.download('punkt', quiet=True)
 
 # Configuración de la página
 st.set_page_config(
@@ -28,6 +28,10 @@ if 'informe_evaluacion' not in st.session_state:
     st.session_state.informe_evaluacion = None
 if 'novela_regenerada' not in st.session_state:
     st.session_state.novela_regenerada = False
+if 'titulo_obra' not in st.session_state:
+    st.session_state.titulo_obra = "Obra de Ficción"
+if 'proceso_generado' not in st.session_state:
+    st.session_state.proceso_generado = False
 
 # Función para generar un capítulo de la obra
 def generar_capitulo(prompt, capitulo_num, resumen_previas):
@@ -178,55 +182,12 @@ def regenerar_novela(prompt, informe_evaluacion, num_capitulos):
         return None
 
 # Interfaz de usuario para generar la obra
-with st.form(key='form_obra'):
-    prompt = st.text_area("Ingresa el tema o idea para la obra de ficción:", height=200)
-    num_capitulos = st.slider("Número de capítulos:", min_value=5, max_value=20, value=10)
-    submit_button = st.form_submit_button(label='Generar Obra')
-
-# Botón para evaluar la novela (visible solo después de generar la novela)
-if st.session_state.capitulos and st.session_state.informe_evaluacion is None:
-    st.markdown("---")
-    st.header("Evaluación Crítica de la Novela")
-    evaluar_button = st.button("Evaluar la novela")
-    if evaluar_button:
-        with st.spinner("Evaluando la novela..."):
-            novela_completa = "\n\n".join(st.session_state.capitulos)
-            informe = evaluar_novela(novela_completa)
-            if informe:
-                st.session_state.informe_evaluacion = informe
-                st.subheader("Informe de Evaluación")
-                st.write(informe)
-                st.markdown("---")
-                # Preguntar si desea regenerar la novela
-                regenerate = st.radio(
-                    "¿Deseas regenerar la novela basada en el informe de evaluación?",
-                    ("No", "Sí")
-                )
-                if regenerate == "Sí":
-                    with st.spinner("Regenerando la novela con base en el informe..."):
-                        novela_regen = regenerar_novela(prompt, informe, num_capitulos)
-                        if novela_regen:
-                            # Asumiendo que la novela regenerada está dividida por capítulos
-                            capitulos_regen = novela_regen.split("Capítulo ")
-                            capitulos_regen = [cap.strip() for cap in capitulos_regen if cap.strip()]
-                            # Re-formatear capítulos para que cada uno comience con "Capítulo X"
-                            capitulos_regen = ["Capítulo " + cap.split('\n')[0] + "\n" + "\n".join(cap.split('\n')[1:]) for cap in capitulos_regen]
-                            st.session_state.capitulos = capitulos_regen
-                            st.session_state.resumenes = []  # Resetear resúmenes
-                            st.session_state.informe_evaluacion = None  # Resetear informe
-                            st.session_state.novela_regenerada = True
-                            st.success("Novela regenerada exitosamente.")
-                            # Opcional: Descargar la novela regenerada
-                            titulo_obra = st.text_input("Título de la obra:", value="Obra de Ficción (Regenerada)")
-                            documento = crear_documento(st.session_state.capitulos, titulo_obra)
-                            st.download_button(
-                                label="Descargar Obra Regenerada en Word",
-                                data=documento,
-                                file_name="obra_de_ficcion_regenerada.docx",
-                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                            )
-else:
-    # Generación de la obra
+def generar_obra():
+    with st.form(key='form_obra'):
+        prompt = st.text_area("Ingresa el tema o idea para la obra de ficción:", height=200)
+        num_capitulos = st.slider("Número de capítulos:", min_value=5, max_value=20, value=10)
+        submit_button = st.form_submit_button(label='Generar Obra')
+        
     if submit_button:
         if not prompt.strip():
             st.error("Por favor, ingresa un tema o idea válida para la obra de ficción.")
@@ -236,6 +197,7 @@ else:
             st.session_state.resumenes = []
             st.session_state.informe_evaluacion = None
             st.session_state.novela_regenerada = False
+            st.session_state.titulo_obra = st.session_state.titulo_obra or "Obra de Ficción"
             progreso = st.progress(0)
             for i in range(1, num_capitulos + 1):
                 st.write(f"Generando **Capítulo {i}**...")
@@ -260,9 +222,12 @@ else:
                 time.sleep(5)  # Pausa de 5 segundos entre capítulos
             progreso.empty()
             if len(st.session_state.capitulos) == num_capitulos:
-                titulo_obra = st.text_input("Título de la obra:", value="Obra de Ficción")
-                documento = crear_documento(st.session_state.capitulos, titulo_obra)
+                st.session_state.proceso_generado = True
                 st.success("Obra de ficción generada exitosamente.")
+                titulo_obra = st.text_input("Título de la obra:", value=st.session_state.titulo_obra)
+                if titulo_obra:
+                    st.session_state.titulo_obra = titulo_obra
+                documento = crear_documento(st.session_state.capitulos, st.session_state.titulo_obra)
                 st.download_button(
                     label="Descargar Obra en Word",
                     data=documento,
@@ -270,15 +235,88 @@ else:
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
 
+# Función para mostrar la evaluación y opciones de regeneración
+def mostrar_evaluacion():
+    if st.session_state.capitulos and st.session_state.informe_evaluacion is None:
+        st.markdown("---")
+        st.header("Evaluación Crítica de la Novela")
+        evaluar_button = st.button("Evaluar la novela")
+        if evaluar_button:
+            with st.spinner("Evaluando la novela..."):
+                novela_completa = "\n\n".join(st.session_state.capitulos)
+                informe = evaluar_novela(novela_completa)
+                if informe:
+                    st.session_state.informe_evaluacion = informe
+                    st.subheader("Informe de Evaluación")
+                    st.write(informe)
+                    st.markdown("---")
+                    # Preguntar si desea regenerar la novela
+                    regenerate = st.radio(
+                        "¿Deseas regenerar la novela basada en el informe de evaluación?",
+                        ("No", "Sí"),
+                        index=0
+                    )
+                    if regenerate == "Sí":
+                        with st.spinner("Regenerando la novela con base en el informe..."):
+                            novela_regen = regenerar_novela(st.session_state.titulo_obra, informe, len(st.session_state.capitulos))
+                            if novela_regen:
+                                # Asumiendo que la novela regenerada está dividida por capítulos
+                                capitulos_regen = novela_regen.split("Capítulo ")
+                                capitulos_regen = [cap.strip() for cap in capitulos_regen if cap.strip()]
+                                # Re-formatear capítulos para que cada uno comience con "Capítulo X"
+                                capitulos_regen = ["Capítulo " + cap.split('\n')[0] + "\n" + "\n".join(cap.split('\n')[1:]) for cap in capitulos_regen]
+                                st.session_state.capitulos = capitulos_regen
+                                st.session_state.resumenes = []  # Resetear resúmenes
+                                st.session_state.informe_evaluacion = None  # Resetear informe
+                                st.session_state.novela_regenerada = True
+                                st.success("Novela regenerada exitosamente.")
+                                # Ofrecer descarga de la novela regenerada
+                                st.markdown("---")
+                                titulo_obra_regen = st.text_input("Título de la obra (Regenerada):", value=f"{st.session_state.titulo_obra} (Regenerada)")
+                                if titulo_obra_regen:
+                                    st.session_state.titulo_obra = titulo_obra_regen  # Actualizar título
+                                documento_regen = crear_documento(st.session_state.capitulos, st.session_state.titulo_obra)
+                                st.download_button(
+                                    label="Descargar Obra Regenerada en Word",
+                                    data=documento_regen,
+                                    file_name="obra_de_ficcion_regenerada.docx",
+                                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                )
+
 # Mostrar la novela regenerada si aplica
-if st.session_state.novela_regenerada:
-    st.markdown("---")
-    st.header("Novela Regenerada")
-    titulo_obra_regen = st.text_input("Título de la obra (Regenerada):", value="Obra de Ficción (Regenerada)")
-    documento_regen = crear_documento(st.session_state.capitulos, titulo_obra_regen)
-    st.download_button(
-        label="Descargar Obra Regenerada en Word",
-        data=documento_regen,
-        file_name="obra_de_ficcion_regenerada.docx",
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
+def mostrar_novela_regenerada():
+    if st.session_state.novela_regenerada:
+        st.markdown("---")
+        st.header("Novela Regenerada")
+        # Opcional: Mostrar los capítulos regenerados
+        for idx, capitulo in enumerate(st.session_state.capitulos, 1):
+            st.subheader(f"Capítulo {idx}")
+            st.write(capitulo)
+        # Ofrecer descarga de la novela regenerada
+        documento_regen = crear_documento(st.session_state.capitulos, st.session_state.titulo_obra)
+        st.download_button(
+            label="Descargar Obra Regenerada en Word",
+            data=documento_regen,
+            file_name="obra_de_ficcion_regenerada.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+
+# Mostrar los capítulos generados inicialmente
+def mostrar_novela():
+    if st.session_state.capitulos and not st.session_state.novela_regenerada:
+        st.markdown("---")
+        st.header("Novela Generada")
+        # Opcional: Mostrar los capítulos generados
+        for idx, capitulo in enumerate(st.session_state.capitulos, 1):
+            st.subheader(f"Capítulo {idx}")
+            st.write(capitulo)
+
+# Lógica principal de la aplicación
+def main():
+    generar_obra()
+    mostrar_novela()
+    mostrar_evaluacion()
+    mostrar_novela_regenerada()
+
+if __name__ == "__main__":
+    main()
