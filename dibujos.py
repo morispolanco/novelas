@@ -4,6 +4,8 @@ import requests
 from io import BytesIO
 from PIL import Image
 import re
+import base64
+import json
 
 # Configuración de la página
 st.set_page_config(page_title="Generador de Ilustraciones para Novelas", layout="wide")
@@ -24,7 +26,7 @@ def parse_docx(file):
     chapters = {}
     current_chapter = "Introducción"
     chapters[current_chapter] = ""
-    
+
     for para in doc.paragraphs:
         # Suponiendo que los títulos de capítulos están en estilo 'Heading 1'
         if para.style.name == 'Heading 1':
@@ -32,7 +34,7 @@ def parse_docx(file):
             chapters[current_chapter] = ""
         else:
             chapters[current_chapter] += para.text + " "
-    
+
     return chapters
 
 def extract_characters(text, num_characters=5):
@@ -86,28 +88,37 @@ def generate_image_prompt(summary, character_descriptions):
 
 def generate_image_from_prompt(prompt):
     """
-    Genera una imagen usando la API de OpenRouter a partir de un prompt.
+    Genera una imagen usando la API de Together a partir de un prompt.
     """
-    api_key = st.secrets["OPENROUTER_API_KEY"]
+    api_key = st.secrets["TOGETHER_API_KEY"]
     headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
     }
     data = {
+        "model": "stabilityai/stable-diffusion-xl-base-1.0",
         "prompt": prompt,
+        "width": 512,
+        "height": 512,
+        "steps": 40,
         "n": 1,
-        "size": "1024x1024"  # Puedes ajustar el tamaño según tus necesidades
+        "seed": 10000,
+        "response_format": "b64_json"
     }
     try:
-        response = requests.post("https://openrouter.ai/api/v1/images/generations", headers=headers, json=data)
+        response = requests.post("https://api.together.xyz/v1/images/generations", headers=headers, json=data)
         response.raise_for_status()
-        image_url = response.json()["data"][0]["url"]
-        image_response = requests.get(image_url)
-        image = Image.open(BytesIO(image_response.content))
+        response_data = response.json()
+        # Asumiendo que la estructura de respuesta es similar al ejemplo de curl
+        b64_image = response_data["data"][0]["b64_json"]
+        image_bytes = base64.b64decode(b64_image)
+        image = Image.open(BytesIO(image_bytes))
         return image
+    except requests.exceptions.HTTPError as http_err:
+        st.error(f"HTTP error occurred al generar la imagen: {http_err} - {response.text}")
     except Exception as e:
         st.error(f"Error al generar la imagen: {e}")
-        return None
+    return None
 
 def call_openrouter_api(prompt):
     """
@@ -131,9 +142,11 @@ def call_openrouter_api(prompt):
         response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"].strip()
+    except requests.exceptions.HTTPError as http_err:
+        st.error(f"HTTP error occurred en OpenRouter: {http_err} - {response.text}")
     except Exception as e:
         st.error(f"Error al comunicarse con OpenRouter: {e}")
-        return None
+    return None
 
 # Interfaz de carga de archivo
 uploaded_file = st.file_uploader("Sube tu novela en formato DOCX", type=["docx"])
@@ -141,24 +154,24 @@ uploaded_file = st.file_uploader("Sube tu novela en formato DOCX", type=["docx"]
 if uploaded_file is not None:
     with st.spinner("Procesando el archivo..."):
         chapters = parse_docx(uploaded_file)
-    
+
     st.success("Archivo procesado con éxito.")
-    
+
     # Extraer personajes de todo el libro
     all_text = " ".join(chapters.values())
     characters = extract_characters(all_text)
-    
+
     if not characters:
         st.warning("No se pudieron extraer personajes. Asegúrate de que los nombres estén correctamente capitalizados.")
     else:
         st.sidebar.header("Personajes Principales")
         for char in characters:
             st.sidebar.write(char)
-        
+
         # Generar descripciones de personajes
         with st.spinner("Generando descripciones de personajes..."):
             character_descriptions = generate_character_descriptions(characters)
-        
+
         # Botón para generar ilustraciones
         if st.button("Generar Ilustraciones"):
             illustrations = {}
