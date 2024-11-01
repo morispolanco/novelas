@@ -13,7 +13,6 @@ st.title("Generador de Ilustraciones de Escenas")
 # Instrucciones
 st.markdown("""
 Ingresa una descripción de la escena que deseas ilustrar, selecciona un estilo artístico y elige el tamaño de la imagen. 
-Opcionalmente, puedes subir una imagen de referencia para mantener la coherencia de personajes a lo largo de una historia.
 La aplicación transformará esta información en un prompt adecuado para el modelo FLUX de Stable Diffusion, 
 incluyendo un prompt negativo para controlar la calidad y características de la imagen, 
 y generará una imagen con las dimensiones especificadas.
@@ -65,18 +64,16 @@ def transform_description_and_style_to_prompt(description, style):
         st.error(f"Error al transformar la descripción y estilo: {e}")
     return None
 
-def generate_image(prompt, width, height, base_image=None):
+def generate_image(prompt, width, height):
     """
     Genera una imagen utilizando la API de Together (Stable Diffusion) a partir de un prompt.
-    La imagen tendrá el tamaño especificado por el usuario. Opcionalmente, se puede proporcionar una imagen base para generar imágenes coherentes.
+    La imagen tendrá el tamaño especificado por el usuario.
     """
     api_key = st.secrets["TOGETHER_API_KEY"]
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
-    
-    # Construcción del payload
     data = {
         "model": "black-forest-labs/FLUX.1-pro",
         "prompt": prompt,
@@ -86,16 +83,6 @@ def generate_image(prompt, width, height, base_image=None):
         "n": 1,
         "response_format": "b64_json"
     }
-    
-    # Si se proporciona una imagen base, incluirla en el payload
-    if base_image is not None:
-        # Convertir la imagen a base64
-        buffered = BytesIO()
-        base_image.save(buffered, format="PNG")
-        base_image_b64 = base64.b64encode(buffered.getvalue()).decode()
-        data["init_image"] = base_image_b64  # Asumiendo que la API soporta 'init_image' en base64
-        data["strength"] = 0.8  # Ajustar la fuerza según la API para controlar la influencia de la imagen base
-    
     try:
         response = requests.post("https://api.together.xyz/v1/images/generations", headers=headers, json=data)
         response.raise_for_status()
@@ -201,25 +188,6 @@ if size_option == "Personalizado":
 else:
     selected_width, selected_height = predefined_sizes[size_option]
 
-# Entrada opcional del usuario: Imagen de referencia
-st.markdown("**(Opcional) Sube una imagen de referencia para mantener la coherencia de personajes:**")
-uploaded_image = st.file_uploader(
-    "Sube una imagen de referencia",
-    type=["png", "jpg", "jpeg"],
-    help="Sube una imagen que servirá como base para generar la nueva ilustración. Esto es útil para mantener la coherencia de personajes a lo largo de una historia."
-)
-
-# Mostrar la imagen subida (si existe)
-if uploaded_image is not None:
-    try:
-        base_image = Image.open(uploaded_image).convert("RGB")
-        st.image(base_image, caption="Imagen de Referencia", use_column_width=True)
-    except Exception as e:
-        st.error(f"Error al cargar la imagen de referencia: {e}")
-        base_image = None
-else:
-    base_image = None
-
 # Botón para generar la ilustración
 if st.button("Generar Ilustración"):
     if not scene_description.strip():
@@ -252,7 +220,7 @@ if st.button("Generar Ilustración"):
                 st.write(prompt)
                 
                 with st.spinner("Generando la imagen con el modelo FLUX de Stable Diffusion..."):
-                    image = generate_image(prompt, width, height, base_image)
+                    image = generate_image(prompt, width, height)
             
                 if image:
                     st.subheader("Ilustración Generada")
