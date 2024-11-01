@@ -260,7 +260,8 @@ def mostrar_evaluacion():
                         with st.spinner("Regenerando la novela con base en el informe..."):
                             novela_regen = regenerar_novela(st.session_state.titulo_obra, informe, len(st.session_state.capitulos))
                             if novela_regen:
-                                # Asumiendo que la novela regenerada está dividida por capítulos
+                                # Dividir la novela regenerada en capítulos
+                                # Asumimos que cada capítulo empieza con "Capítulo X"
                                 capitulos_regen = novela_regen.split("Capítulo ")
                                 capitulos_regen = [cap.strip() for cap in capitulos_regen if cap.strip()]
                                 # Re-formatear capítulos para que cada uno comience con "Capítulo X"
@@ -277,9 +278,9 @@ def mostrar_evaluacion():
                                     st.session_state.titulo_obra = titulo_obra_regen  # Actualizar título
                                 documento_regen = crear_documento(st.session_state.capitulos, st.session_state.titulo_obra)
                                 st.download_button(
-                                    label="Descargar Obra Regenerada en Word",
+                                    label="Descargar Novela Regenerada en Word",
                                     data=documento_regen,
-                                    file_name="obra_de_ficcion_regenerada.docx",
+                                    file_name="novela_regenerada.docx",
                                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                                 )
 
@@ -287,17 +288,16 @@ def mostrar_evaluacion():
 def mostrar_novela_regenerada():
     if st.session_state.novela_regenerada:
         st.markdown("---")
-        st.header("Novela Regenerada")
-        # Opcional: Mostrar los capítulos regenerados
+        st.header("📖 Novela Regenerada")
+        # Mostrar los capítulos regenerados
         for idx, capitulo in enumerate(st.session_state.capitulos, 1):
             st.subheader(f"Capítulo {idx}")
             st.write(capitulo)
         # Ofrecer descarga de la novela regenerada
-        documento_regen = crear_documento(st.session_state.capitulos, st.session_state.titulo_obra)
         st.download_button(
-            label="Descargar Obra Regenerada en Word",
-            data=documento_regen,
-            file_name="obra_de_ficcion_regenerada.docx",
+            label="Descargar Novela Regenerada en Word",
+            data=crear_documento(st.session_state.capitulos, st.session_state.titulo_obra),
+            file_name="novela_regenerada.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
 
@@ -305,8 +305,8 @@ def mostrar_novela_regenerada():
 def mostrar_novela():
     if st.session_state.capitulos and not st.session_state.novela_regenerada:
         st.markdown("---")
-        st.header("Novela Generada")
-        # Opcional: Mostrar los capítulos generados
+        st.header("📖 Novela Generada")
+        # Mostrar los capítulos generados
         for idx, capitulo in enumerate(st.session_state.capitulos, 1):
             st.subheader(f"Capítulo {idx}")
             st.write(capitulo)
