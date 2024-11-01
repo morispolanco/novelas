@@ -3,7 +3,6 @@ from docx import Document
 import requests
 import io
 import re
-import json
 
 # Configuración de la página
 st.set_page_config(page_title="Evaluación Crítica de Novelas", layout="wide")
@@ -23,7 +22,7 @@ def read_docx(file):
         st.error(f"Error al leer el archivo .docx: {e}")
         return None
 
-# Función para llamar a la API de OpenRouter
+# Función para llamar a la API de OpenRouter con manejo de errores mejorado
 def call_openrouter_api(messages, model="openai/gpt-4o-mini"):
     api_url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
@@ -32,60 +31,79 @@ def call_openrouter_api(messages, model="openai/gpt-4o-mini"):
     }
     data = {
         "model": model,
-        "messages": messages
+        "messages": messages,
+        "max_tokens": 4000  # Aumentamos el límite de tokens
     }
+    
     try:
-        response = requests.post(api_url, headers=headers, json=data)
+        response = requests.post(api_url, headers=headers, json=data, timeout=60)
         response.raise_for_status()
-        response_json = response.json()
-        
-        # Depuración: Mostrar la respuesta completa
-        st.write("**Respuesta de la API:**")
-        st.json(response_json)
-        
-        # Validar la estructura de la respuesta
-        if "choices" in response_json and len(response_json["choices"]) > 0:
-            if "message" in response_json["choices"][0] and "content" in response_json["choices"][0]["message"]:
-                return response_json["choices"][0]["message"]["content"]
-            else:
-                st.error("La respuesta de la API no contiene 'message' o 'content'.")
-        else:
-            st.error("La respuesta de la API no contiene 'choices' o está vacía.")
+        return response.json()["choices"][0]["message"]["content"]
+    except requests.exceptions.Timeout:
+        st.error("La solicitud a la API excedió el tiempo de espera. Por favor, intenta de nuevo.")
     except requests.exceptions.HTTPError as http_err:
-        st.error(f"Error HTTP en la API: {response.status_code} - {response.text}")
-    except requests.exceptions.RequestException as req_err:
-        st.error(f"Error en la solicitud a la API: {req_err}")
-    except KeyError:
-        st.error("La respuesta de la API no contiene el contenido esperado.")
-    except Exception as err:
-        st.error(f"Ocurrió un error inesperado: {err}")
+        st.error(f"Error HTTP: {http_err}")
+        if response.status_code == 429:
+            st.warning("Se ha alcanzado el límite de la API. Por favor, espera unos minutos.")
+    except Exception as e:
+        st.error(f"Error: {str(e)}")
     return None
 
-# Función para dividir el texto en capítulos
+# Función para dividir el texto en capítulos con mejor manejo de patrones
 def split_into_chapters(text):
-    # Ajusta la expresión regular según el formato de tus capítulos
-    # Ejemplos: "Capítulo 1", "CAPÍTULO I", "Chapter 1", etc.
-    pattern = r'(Capítulo\s+\d+|CAPÍTULO\s+\w+|Chapter\s+\d+)', re.IGNORECASE
-    splits = re.split(pattern, text)
+    # Patrón más flexible para detectar capítulos
+    patterns = [
+        r'(?i)capítulo\s+(?:\d+|[IVXLC]+)',
+        r'(?i)chapter\s+(?:\d+|[IVXLC]+)',
+        r'(?i)parte\s+(?:\d+|[IVXLC]+)'
+    ]
+    
+    # Combinar patrones
+    combined_pattern = '|'.join(f'({p})' for p in patterns)
+    
+    # Dividir el texto
     chapters = []
-    current_chapter = ""
-    for i in range(len(splits)):
-        if re.match(pattern, splits[i], re.IGNORECASE):
-            if current_chapter:
-                chapters.append(current_chapter.strip())
-            current_chapter = splits[i]
+    current_text = ''
+    lines = text.split('\n')
+    
+    for line in lines:
+        if any(re.match(pattern, line.strip(), re.IGNORECASE) for pattern in patterns):
+            if current_text:
+                chapters.append(current_text.strip())
+            current_text = line
         else:
-            current_chapter += " " + splits[i]
-    if current_chapter:
-        chapters.append(current_chapter.strip())
-    return chapters
+            current_text += '\n' + line
+    
+    if current_text:
+        chapters.append(current_text.strip())
+    
+    return chapters if chapters else [text]
 
-# Función para crear un archivo .docx desde texto
+# Función para regenerar un capítulo con manejo de contexto
+def regenerate_chapter(chapter, analysis, chapter_num, total_chapters):
+    prompt = f"""Por favor, reescribe el siguiente capítulo ({chapter_num} de {total_chapters}) 
+    teniendo en cuenta este análisis crítico: {analysis}
+    
+    Mantén la esencia y los eventos principales del capítulo, pero mejora:
+    1. La claridad y concisión de la narración
+    2. Las descripciones excesivamente largas
+    3. Las inconsistencias señaladas
+    4. Los clichés identificados
+    
+    Capítulo original:
+    {chapter}
+    """
+    
+    messages = [{"role": "user", "content": prompt}]
+    return call_openrouter_api(messages)
+
+# Función para crear un archivo .docx
 def create_docx(text):
     try:
         doc = Document()
         for line in text.split('\n'):
-            doc.add_paragraph(line)
+            if line.strip():  # Solo agregar líneas no vacías
+                doc.add_paragraph(line)
         buf = io.BytesIO()
         doc.save(buf)
         buf.seek(0)
@@ -94,18 +112,7 @@ def create_docx(text):
         st.error(f"Error al crear el archivo .docx: {e}")
         return None
 
-# Bloque de prueba de la API (Opcional)
-if st.button("Probar API con Mensaje Simple"):
-    with st.spinner("Probando la API..."):
-        test_messages = [
-            {"role": "user", "content": "Hola, ¿cómo estás?"}
-        ]
-        test_response = call_openrouter_api(test_messages)
-    if test_response:
-        st.write("**Respuesta de Prueba:**")
-        st.write(test_response)
-
-# Sección para subir el archivo .docx
+# Interfaz principal
 uploaded_file = st.file_uploader("Sube tu novela en formato .docx", type=["docx"])
 
 if uploaded_file is not None:
@@ -115,101 +122,76 @@ if uploaded_file is not None:
     if novel_text:
         st.success("Archivo cargado exitosamente.")
         
-        # Mostrar un resumen breve del contenido
-        st.subheader("Contenido de la Novela")
-        preview_length = 1000
-        if len(novel_text) > preview_length:
-            preview_text = novel_text[:preview_length] + '...'
-        else:
-            preview_text = novel_text
-        st.text_area("Vista previa:", value=preview_text, height=200)
+        # Vista previa del contenido
+        with st.expander("Ver contenido de la novela"):
+            preview_length = 1000
+            preview_text = novel_text[:preview_length] + '...' if len(novel_text) > preview_length else novel_text
+            st.text_area("Vista previa:", value=preview_text, height=200)
         
         # Botón para iniciar el análisis
         if st.button("Iniciar Evaluación Crítica"):
             with st.spinner("Realizando evaluación crítica..."):
-                messages = [
-                    {"role": "user", "content": (
-                        "Realiza una evaluación crítica literaria de la siguiente novela en busca de errores, inconsistencias, "
-                        "descripciones muy largas, repeticiones, clichés, etc. Proporciona un análisis detallado."
-                        "\n\n" + novel_text)
-                    }
-                ]
+                analysis_prompt = """Realiza una evaluación crítica literaria detallada de la siguiente novela. 
+                Analiza específicamente:
+                1. Estructura narrativa y ritmo
+                2. Desarrollo de personajes
+                3. Consistencia en la trama
+                4. Uso del lenguaje y estilo
+                5. Descripciones y diálogos
+                
+                Proporciona ejemplos específicos de áreas que necesitan mejora.
+                
+                Novela:
+                """
+                
+                messages = [{"role": "user", "content": analysis_prompt + novel_text}]
                 analysis = call_openrouter_api(messages)
             
             if analysis:
                 st.subheader("Análisis Crítico")
                 st.write(analysis)
                 
-                # Preguntar si desea regenerar la novela
-                regenerate = st.radio("¿Quieres regenerar la novela basada en este análisis?", ("No", "Sí"))
-                
-                if regenerate == "Sí":
-                    # Dividir la novela en capítulos
+                # Opción para regenerar
+                if st.button("Regenerar Novela"):
                     chapters = split_into_chapters(novel_text)
+                    total_chapters = len(chapters)
                     
-                    st.write(f"**Número de capítulos detectados:** {len(chapters)}")
+                    st.write(f"Procesando {total_chapters} capítulos...")
                     
-                    # Mostrar los títulos de los capítulos detectados
-                    st.write("**Capítulos Detectados:**")
-                    for idx, chapter in enumerate(chapters, start=1):
-                        # Asumiendo que el título del capítulo está al inicio
-                        title = chapter.split('\n')[0]
-                        st.write(f"Capítulo {idx}: {title}")
+                    # Contenedor para la barra de progreso
+                    progress_container = st.empty()
+                    progress_bar = progress_container.progress(0)
                     
-                    if not chapters or len(chapters) == 0:
-                        st.error("No se pudieron detectar capítulos en la novela. Asegúrate de que estén correctamente formateados.")
-                    else:
-                        regenerated_novel = ""
-                        progress_bar = st.progress(0)
-                        status_text = st.empty()
+                    regenerated_novel = []
+                    
+                    for idx, chapter in enumerate(chapters, 1):
+                        progress_text = st.empty()
+                        progress_text.text(f"Regenerando capítulo {idx}/{total_chapters}")
                         
-                        total_chapters = len(chapters)
+                        regenerated_chapter = regenerate_chapter(
+                            chapter, analysis, idx, total_chapters
+                        )
                         
-                        for idx, chapter in enumerate(chapters, start=1):
-                            status_text.text(f"Regenerando Capítulo {idx} de {total_chapters}...")
-                            
-                            # Solicitar a la API la regeneración del capítulo
-                            regen_messages = [
-                                {"role": "user", "content": (
-                                    "Basado en el siguiente análisis, regenera este capítulo mejorando los aspectos mencionados: "
-                                    f"\n\n**Análisis:**\n{analysis}\n\n**Capítulo a regenerar:**\n{chapter}")
-                                }
-                            ]
-                            regenerated_chapter = call_openrouter_api(regen_messages)
-                            
-                            if regenerated_chapter:
-                                regenerated_novel += f"{regenerated_chapter}\n\n"
-                                st.write(f"**Capítulo {idx} generado correctamente.**")
-                            else:
-                                regenerated_novel += f"Capítulo {idx}\n[Error al regenerar este capítulo]\n\n"
-                                st.write(f"**Capítulo {idx} falló al regenerar.**")
-                            
-                            # Actualizar la barra de progreso
-                            progress_bar.progress(idx / total_chapters)
-                        
-                        status_text.text("Regeneración completada.")
-                        st.success("La novela ha sido regenerada exitosamente.")
-                        
-                        # Mostrar la novela regenerada (puede ser muy larga, así que se puede ofrecer descargarla)
-                        st.subheader("Novela Regenerada")
-                        
-                        # Convertir el texto regenerado a un archivo .docx
-                        regenerated_docx = create_docx(regenerated_novel)
+                        if regenerated_chapter:
+                            regenerated_novel.append(regenerated_chapter)
+                            progress_bar.progress(idx/total_chapters)
+                        else:
+                            st.error(f"Error al regenerar el capítulo {idx}")
+                            break
+                    
+                    if len(regenerated_novel) == total_chapters:
+                        final_text = "\n\n".join(regenerated_novel)
+                        regenerated_docx = create_docx(final_text)
                         
                         if regenerated_docx:
+                            st.success("¡Regeneración completada!")
                             st.download_button(
-                                label="Descargar Novela Regenerada",
-                                data=regenerated_docx,
-                                file_name="novela_regenerada.docx",
-                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                "Descargar Novela Regenerada",
+                                regenerated_docx,
+                                "novela_regenerada.docx",
+                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                             )
-                        else:
-                            st.error("No se pudo crear el archivo .docx regenerado.")
-                        
-                        # Opcional: Mostrar una vista previa limitada
-                        preview_length_regen = 2000
-                        if len(regenerated_novel) > preview_length_regen:
-                            preview_text_regen = regenerated_novel[:preview_length_regen] + '...'
-                        else:
-                            preview_text_regen = regenerated_novel
-                        st.text_area("Vista Previa de la Novela Regenerada:", value=preview_text_regen, height=300)
+                            
+                            with st.expander("Ver vista previa de la novela regenerada"):
+                                preview = final_text[:2000] + "..." if len(final_text) > 2000 else final_text
+                                st.text_area("Vista previa:", value=preview, height=300)
