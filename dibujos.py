@@ -50,7 +50,7 @@ def transform_description_and_style_to_prompt(description, style, base_image_des
     )
     
     data = {
-        "model": "openai/gpt-4o-mini",
+        "model": "openai/gpt-4o-mini",  # Asegúrate de que este es el nombre correcto del modelo
         "messages": [
             {
                 "role": "user",
@@ -62,10 +62,18 @@ def transform_description_and_style_to_prompt(description, style, base_image_des
     try:
         response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
         response.raise_for_status()
-        prompt = response.json()["choices"][0]["message"]["content"].strip()
+        response_json = response.json()
+        # Para depuración: imprimir la respuesta completa
+        st.write("**Respuesta de la API de OpenRouter:**")
+        st.json(response_json)
+        prompt = response_json["choices"][0]["message"]["content"].strip()
         return prompt
     except requests.exceptions.HTTPError as http_err:
         st.error(f"Error HTTP al transformar la descripción y estilo: {http_err} - {response.text}")
+    except KeyError as key_err:
+        st.error(f"Error al acceder a la clave en la respuesta de la API: {key_err}")
+        st.write("**Respuesta Completa de la API:**")
+        st.json(response.json())
     except Exception as e:
         st.error(f"Error al transformar la descripción y estilo: {e}")
     return None
@@ -99,8 +107,8 @@ def generate_image(prompt, width, height, base_image=None):
             buffered = BytesIO()
             base_image.save(buffered, format="PNG")
             base_image_b64 = base64.b64encode(buffered.getvalue()).decode()
-            data["init_image"] = base_image_b64  # Asumiendo que la API soporta 'init_image' en base64
-            data["strength"] = 0.8  # Ajustar la fuerza según la API para controlar la influencia de la imagen base
+            data["init_image"] = base_image_b64  # Verifica si la API soporta este parámetro
+            data["strength"] = 0.8  # Ajusta la fuerza según la API para controlar la influencia de la imagen base
         except Exception as e:
             st.error(f"Error al procesar la imagen de referencia: {e}")
             return None
@@ -148,7 +156,7 @@ def extract_image_description(image):
     )
     
     data = {
-        "model": "openai/gpt-4o-mini",
+        "model": "openai/gpt-4o-mini",  # Asegúrate de que este es el nombre correcto del modelo
         "messages": [
             {
                 "role": "user",
@@ -160,10 +168,18 @@ def extract_image_description(image):
     try:
         response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
         response.raise_for_status()
-        description = response.json()["choices"][0]["message"]["content"].strip()
+        response_json = response.json()
+        # Para depuración: imprimir la respuesta completa
+        st.write("**Respuesta de la API de OpenRouter (Descripción de la Imagen):**")
+        st.json(response_json)
+        description = response_json["choices"][0]["message"]["content"].strip()
         return description
     except requests.exceptions.HTTPError as http_err:
         st.error(f"Error HTTP al extraer la descripción de la imagen: {http_err} - {response.text}")
+    except KeyError as key_err:
+        st.error(f"Error al acceder a la clave en la respuesta de la API: {key_err}")
+        st.write("**Respuesta Completa de la API:**")
+        st.json(response.json())
     except Exception as e:
         st.error(f"Error al extraer la descripción de la imagen: {e}")
     return None
@@ -306,10 +322,13 @@ if st.button("Generar Ilustración"):
         if size_option == "Personalizado":
             if width % 64 != 0 or height % 64 != 0:
                 st.warning("Por favor, ingresa dimensiones que sean múltiplos de 64 para garantizar la compatibilidad.")
+                proceed = False
             elif width < 64 or height < 64:
                 st.warning("Las dimensiones mínimas recomendadas son 64x64 píxeles.")
+                proceed = False
             elif width > 2048 or height > 2048:
                 st.warning("Las dimensiones máximas recomendadas son 2048x2048 píxeles.")
+                proceed = False
             else:
                 proceed = True
         else:
@@ -323,14 +342,14 @@ if st.button("Generar Ilustración"):
             else:
                 with st.spinner("Transformando la descripción y estilo en un prompt para el modelo FLUX..."):
                     prompt = transform_description_and_style_to_prompt(scene_description, style_to_use)
-        
+    
             if prompt:
                 st.subheader("Prompt Generado para el Modelo FLUX de Stable Diffusion")
                 st.write(prompt)
                 
                 with st.spinner("Generando la imagen con el modelo FLUX de Stable Diffusion..."):
                     image = generate_image(prompt, width, height, base_image)
-            
+        
                 if image:
                     st.subheader("Ilustración Generada")
                     st.image(image, caption="Imagen generada por FLUX de Stable Diffusion", use_column_width=True)
