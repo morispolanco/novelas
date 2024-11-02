@@ -212,11 +212,8 @@ if st.sidebar.button("Reiniciar Generación"):
 
 # Interfaz de usuario para seleccionar opción
 st.sidebar.title("Opciones")
-opcion = None
-if estado_cargado:
-    opcion = st.sidebar.radio("¿Qué deseas hacer?", ("Continuar Generando", "Iniciar Nueva Generación"))
-else:
-    opcion = st.sidebar.radio("¿Qué deseas hacer?", ("Iniciar Nueva Generación",))
+opciones_disponibles = ["Continuar Generando", "Iniciar Nueva Generación"] if estado_cargado else ["Iniciar Nueva Generación"]
+opcion = st.sidebar.radio("¿Qué deseas hacer?", opciones_disponibles)
 
 mostrar_formulario = False
 if opcion == "Iniciar Nueva Generación":
@@ -227,11 +224,17 @@ elif opcion == "Continuar Generando":
 
 if mostrar_formulario:
     with st.form(key='form_novela_juvenil'):
+        prompt_default = ""
+        if opcion == "Continuar Generando" and st.session_state.capitulos:
+            # Puedes optar por mostrar el último capítulo generado como referencia
+            prompt_default = st.session_state.capitulos[-1][1]
+        
         prompt = st.text_area(
             "Ingresa el tema o idea para la novela juvenil:",
             height=200,
-            value=st.session_state.capitulos[-1][1] if (st.session_state.capitulos and opcion == "Continuar Generando") else ""
+            value=prompt_default if opcion == "Continuar Generando" else ""
         )
+        
         num_capitulos_max = 24
         cap_generadas = len(st.session_state.capitulos)
         cap_restantes = num_capitulos_max - cap_generadas
@@ -292,3 +295,12 @@ if mostrar_formulario:
                     )
             else:
                 st.info(f"Generación interrumpida. Has generado {len(st.session_state.capitulos)} de 24 capítulos.")
+
+# Mostrar la novela generada
+if st.session_state.capitulos and st.session_state.proceso_generado:
+    st.markdown("---")
+    st.header("📖 Novela Juvenil Generada")
+    # Mostrar los capítulos generados
+    for idx, (titulo_capitulo, capitulo) in enumerate(st.session_state.capitulos, 1):
+        st.subheader(f"Capítulo {idx}: {titulo_capitulo}")
+        st.write(capitulo)
