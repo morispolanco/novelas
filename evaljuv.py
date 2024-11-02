@@ -2,6 +2,7 @@ import streamlit as st
 from docx import Document
 import requests
 import io
+import random
 
 # Configuración básica
 st.set_page_config(page_title="Análisis de Novelas", layout="wide")
@@ -66,6 +67,12 @@ def analyze_novel(text):
         st.error(f"❌ Error inesperado: {str(e)}")
     return None
 
+def calculate_rating(analysis):
+    # Aquí puedes implementar lógica para calcular una calificación
+    # Esta es una lógica simple que asigna una calificación aleatoria por ahora
+    # Puedes modificar esto para que se base en el contenido del análisis
+    return random.randint(1, 10)  # Ejemplo: genera una calificación aleatoria
+
 # Interfaz principal
 st.write("""
 ### 📚 Instrucciones
@@ -114,9 +121,9 @@ if uploaded_file:
                         - 🎯 Puntos específicos a mejorar
                         """)
                     
-                    # Selector de calificación
-                    rating = st.slider("Asigna una calificación a la novela:", min_value=1, max_value=10, value=5)
-                    st.write(f"⭐ Calificación asignada: {rating}")
+                    # Calcular y mostrar la calificación
+                    rating = calculate_rating(analysis)
+                    st.write(f"⭐ Calificación automática asignada: {rating}")
 
     except Exception as e:
         st.error(f"Error al procesar el archivo: {str(e)}")
