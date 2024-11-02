@@ -108,19 +108,19 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas):
         "Content-Type": "application/json",
         "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
     }
-    # Instrucciones específicas para novelas juveniles con títulos de capítulos
     instrucciones = (
         "Asegúrate de que el contenido generado cumpla con las características de una novela juvenil. "
-        "Debes utilizar un lenguaje accesible, desarrollar personajes jóvenes y cercanos a la audiencia, "
-        "abordar temas relevantes para adolescentes y jóvenes adultos, y mantener una narrativa ágil con diálogos auténticos. "
+        "Desarrolla los personajes secundarios y explora sus motivaciones. "
+        "Utiliza un lenguaje accesible, desarrolla personajes jóvenes y cercanos a la audiencia, "
+        "aborda temas relevantes para adolescentes y jóvenes adultos, y mantiene una narrativa ágil con diálogos auténticos. "
         "Evita repetir información ya mencionada en capítulos anteriores. "
-        "Además, cada capítulo debe comenzar con un título apropiado."
+        "Cada capítulo debe comenzar con un título apropiado."
     )
     if resumen_previas:
         resumen_texto = " Hasta ahora, la novela ha cubierto los siguientes puntos: " + resumen_previas
     else:
         resumen_texto = ""
-    # Incorporar las características de la novela juvenil en el prompt
+    
     mensaje = (
         f"**Características de la novela juvenil:** {caracteristicas_novela_juvenil}\n\n"
         f"Escribe el capítulo {capitulo_num} de una novela juvenil sobre el siguiente tema: {prompt}. "
@@ -142,15 +142,12 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas):
         respuesta = response.json()
         if 'choices' in respuesta and len(respuesta['choices']) > 0:
             contenido_completo = respuesta['choices'][0]['message']['content']
-            # Separar el título del capítulo y el contenido
-            # Asumimos que el modelo responde con el título en la primera línea seguida del contenido
             lineas = contenido_completo.strip().split('\n', 1)
             if len(lineas) == 2:
                 titulo_capitulo = lineas[0].strip().replace("Título:", "").replace("Titulo:", "").strip()
                 contenido = lineas[1].strip()
                 return titulo_capitulo, contenido
             else:
-                # Si no se puede separar, devolver sin título
                 st.warning(f"No se pudo extraer el título del Capítulo {capitulo_num}.")
                 return f"Capítulo {capitulo_num}", contenido_completo
         else:
@@ -187,7 +184,6 @@ def resumir_capitulo(capitulo):
         respuesta = response.json()
         if 'choices' in respuesta and len(respuesta['choices']) > 0:
             resumen = respuesta['choices'][0]['message']['content']
-            # Limpiar el resumen eliminando posibles saltos de línea adicionales
             resumen = ' '.join(resumen.split())
             return resumen
         else:
@@ -204,7 +200,6 @@ def crear_documento(capitulo_list, titulo):
     for idx, (titulo_capitulo, capitulo) in enumerate(capitulo_list, 1):
         doc.add_heading(f"Capítulo {idx}: {titulo_capitulo}", level=1)
         doc.add_paragraph(capitulo)
-    # Guardar el documento en un buffer
     buffer = BytesIO()
     doc.save(buffer)
     buffer.seek(0)
@@ -242,7 +237,6 @@ if mostrar_formulario:
                 value=""
             )
         else:
-            # En "Continuar Generando", mostrar el prompt almacenado
             st.text_area(
                 "Tema o idea para la novela juvenil:",
                 height=200,
@@ -256,7 +250,7 @@ if mostrar_formulario:
             "Número de capítulos a generar:",
             min_value=1,
             max_value=cap_restantes,
-            value=min(3, cap_restantes)  # Puedes ajustar el valor predeterminado si lo deseas
+            value=min(3, cap_restantes)
         )
         submit_button = st.form_submit_button(label='Generar Novela Juvenil')
 
@@ -266,23 +260,20 @@ if mostrar_formulario:
                 st.error("Por favor, ingresa un tema o idea válida para la novela juvenil.")
                 st.stop()
         else:
-            # En "Continuar Generando", el prompt ya está almacenado
             pass
         
         st.success("Iniciando la generación de la novela juvenil...")
         st.session_state.proceso_generado = True
         progreso = st.progress(0)
         
-        # Determinar el siguiente capítulo a generar
         inicio = len(st.session_state.capitulos) + 1
         fin = inicio + num_capitulos - 1
         if fin > 24:
             fin = 24
-        cap_generadas_en_ejecucion = 0  # Contador para esta ejecución
+        cap_generadas_en_ejecucion = 0
         
         for i in range(inicio, fin + 1):
             st.write(f"Generando **Capítulo {i}**...")
-            # Crear un resumen de capítulos previas para evitar repeticiones
             if st.session_state.resumenes:
                 resumen_previas = ' '.join(st.session_state.resumenes)
             else:
@@ -290,20 +281,18 @@ if mostrar_formulario:
             titulo_capitulo, capitulo = generar_capitulo(st.session_state.prompt, i, resumen_previas)
             if capitulo:
                 st.session_state.capitulos.append((titulo_capitulo, capitulo))
-                # Resumir el capítulo generado
                 resumen = resumir_capitulo(capitulo)
                 if resumen:
                     st.session_state.resumenes.append(resumen)
                 else:
                     st.warning(f"No se pudo generar un resumen para el Capítulo {i}.")
-                # Guardar el estado después de cada capítulo generado
                 guardar_estado()
                 cap_generadas_en_ejecucion += 1
             else:
                 st.error("La generación de la novela se ha detenido debido a un error.")
                 break
             progreso.progress(cap_generadas_en_ejecucion / num_capitulos)
-            time.sleep(2)  # Reducir la pausa a 2 segundos para mayor eficiencia
+            time.sleep(2)
         
         progreso.empty()
         
@@ -325,7 +314,6 @@ if mostrar_formulario:
 if st.session_state.capitulos and st.session_state.proceso_generado:
     st.markdown("---")
     st.header("📖 Novela Juvenil Generada")
-    # Mostrar los capítulos generados
     for idx, (titulo_capitulo, capitulo) in enumerate(st.session_state.capitulos, 1):
         st.subheader(f"Capítulo {idx}: {titulo_capitulo}")
         st.write(capitulo)
