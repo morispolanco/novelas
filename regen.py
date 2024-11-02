@@ -5,7 +5,6 @@ import re
 from io import StringIO, BytesIO
 from docx import Document
 
-# Configuración de la página
 st.set_page_config(
     page_title="Regenerador de Novelas",
     layout="wide",
@@ -17,11 +16,8 @@ st.write("""
     Sube tu novela en formato `.txt` o `.docx`, proporciona análisis y recomendaciones, y la aplicación regenerará tu novela capítulo por capítulo.
 """)
 
-# Función para dividir la novela en capítulos
 def split_into_chapters(text):
-    # Suponiendo que los capítulos están marcados con "Capítulo" o "Chapter"
     chapters = re.split(r'(Capítulo\s+\d+|Chapter\s+\d+)', text, flags=re.IGNORECASE)
-    # Combinar los títulos de capítulos con su contenido
     combined = []
     for i in range(1, len(chapters), 2):
         title = chapters[i]
@@ -29,7 +25,6 @@ def split_into_chapters(text):
         combined.append(f"{title}\n{content}")
     return combined
 
-# Función para llamar a la API de OpenRouter
 def call_openrouter_api(prompt):
     api_url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
@@ -52,7 +47,6 @@ def call_openrouter_api(prompt):
         st.error(f"Error en la API: {response.status_code} - {response.text}")
         return None
 
-# Función para extraer texto de un archivo .docx
 def extract_text_from_docx(file):
     doc = Document(file)
     full_text = []
@@ -60,7 +54,6 @@ def extract_text_from_docx(file):
         full_text.append(para.text)
     return '\n'.join(full_text)
 
-# Función para crear un archivo .docx a partir de texto
 def create_docx(text):
     doc = Document()
     for line in text.split('\n\n'):
@@ -70,7 +63,6 @@ def create_docx(text):
     buf.seek(0)
     return buf
 
-# Interfaz de usuario
 with st.form("regeneration_form"):
     uploaded_file = st.file_uploader("Sube tu novela (.txt o .docx)", type=["txt", "docx"])
     analysis = st.text_area("Pega tus análisis y recomendaciones aquí")
@@ -78,7 +70,6 @@ with st.form("regeneration_form"):
 
 if submit_button:
     if uploaded_file is not None and analysis.strip() != "":
-        # Leer el contenido del archivo
         if uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
             novel_text = extract_text_from_docx(uploaded_file)
         elif uploaded_file.type == "text/plain":
@@ -92,7 +83,6 @@ if submit_button:
             num_chapters = len(chapters)
             st.write(f"Se han detectado {num_chapters} capítulos.")
 
-            # Barra de progreso
             progress_bar = st.progress(0)
             progress_text = st.empty()
 
@@ -104,31 +94,27 @@ Aquí está el capítulo {idx} de mi novela:
 
 {chapter}
 
-Basándote en el siguiente análisis y recomendaciones, regenera este capítulo mejorándolo:
+Basándote en el siguiente análisis y recomendaciones, regenera este capítulo mejorándolo sin agregar comentarios o explicaciones adicionales:
 
 {analysis}
 """
                 regenerated = call_openrouter_api(prompt)
                 if regenerated:
-                    regenerated_chapters.append(regenerated)
+                    regenerated_chapters.append(regenerated.strip())
                 else:
                     st.error("Hubo un problema al regenerar el capítulo. El proceso se detendrá.")
                     break
-                # Actualizar la barra de progreso
                 progress_bar.progress(idx / num_chapters)
-                # Opcional: Esperar un poco para no sobrecargar la API
                 time.sleep(1)
 
             if len(regenerated_chapters) == num_chapters:
                 st.success("Novela regenerada con éxito.")
                 regenerated_novel = "\n\n".join(regenerated_chapters)
                 
-                # Mostrar la novela regenerada
                 st.markdown("### Novela Regenerada")
                 with st.expander("Ver Novela Regenerada"):
                     st.text_area("", regenerated_novel, height=400)
 
-                # Proporcionar opción de descarga en formato .txt
                 st.download_button(
                     label="Descargar Novela Regenerada (.txt)",
                     data=regenerated_novel,
@@ -136,7 +122,6 @@ Basándote en el siguiente análisis y recomendaciones, regenera este capítulo 
                     mime="text/plain"
                 )
 
-                # Proporcionar opción de descarga en formato .docx
                 docx_file = create_docx(regenerated_novel)
                 st.download_button(
                     label="Descargar Novela Regenerada (.docx)",
