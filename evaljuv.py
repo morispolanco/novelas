@@ -1,7 +1,6 @@
 import streamlit as st
 from docx import Document
 import requests
-import random
 
 # Configuración básica
 st.set_page_config(page_title="Análisis de Novelas", layout="wide")
@@ -129,11 +128,13 @@ if uploaded_file:
                     st.write("### Califica cada aspecto de la novela")
                     structure_rating, characters_rating, plot_rating, style_rating, average_rating = rate_aspects()
                     
-                    st.write(f"⭐ Calificación para Estructura y Ritmo: {structure_rating}")
-                    st.write(f"⭐ Calificación para Personajes: {characters_rating}")
-                    st.write(f"⭐ Calificación para Trama: {plot_rating}")
-                    st.write(f"⭐ Calificación para Estilo y Técnica: {style_rating}")
-                    st.write(f"⭐ Calificación global asignada: {average_rating:.2f}")
+                    # Mostrar resultados
+                    st.write("### Resultados de Calificación:")
+                    st.write(f"⭐ **Calificación para Estructura y Ritmo:** {structure_rating}")
+                    st.write(f"⭐ **Calificación para Personajes:** {characters_rating}")
+                    st.write(f"⭐ **Calificación para Trama:** {plot_rating}")
+                    st.write(f"⭐ **Calificación para Estilo y Técnica:** {style_rating}")
+                    st.write(f"⭐ **Calificación global asignada:** {average_rating:.2f}")
 
     except Exception as e:
         st.error(f"Error al procesar el archivo: {str(e)}")
