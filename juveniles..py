@@ -204,16 +204,13 @@ def crear_documento(capitulo_list, titulo):
     buffer.seek(0)
     return buffer
 
-# Botón para reiniciar la generación
-if st.sidebar.button("Reiniciar Generación"):
-    limpiar_estado()
-    st.success("El estado de la generación ha sido reiniciado.")
-    st.experimental_rerun()
-
 # Interfaz de usuario para seleccionar opción
 st.sidebar.title("Opciones")
-opciones_disponibles = ["Continuar Generando", "Iniciar Nueva Generación"] if estado_cargado else ["Iniciar Nueva Generación"]
-opcion = st.sidebar.radio("¿Qué deseas hacer?", opciones_disponibles)
+
+if estado_cargado:
+    opcion = st.sidebar.radio("¿Qué deseas hacer?", ("Continuar Generando", "Iniciar Nueva Generación"))
+else:
+    opcion = st.sidebar.radio("¿Qué deseas hacer?", ("Iniciar Nueva Generación",))
 
 mostrar_formulario = False
 if opcion == "Iniciar Nueva Generación":
@@ -224,18 +221,18 @@ elif opcion == "Continuar Generando":
 
 if mostrar_formulario:
     with st.form(key='form_novela_juvenil'):
+        # Mostrar el último prompt generado si se está continuando
         prompt_default = ""
         if opcion == "Continuar Generando" and st.session_state.capitulos:
-            # Puedes optar por mostrar el último capítulo generado como referencia
-            # Por ejemplo, puedes dejar el campo vacío o proporcionar un resumen
-            prompt_default = ""  # Puedes personalizar esto si lo deseas
-        
+            # Puedes personalizar esto si lo deseas
+            prompt_default = ""  # Dejamos el campo vacío o puedes proporcionar un resumen si lo prefieres
+
         prompt = st.text_area(
             "Ingresa el tema o idea para la novela juvenil:",
             height=200,
             value=prompt_default if opcion == "Continuar Generando" else ""
         )
-        
+
         num_capitulos_max = 24
         cap_generadas = len(st.session_state.capitulos)
         cap_restantes = num_capitulos_max - cap_generadas
@@ -283,8 +280,9 @@ if mostrar_formulario:
                 progreso.progress((i - inicio + 1) / num_capitulos)
                 time.sleep(2)  # Reducir la pausa a 2 segundos para mayor eficiencia
             progreso.empty()
+            # Determinar si se generaron todos los capítulos solicitados
             if len(st.session_state.capitulos) >= fin:
-                st.success("Novela juvenil generada exitosamente.")
+                st.success(f"Se han generado {num_capitulos} capítulos exitosamente.")
                 st.session_state.titulo_obra = st.text_input("Título de la novela juvenil:", value=st.session_state.titulo_obra)
                 if st.session_state.titulo_obra:
                     documento = crear_documento(st.session_state.capitulos, st.session_state.titulo_obra)
@@ -295,7 +293,7 @@ if mostrar_formulario:
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                     )
             else:
-                st.info(f"Generación interrumpida. Has generado {len(st.session_state.capitulos)} de {fin} capítulos.")
+                st.info(f"Generación interrumpida. Has generado {len(st.session_state.capitulos) - (inicio - 1)} de {num_capitulos} capítulos.")
 
 # Mostrar la novela generada
 if st.session_state.capitulos and st.session_state.proceso_generado:
