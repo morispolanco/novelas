@@ -113,6 +113,10 @@ if uploaded_file:
                         - ✍️ Estilo y técnica literaria
                         - 🎯 Puntos específicos a mejorar
                         """)
-    
+                    
+                    # Selector de calificación
+                    rating = st.slider("Asigna una calificación a la novela:", min_value=1, max_value=10, value=5)
+                    st.write(f"⭐ Calificación asignada: {rating}")
+
     except Exception as e:
         st.error(f"Error al procesar el archivo: {str(e)}")
