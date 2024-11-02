@@ -21,31 +21,12 @@ def analyze_novel(text):
         analysis_prompt = """Realiza un análisis crítico detallado de esta novela, evaluando:
 
         1. ESTRUCTURA Y RITMO
-        - Coherencia de la estructura narrativa
-        - Ritmo y pacing de la historia
-        - Balance entre descripción, narración y diálogo
-        
         2. PERSONAJES
-        - Profundidad y desarrollo
-        - Coherencia en sus acciones y motivaciones
-        - Arcos de desarrollo
-        
         3. TRAMA
-        - Consistencia y lógica interna
-        - Resolución de conflictos
-        - Manejo de subtramas
-        
         4. ESTILO Y TÉCNICA
-        - Calidad de la prosa
-        - Uso del lenguaje
-        - Técnicas narrativas empleadas
-        
         5. PUNTOS A MEJORAR
-        - Identificar áreas específicas que necesitan revisión
-        - Sugerir mejoras concretas
-        - Señalar posibles inconsistencias
         
-        Proporciona ejemplos específicos del texto para ilustrar cada punto."""
+        Proporciona una calificación de 1 a 10 para cada aspecto y un análisis detallado. Incluye ejemplos específicos del texto para ilustrar cada punto."""
         
         data = {
             "model": "openai/gpt-4o-mini",
@@ -64,17 +45,6 @@ def analyze_novel(text):
     except Exception as e:
         st.error(f"❌ Error inesperado: {str(e)}")
     return None
-
-# Función para calificar cada aspecto
-def rate_aspects():
-    structure_rating = st.slider("Calificación para Estructura y Ritmo:", min_value=1, max_value=10, value=5)
-    characters_rating = st.slider("Calificación para Personajes:", min_value=1, max_value=10, value=5)
-    plot_rating = st.slider("Calificación para Trama:", min_value=1, max_value=10, value=5)
-    style_rating = st.slider("Calificación para Estilo y Técnica:", min_value=1, max_value=10, value=5)
-    
-    # Calcular el promedio
-    average_rating = (structure_rating + characters_rating + plot_rating + style_rating) / 4
-    return structure_rating, characters_rating, plot_rating, style_rating, average_rating
 
 # Interfaz principal
 st.write("""
@@ -124,17 +94,12 @@ if uploaded_file:
                         - 🎯 Puntos específicos a mejorar
                         """)
                     
-                    # Calificar cada aspecto
-                    st.write("### Califica cada aspecto de la novela")
-                    structure_rating, characters_rating, plot_rating, style_rating, average_rating = rate_aspects()
-                    
-                    # Mostrar resultados
-                    st.write("### Resultados de Calificación:")
-                    st.write(f"⭐ **Calificación para Estructura y Ritmo:** {structure_rating}")
-                    st.write(f"⭐ **Calificación para Personajes:** {characters_rating}")
-                    st.write(f"⭐ **Calificación para Trama:** {plot_rating}")
-                    st.write(f"⭐ **Calificación para Estilo y Técnica:** {style_rating}")
-                    st.write(f"⭐ **Calificación global asignada:** {average_rating:.2f}")
+                    # Mostrar calificaciones de la IA
+                    st.write("### Calificaciones de la IA:")
+                    lines = analysis.splitlines()
+                    for line in lines:
+                        if "Calificación" in line:
+                            st.write(line)
 
     except Exception as e:
         st.error(f"Error al procesar el archivo: {str(e)}")
