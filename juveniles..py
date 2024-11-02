@@ -227,7 +227,8 @@ if mostrar_formulario:
         prompt_default = ""
         if opcion == "Continuar Generando" and st.session_state.capitulos:
             # Puedes optar por mostrar el último capítulo generado como referencia
-            prompt_default = st.session_state.capitulos[-1][1]
+            # Por ejemplo, puedes dejar el campo vacío o proporcionar un resumen
+            prompt_default = ""  # Puedes personalizar esto si lo deseas
         
         prompt = st.text_area(
             "Ingresa el tema o idea para la novela juvenil:",
@@ -242,7 +243,7 @@ if mostrar_formulario:
             "Número de capítulos a generar:",
             min_value=1,
             max_value=cap_restantes,
-            value=min(10, cap_restantes)
+            value=min(3, cap_restantes)  # Puedes ajustar el valor predeterminado si lo deseas
         )
         submit_button = st.form_submit_button(label='Generar Novela Juvenil')
 
@@ -279,10 +280,10 @@ if mostrar_formulario:
                 else:
                     st.error("La generación de la novela se ha detenido debido a un error.")
                     break
-                progreso.progress(i / num_capitulos_max)
+                progreso.progress((i - inicio + 1) / num_capitulos)
                 time.sleep(2)  # Reducir la pausa a 2 segundos para mayor eficiencia
             progreso.empty()
-            if len(st.session_state.capitulos) == 24:
+            if len(st.session_state.capitulos) >= fin:
                 st.success("Novela juvenil generada exitosamente.")
                 st.session_state.titulo_obra = st.text_input("Título de la novela juvenil:", value=st.session_state.titulo_obra)
                 if st.session_state.titulo_obra:
@@ -294,7 +295,7 @@ if mostrar_formulario:
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                     )
             else:
-                st.info(f"Generación interrumpida. Has generado {len(st.session_state.capitulos)} de 24 capítulos.")
+                st.info(f"Generación interrumpida. Has generado {len(st.session_state.capitulos)} de {fin} capítulos.")
 
 # Mostrar la novela generada
 if st.session_state.capitulos and st.session_state.proceso_generado:
