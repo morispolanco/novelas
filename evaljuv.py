@@ -1,7 +1,6 @@
 import streamlit as st
 from docx import Document
 import requests
-import io
 import random
 
 # Configuración básica
@@ -67,11 +66,16 @@ def analyze_novel(text):
         st.error(f"❌ Error inesperado: {str(e)}")
     return None
 
-def calculate_rating(analysis):
-    # Aquí puedes implementar lógica para calcular una calificación
-    # Esta es una lógica simple que asigna una calificación aleatoria por ahora
-    # Puedes modificar esto para que se base en el contenido del análisis
-    return random.randint(1, 10)  # Ejemplo: genera una calificación aleatoria
+# Función para calificar cada aspecto
+def rate_aspects():
+    structure_rating = st.slider("Calificación para Estructura y Ritmo:", min_value=1, max_value=10, value=5)
+    characters_rating = st.slider("Calificación para Personajes:", min_value=1, max_value=10, value=5)
+    plot_rating = st.slider("Calificación para Trama:", min_value=1, max_value=10, value=5)
+    style_rating = st.slider("Calificación para Estilo y Técnica:", min_value=1, max_value=10, value=5)
+    
+    # Calcular el promedio
+    average_rating = (structure_rating + characters_rating + plot_rating + style_rating) / 4
+    return structure_rating, characters_rating, plot_rating, style_rating, average_rating
 
 # Interfaz principal
 st.write("""
@@ -121,9 +125,15 @@ if uploaded_file:
                         - 🎯 Puntos específicos a mejorar
                         """)
                     
-                    # Calcular y mostrar la calificación
-                    rating = calculate_rating(analysis)
-                    st.write(f"⭐ Calificación automática asignada: {rating}")
+                    # Calificar cada aspecto
+                    st.write("### Califica cada aspecto de la novela")
+                    structure_rating, characters_rating, plot_rating, style_rating, average_rating = rate_aspects()
+                    
+                    st.write(f"⭐ Calificación para Estructura y Ritmo: {structure_rating}")
+                    st.write(f"⭐ Calificación para Personajes: {characters_rating}")
+                    st.write(f"⭐ Calificación para Trama: {plot_rating}")
+                    st.write(f"⭐ Calificación para Estilo y Técnica: {style_rating}")
+                    st.write(f"⭐ Calificación global asignada: {average_rating:.2f}")
 
     except Exception as e:
         st.error(f"Error al procesar el archivo: {str(e)}")
