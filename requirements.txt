@@ -9,3 +9,4 @@ anthropic
 together
 nltk
 pillow
+pypdf2
