@@ -11,7 +11,6 @@ import os
 # Importar bibliotecas para manejar archivos
 import PyPDF2
 from docx import Document
-from docx.shared import Inches
 
 # Función para dividir la novela en capítulos
 def dividir_en_capitulos(texto):
@@ -78,38 +77,6 @@ def generar_ilustracion(prompt, estilo, width=512, height=512):
     except Exception as e:
         st.error(f"Error al generar la imagen: {e}")
     return None
-
-# Función para crear un documento Word con resúmenes e ilustraciones
-def crear_documento_word(capitulos, resúmenes, ilustraciones):
-    document = Document()
-    document.add_heading('Historia Ilustrada', 0)
-    
-    for idx, cap in enumerate(capitulos):
-        # Agregar título del capítulo
-        document.add_heading(cap['titulo'], level=1)
-        
-        # Agregar resumen
-        document.add_heading('Resumen', level=2)
-        document.add_paragraph(resúmenes[idx])
-        
-        # Agregar imagen
-        if ilustraciones[idx]:
-            # Guardar imagen en BytesIO
-            img_byte_arr = BytesIO()
-            ilustraciones[idx].save(img_byte_arr, format='PNG')
-            img_byte_arr.seek(0)
-            # Agregar imagen al documento
-            document.add_picture(img_byte_arr, width=Inches(6))
-        
-        # Agregar una separación
-        document.add_page_break()
-    
-    # Guardar documento en BytesIO
-    doc_byte_arr = BytesIO()
-    document.save(doc_byte_arr)
-    doc_byte_arr.seek(0)
-    
-    return doc_byte_arr
 
 # Lista de estilos artísticos soportados
 supported_styles = [
@@ -212,17 +179,5 @@ if st.button("Procesar Novela"):
                     st.markdown("---")
                 
                 st.success("Procesamiento completado.")
-                
-                # Crear el documento Word
-                with st.spinner("Creando documento Word..."):
-                    doc_word = crear_documento_word(capitulos, resúmenes, ilustraciones)
-                
-                # Proporcionar botón para descargar
-                st.download_button(
-                    label="Descargar Historia Ilustrada en Word",
-                    data=doc_word,
-                    file_name='historia_ilustrada.docx',
-                    mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-                )
     else:
         st.error("Por favor, sube un archivo para comenzar.")
