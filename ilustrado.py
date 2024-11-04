@@ -5,8 +5,12 @@ import requests
 import base64
 from PIL import Image
 from io import BytesIO
-import os
 import re
+import os
+
+# Importar bibliotecas para manejar archivos
+import PyPDF2
+from docx import Document
 
 # Función para dividir la novela en capítulos
 def dividir_en_capitulos(texto):
@@ -102,11 +106,11 @@ st.title("Convertidor de Novela en Historia Ilustrada")
 
 # Instrucciones
 st.markdown("""
-Sube tu novela en formato `.txt` o `.pdf` y la aplicación resumirá cada capítulo y generará ilustraciones coherentes para cada uno.
+Sube tu novela en formato `.txt`, `.docx` o `.pdf`, selecciona un estilo artístico para las ilustraciones y la aplicación resumirá cada capítulo y generará ilustraciones coherentes para cada uno.
 """)
 
 # Subida de archivo
-uploaded_file = st.file_uploader("Sube tu novela", type=["txt", "pdf"])
+uploaded_file = st.file_uploader("Sube tu novela", type=["txt", "pdf", "docx"])
 
 # Selección de estilo artístico
 estilo_seleccionado = st.selectbox("Selecciona un estilo artístico para las ilustraciones", supported_styles)
@@ -115,21 +119,30 @@ estilo_seleccionado = st.selectbox("Selecciona un estilo artístico para las ilu
 if st.button("Procesar Novela"):
     if uploaded_file is not None:
         # Leer el contenido del archivo
+        contenido = ""
         if uploaded_file.type == "text/plain":
-            contenido = uploaded_file.read().decode("utf-8")
+            try:
+                contenido = uploaded_file.read().decode("utf-8")
+            except Exception as e:
+                st.error(f"Error al leer el archivo de texto: {e}")
         elif uploaded_file.type == "application/pdf":
             try:
-                import PyPDF2
                 pdf_reader = PyPDF2.PdfReader(uploaded_file)
-                contenido = ""
                 for page in pdf_reader.pages:
-                    contenido += page.extract_text()
+                    texto_pagina = page.extract_text()
+                    if texto_pagina:
+                        contenido += texto_pagina + "\n"
             except Exception as e:
                 st.error(f"Error al leer el PDF: {e}")
-                contenido = ""
+        elif uploaded_file.type in ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword"]:
+            try:
+                doc = Document(uploaded_file)
+                for para in doc.paragraphs:
+                    contenido += para.text + "\n"
+            except Exception as e:
+                st.error(f"Error al leer el archivo de Word: {e}")
         else:
             st.error("Formato de archivo no soportado.")
-            contenido = ""
         
         if contenido:
             st.success("Archivo leído correctamente. Procesando...")
@@ -137,31 +150,34 @@ if st.button("Procesar Novela"):
             capitulos = dividir_en_capitulos(contenido)
             st.info(f"Se encontraron {len(capitulos)} capítulos.")
             
-            # Crear listas para almacenar resúmenes e ilustraciones
-            resúmenes = []
-            ilustraciones = []
-            
-            for idx, cap in enumerate(capitulos, 1):
-                st.write(f"### {cap['titulo']}")
+            if len(capitulos) == 0:
+                st.error("No se encontraron capítulos en el documento. Asegúrate de que los capítulos estén marcados con 'Capítulo' o 'Chapter' seguido de un número.")
+            else:
+                # Crear listas para almacenar resúmenes e ilustraciones
+                resúmenes = []
+                ilustraciones = []
                 
-                # Resumir capítulo
-                with st.spinner(f"Resumiendo el capítulo {idx}..."):
-                    resumen = resumir_capitulo(cap['contenido'])
-                    if resumen:
-                        resúmenes.append(resumen)
-                        st.write("**Resumen:**")
-                        st.write(resumen)
+                for idx, cap in enumerate(capitulos, 1):
+                    st.write(f"### {cap['titulo']}")
+                    
+                    # Resumir capítulo
+                    with st.spinner(f"Resumiendo el capítulo {idx}..."):
+                        resumen = resumir_capitulo(cap['contenido'])
+                        if resumen:
+                            resúmenes.append(resumen)
+                            st.write("**Resumen:**")
+                            st.write(resumen)
+                    
+                    # Generar ilustración
+                    with st.spinner(f"Generando ilustración para el capítulo {idx}..."):
+                        prompt = f"{resumen}. Estilo artístico: {estilo_seleccionado}."
+                        imagen = generar_ilustracion(prompt, estilo_seleccionado)
+                        if imagen:
+                            ilustraciones.append(imagen)
+                            st.image(imagen, caption=f"Ilustración Capítulo {idx} - {estilo_seleccionado}", use_column_width=True)
+                    
+                    st.markdown("---")
                 
-                # Generar ilustración
-                with st.spinner(f"Generando ilustración para el capítulo {idx}..."):
-                    prompt = f"{resumen}. Estilo artístico: {estilo_seleccionado}."
-                    imagen = generar_ilustracion(prompt, estilo_seleccionado)
-                    if imagen:
-                        ilustraciones.append(imagen)
-                        st.image(imagen, caption=f"Ilustración Capítulo {idx}", use_column_width=True)
-                
-                st.markdown("---")
-            
-            st.success("Procesamiento completado.")
+                st.success("Procesamiento completado.")
     else:
         st.error("Por favor, sube un archivo para comenzar.")
