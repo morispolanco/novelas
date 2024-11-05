@@ -6,55 +6,61 @@ from io import BytesIO
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Generador de Cómics",
-    page_icon="🖼️",
+    page_title="Generador de Memes",
+    page_icon="😂",
     layout="centered",
     initial_sidebar_state="auto",
 )
 
 # Título de la aplicación
-st.title("🖼️ Generador de Cómics con Inteligencia Artificial")
+st.title("🖼️ Generador de Memes Personalizados")
 
-# Función para generar descripciones de escenas usando OpenRouter
-def generar_descripciones(idea, num_scenes=3):
+# Descripción
+st.write("""
+    Ingresa una idea para tu meme y generaás tres variantes con ilustraciones únicas.
+    La generación de texto se realiza mediante la API de OpenRouter y las imágenes con la API de Together.
+""")
+
+def generar_variantes_idea(idea, num_variantes=3):
+    """
+    Genera variantes de la idea utilizando la API de OpenRouter.
+    """
     api_key = st.secrets["OPENROUTER_API_KEY"]
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}",
+        "Authorization": f"Bearer {api_key}"
     }
-    prompt = (
-        f"Genera {num_scenes} descripciones detalladas para escenas de un cómic basadas en la siguiente idea:\n\n{idea}\n\n"
-        "Cada descripción debe incluir el escenario, los personajes involucrados y la acción principal."
-    )
     data = {
         "model": "openai/gpt-4o-mini",
         "messages": [
-            {"role": "user", "content": prompt}
-        ],
+            {
+                "role": "user",
+                "content": f"Genera {num_variantes} ideas para memes basadas en: {idea}"
+            }
+        ]
     }
-
     try:
         response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
         response.raise_for_status()
         response_data = response.json()
-        descripciones = response_data["choices"][0]["message"]["content"].strip().split("\n")
-        # Filtrar y limpiar las descripciones
-        descripciones = [desc.strip("- ").strip() for desc in descripciones if desc.strip()]
-        if len(descripciones) < num_scenes:
-            st.warning("Se generaron menos escenas de las solicitadas.")
-        return descripciones[:num_scenes]
+        mensajes = response_data.get("choices", [])[0].get("message", {}).get("content", "")
+        # Suponiendo que las variantes están separadas por saltos de línea
+        variantes = [var.strip() for var in mensajes.split('\n') if var.strip()]
+        return variantes[:num_variantes]
     except requests.exceptions.HTTPError as http_err:
-        st.error(f"Error HTTP al generar descripciones: {http_err} - {response.text}")
+        st.error(f"Error HTTP al generar variantes: {http_err} - {response.text}")
     except Exception as e:
-        st.error(f"Error al generar descripciones: {e}")
+        st.error(f"Error al generar variantes: {e}")
     return []
 
-# Función para generar ilustraciones usando Together API
-def generar_ilustracion(prompt, estilo="cómic", width=512, height=512):
+def generar_ilustracion(prompt, width=512, height=512):
+    """
+    Genera una ilustración basada en el prompt utilizando la API de Together.
+    """
     api_key = st.secrets["TOGETHER_API_KEY"]
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
     }
     data = {
         "model": "black-forest-labs/FLUX.1-pro",
@@ -63,7 +69,7 @@ def generar_ilustracion(prompt, estilo="cómic", width=512, height=512):
         "height": height,
         "steps": 28,
         "n": 1,
-        "response_format": "b64_json",
+        "response_format": "b64_json"
     }
     try:
         response = requests.post("https://api.together.xyz/v1/images/generations", headers=headers, json=data)
@@ -80,27 +86,29 @@ def generar_ilustracion(prompt, estilo="cómic", width=512, height=512):
         st.error(f"Error al generar la imagen: {e}")
     return None
 
-# Interfaz de usuario para ingresar la idea
-st.header("Ingresa la Idea para tu Cómic")
-idea = st.text_area("Describe la idea de tu cómic aquí:", height=150)
+def main():
+    # Entrada del usuario
+    idea = st.text_input("Ingresa la idea para tu meme:", "")
 
-# Botón para generar el cómic
-if st.button("Generar Cómic"):
-    if not idea.strip():
-        st.warning("Por favor, ingresa una idea para generar el cómic.")
-    else:
-        with st.spinner("Generando descripciones de las escenas..."):
-            descripciones = generar_descripciones(idea)
-        
-        if descripciones:
-            st.success("Descripciones generadas exitosamente.")
-            for idx, desc in enumerate(descripciones, start=1):
-                st.subheader(f"Escena {idx}")
-                st.write(desc)
-                with st.spinner(f"Generando ilustración para la Escena {idx}..."):
-                    imagen = generar_ilustracion(desc)
-                if imagen:
-                    st.image(imagen, caption=f"Ilustración de la Escena {idx}", use_column_width=True)
-                else:
-                    st.error(f"No se pudo generar la ilustración para la Escena {idx}.")
-                st.markdown("---")
+    if st.button("Generar Memes"):
+        if not idea.strip():
+            st.warning("Por favor, ingresa una idea para generar memes.")
+        else:
+            with st.spinner("Generando variantes del meme..."):
+                variantes = generar_variantes_idea(idea)
+            
+            if variantes:
+                st.success("Variantes generadas exitosamente.")
+                for idx, variante in enumerate(variantes, 1):
+                    st.markdown(f"### Variante {idx}")
+                    st.write(variante)
+                    with st.spinner(f"Generando ilustración para variante {idx}..."):
+                        imagen = generar_ilustracion(variante)
+                    if imagen:
+                        st.image(imagen, use_column_width=True)
+                    st.markdown("---")
+            else:
+                st.error("No se pudieron generar variantes del meme.")
+
+if __name__ == "__main__":
+    main()
