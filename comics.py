@@ -12,11 +12,11 @@ def generar_texto_meme(idea):
         "Authorization": f"Bearer {api_key}"
     }
     data = {
-        "model": "openai/gpt-4o-mini",
+        "model": "openai/gpt-4-mini",  # Modelo corregido
         "messages": [
             {
                 "role": "user",
-                "content": f"Genera un formato de meme basado en la siguiente idea: {idea}. Proporciona el texto para la parte superior y la inferior del meme."
+                "content": f"Genera un formato de meme basado en la siguiente idea: {idea}. Proporciona el texto para la parte superior y la inferior del meme en el siguiente formato:\nTop: <texto superior>\nBottom: <texto inferior>"
             }
         ]
     }
@@ -24,11 +24,13 @@ def generar_texto_meme(idea):
         response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
         response.raise_for_status()
         response_data = response.json()
+        
+        # Depuración: Mostrar la respuesta completa
+        st.write("**Respuesta de OpenRouter:**", response_data)
+        
         mensaje = response_data["choices"][0]["message"]["content"].strip()
         
-        # Suponiendo que el modelo devuelve el texto en formato:
-        # Top: ...
-        # Bottom: ...
+        # Procesar el mensaje para extraer el texto del meme
         top_text = ""
         bottom_text = ""
         for line in mensaje.split('\n'):
@@ -36,6 +38,10 @@ def generar_texto_meme(idea):
                 top_text = line.split(":", 1)[1].strip()
             elif line.lower().startswith("bottom:"):
                 bottom_text = line.split(":", 1)[1].strip()
+        
+        # Depuración: Mostrar los textos extraídos
+        st.write("**Texto Superior:**", top_text)
+        st.write("**Texto Inferior:**", bottom_text)
         
         return top_text, bottom_text
     except requests.exceptions.HTTPError as http_err:
