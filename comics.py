@@ -6,9 +6,9 @@ from io import BytesIO
 
 # URLs de descarga de la fuente DejaVu Sans y sus variantes
 FONT_URLS = {
-    "Normal": "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf",
-    "Negrita": "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf",
-    "Cursiva": "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Oblique.ttf",
+    "Normal": "https://github.com/dejavu-fonts/dejavu-fonts/raw/main/ttf/DejaVuSans.ttf",
+    "Negrita": "https://github.com/dejavu-fonts/dejavu-fonts/raw/main/ttf/DejaVuSans-Bold.ttf",
+    "Cursiva": "https://github.com/dejavu-fonts/dejavu-fonts/raw/main/ttf/DejaVuSans-Oblique.ttf",
 }
 
 @st.cache_data(show_spinner=False)
