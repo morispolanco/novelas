@@ -62,45 +62,100 @@ def generar_ilustracion(prompt, width=512, height=512):
     return None
 
 def crear_meme(imagen, texto):
-    # Añade el texto al meme
+    """
+    Añade el texto al meme.
+    
+    Args:
+        imagen (PIL.Image): Imagen base para el meme.
+        texto (str): Texto a añadir en el meme.
+    
+    Returns:
+        PIL.Image: Imagen con el texto añadido.
+    """
     ancho, alto = imagen.size
     imagen_editable = imagen.copy()
     draw = ImageDraw.Draw(imagen_editable)
+    
+    # Cargar la fuente
     try:
-        font = ImageFont.truetype("arial.ttf", size=int(alto/10))
+        font_size = max(20, int(alto / 10))  # Asegurar un tamaño mínimo de fuente
+        font = ImageFont.truetype("arial.ttf", size=font_size)
     except IOError:
         # Si no se encuentra la fuente arial.ttf, usar una fuente predeterminada
         font = ImageFont.load_default()
-    text_width, text_height = draw.textsize(texto, font=font)
+        st.warning("No se encontró 'arial.ttf'. Se utilizará una fuente predeterminada.")
+    
+    # Obtener las dimensiones del texto
+    try:
+        # Para Pillow >= 8.0.0
+        text_bbox = draw.textbbox((0, 0), texto, font=font)
+        text_width = text_bbox[2] - text_bbox[0]
+        text_height = text_bbox[3] - text_bbox[1]
+    except AttributeError:
+        # Para versiones antiguas de Pillow
+        text_width, text_height = draw.textsize(texto, font=font)
+    
+    # Calcular la posición del texto (centrado horizontalmente, cerca de la parte inferior)
     x = (ancho - text_width) / 2
-    y = alto - text_height - 10
-    # Añadir contorno al texto
+    y = alto - text_height - 10  # 10 píxeles desde el borde inferior
+    
+    # Añadir contorno al texto para mayor legibilidad
     outline_range = 2
-    for adj in range(-outline_range, outline_range+1):
-        draw.text((x+adj, y), texto, font=font, fill="black")
-        draw.text((x, y+adj), texto, font=font, fill="black")
-        draw.text((x+adj, y+adj), texto, font=font, fill="black")
-    # Añadir texto blanco encima
+    for adj in range(-outline_range, outline_range + 1):
+        if adj != 0:
+            draw.text((x + adj, y), texto, font=font, fill="black")
+            draw.text((x, y + adj), texto, font=font, fill="black")
+            draw.text((x + adj, y + adj), texto, font=font, fill="black")
+    
+    # Añadir el texto principal en color blanco
     draw.text((x, y), texto, font=font, fill="white")
+    
     return imagen_editable
 
 def main():
-    st.title("Generador de Memes")
+    st.set_page_config(page_title="Generador de Memes", page_icon="😄", layout="centered")
+    st.title("🖼️ Generador de Memes Personalizados")
+    
+    st.markdown("""
+    **Instrucciones:**
+    1. Introduce una idea o descripción para tu meme.
+    2. Haz clic en "Generar Meme".
+    3. Espera mientras se genera el texto y la imagen.
+    4. Disfruta de tu meme personalizado.
+    """)
+    
     idea_usuario = st.text_input("Introduce tu idea para el meme:")
+    
     if st.button("Generar Meme"):
-        if idea_usuario:
+        if idea_usuario.strip() == "":
+            st.error("Por favor, introduce una idea para el meme.")
+        else:
             with st.spinner("Generando el texto del meme..."):
                 texto_meme = generar_texto_meme(idea_usuario)
+            
             if texto_meme:
-                st.write("**Texto del Meme:**")
-                st.write(texto_meme)
+                st.success("Texto del meme generado exitosamente:")
+                st.write(f"**{texto_meme}**")
+                
                 with st.spinner("Generando la imagen del meme..."):
                     imagen = generar_ilustracion(idea_usuario)
+                
                 if imagen:
-                    meme = crear_meme(imagen, texto_meme)
-                    st.image(meme, caption="Tu meme generado")
-        else:
-            st.error("Por favor, introduce una idea para el meme.")
+                    with st.spinner("Creando el meme final..."):
+                        meme = crear_meme(imagen, texto_meme)
+                    
+                    if meme:
+                        st.image(meme, caption="🎉 Tu meme generado", use_column_width=True)
+                        # Opcional: ofrecer descarga del meme
+                        buffered = BytesIO()
+                        meme.save(buffered, format="PNG")
+                        img_str = base64.b64encode(buffered.getvalue()).decode()
+                        href = f'<a href="data:file/png;base64,{img_str}" download="meme.png">📥 Descargar Meme</a>'
+                        st.markdown(href, unsafe_allow_html=True)
+                else:
+                    st.error("No se pudo generar la imagen del meme.")
+            else:
+                st.error("No se pudo generar el texto del meme.")
 
 if __name__ == "__main__":
     main()
