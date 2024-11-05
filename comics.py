@@ -6,9 +6,9 @@ from io import BytesIO
 
 # URLs de descarga de la fuente DejaVu Sans y sus variantes
 FONT_URLS = {
-    "Normal": "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf",
-    "Negrita": "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans-Bold.ttf",
-    "Cursiva": "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans-Oblique.ttf",
+    "Normal": "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf",
+    "Negrita": "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf",
+    "Cursiva": "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Oblique.ttf",
 }
 
 @st.cache_data(show_spinner=False)
@@ -20,7 +20,7 @@ def descargar_fuente(estilo):
         estilo (str): Estilo de la fuente ('Normal', 'Negrita', 'Cursiva').
 
     Returns:
-        BytesIO: Objeto de bytes de la fuente descargada.
+        BytesIO: Objeto de bytes de la fuente descargada o None si falla.
     """
     url = FONT_URLS.get(estilo, FONT_URLS["Normal"])
     try:
@@ -243,4 +243,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
