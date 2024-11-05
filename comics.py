@@ -1,155 +1,51 @@
 import streamlit as st
 import requests
+from PIL import Image, ImageDraw, ImageFont
 import base64
-from PIL import Image
 from io import BytesIO
-import json
 
-# Configuración de la página
-st.set_page_config(
-    page_title="Generador de Memes",
-    page_icon="😂",
-    layout="centered",
-    initial_sidebar_state="auto",
-)
-
-# Título de la aplicación
-st.title("🖼️ Generador de Memes Personalizados")
-
-# Descripción
-st.write("""
-    Ingresa una idea para tu meme y generaás tres variantes con ilustraciones únicas.
-    La idea se convertirá primero a un formato de meme estándar, y luego se generarán variantes.
-    La generación de texto se realiza mediante la API de OpenRouter y las imágenes con la API de Together.
-""")
-
-def convertir_a_formato_meme(idea):
-    """
-    Convierte la idea ingresada por el usuario a un formato de meme estándar.
-    Retorna un diccionario con 'top_text' y 'bottom_text'.
-    """
+# Función para generar el texto del meme usando OpenRouter
+def generar_texto_meme(idea):
     api_key = st.secrets["OPENROUTER_API_KEY"]
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"
     }
-    
-    # Prompt mejorado para solicitar una respuesta en formato JSON
-    prompt = (
-        f"Convierte la siguiente idea en un formato de meme con 'Top Text' y 'Bottom Text' en formato JSON:\n"
-        f"Idea: {idea}\n\n"
-        f"Salida esperada:\n{{'top_text': '...', 'bottom_text': '...'}}"
-    )
-    
     data = {
-        "model": "openai/gpt-4",  # Asegúrate de que este sea el modelo correcto
+        "model": "openai/gpt-4o-mini",
         "messages": [
             {
                 "role": "user",
-                "content": prompt
+                "content": f"Genera un formato de meme basado en la siguiente idea: {idea}. Proporciona el texto para la parte superior y la inferior del meme."
             }
-        ],
-        "temperature": 0.7  # Ajusta la temperatura según tus necesidades
+        ]
     }
-    
     try:
         response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
         response.raise_for_status()
         response_data = response.json()
+        mensaje = response_data["choices"][0]["message"]["content"].strip()
         
-        # Registro de la respuesta para depuración
-        st.session_state["debug_response_formato_meme"] = response_data
+        # Suponiendo que el modelo devuelve el texto en formato:
+        # Top: ...
+        # Bottom: ...
+        top_text = ""
+        bottom_text = ""
+        for line in mensaje.split('\n'):
+            if line.lower().startswith("top:"):
+                top_text = line.split(":", 1)[1].strip()
+            elif line.lower().startswith("bottom:"):
+                bottom_text = line.split(":", 1)[1].strip()
         
-        mensaje = response_data.get("choices", [])[0].get("message", {}).get("content", "")
-        
-        # Intentar parsear la respuesta como JSON
-        formato = json.loads(mensaje)
-        
-        # Validar que el formato tenga 'top_text' y 'bottom_text'
-        if 'top_text' in formato and 'bottom_text' in formato:
-            return {"top_text": formato['top_text'], "bottom_text": formato['bottom_text']}
-        else:
-            st.error("El formato de meme generado no contiene 'top_text' y 'bottom_text'.")
-            st.write("Formato de meme generado:", mensaje)
-    
-    except json.JSONDecodeError:
-        st.error("Error al decodificar la respuesta de la API al convertir a formato de meme.")
-        st.write("Respuesta de la API:", mensaje)
+        return top_text, bottom_text
     except requests.exceptions.HTTPError as http_err:
-        st.error(f"Error HTTP al convertir a formato de meme: {http_err} - {response.text}")
+        st.error(f"Error HTTP al generar el texto del meme: {http_err} - {response.text}")
     except Exception as e:
-        st.error(f"Error al convertir a formato de meme: {e}")
-    
-    return {"top_text": "", "bottom_text": ""}
+        st.error(f"Error al generar el texto del meme: {e}")
+    return None, None
 
-def generar_variantes_meme(formato_meme, num_variantes=3):
-    """
-    Genera variantes del formato de meme utilizando la API de OpenRouter.
-    Retorna una lista de diccionarios con 'top_text' y 'bottom_text'.
-    """
-    api_key = st.secrets["OPENROUTER_API_KEY"]
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
-    }
-    
-    # Prompt mejorado para solicitar una respuesta en formato JSON
-    prompt = (
-        f"Genera {num_variantes} variantes de este formato de meme en formato JSON. "
-        f"Cada variante debe tener 'top_text' y 'bottom_text'. "
-        f"Formato de entrada:\nTop Text: {formato_meme['top_text']}\nBottom Text: {formato_meme['bottom_text']}\n\n"
-        f"Salida esperada:\n[\n  {{'top_text': '...', 'bottom_text': '...'}},\n  ...\n]"
-    )
-    
-    data = {
-        "model": "openai/gpt-4",  # Asegúrate de que este sea el modelo correcto
-        "messages": [
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        "temperature": 0.7  # Ajusta la temperatura según tus necesidades
-    }
-    
-    try:
-        response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
-        response.raise_for_status()
-        response_data = response.json()
-        
-        # Registro de la respuesta para depuración
-        st.session_state["debug_response_variantes"] = response_data
-        
-        mensaje = response_data.get("choices", [])[0].get("message", {}).get("content", "")
-        
-        # Intentar parsear la respuesta como JSON
-        variantes = json.loads(mensaje)
-        
-        # Validar que cada variante tenga 'top_text' y 'bottom_text'
-        variantes_validas = []
-        for variante in variantes:
-            if 'top_text' in variante and 'bottom_text' in variante:
-                variantes_validas.append({
-                    'top_text': variante['top_text'],
-                    'bottom_text': variante['bottom_text']
-                })
-        
-        return variantes_validas[:num_variantes]
-    
-    except json.JSONDecodeError:
-        st.error("Error al decodificar la respuesta de la API. Asegúrate de que la respuesta esté en formato JSON válido.")
-        st.write("Respuesta de la API:", mensaje)
-    except requests.exceptions.HTTPError as http_err:
-        st.error(f"Error HTTP al generar variantes: {http_err} - {response.text}")
-    except Exception as e:
-        st.error(f"Error al generar variantes: {e}")
-    
-    return []
-
-def generar_ilustracion(prompt, width=512, height=512):
-    """
-    Genera una ilustración basada en el prompt utilizando la API de Together.
-    """
+# Función para generar la ilustración usando Together API
+def generar_ilustracion(prompt, estilo="realistic", width=512, height=512):
     api_key = st.secrets["TOGETHER_API_KEY"]
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -171,7 +67,7 @@ def generar_ilustracion(prompt, width=512, height=512):
         # Decodificar la imagen de base64
         b64_image = response_data["data"][0]["b64_json"]
         image_bytes = base64.b64decode(b64_image)
-        image = Image.open(BytesIO(image_bytes))
+        image = Image.open(BytesIO(image_bytes)).convert("RGB")
         return image
     except requests.exceptions.HTTPError as http_err:
         st.error(f"Error HTTP al generar la imagen: {http_err} - {response.text}")
@@ -179,56 +75,89 @@ def generar_ilustracion(prompt, width=512, height=512):
         st.error(f"Error al generar la imagen: {e}")
     return None
 
-def main():
-    # Entrada del usuario
-    idea = st.text_input("Ingresa la idea para tu meme:", "")
-    
-    if st.button("Generar Memes"):
-        if not idea.strip():
-            st.warning("Por favor, ingresa una idea para generar memes.")
-        else:
-            with st.spinner("Convirtiendo la idea al formato de meme..."):
-                formato_meme = convertir_a_formato_meme(idea)
-            
-            if formato_meme['top_text'] and formato_meme['bottom_text']:
-                st.success("Formato de meme generado exitosamente.")
-                st.markdown(f"**Top Text:** {formato_meme['top_text']}")
-                st.markdown(f"**Bottom Text:** {formato_meme['bottom_text']}")
-                st.markdown("---")
-                
-                with st.spinner("Generando variantes del meme..."):
-                    variantes = generar_variantes_meme(formato_meme)
-                
-                if variantes:
-                    st.success("Variantes generadas exitosamente.")
-                    for idx, variante in enumerate(variantes, 1):
-                        st.markdown(f"### Variante {idx}")
-                        st.markdown(f"**Top Text:** {variante['top_text']}")
-                        st.markdown(f"**Bottom Text:** {variante['bottom_text']}")
-                        # Crear un prompt para la ilustración combinando ambos textos
-                        prompt_imagen = f"{variante['top_text']} - {variante['bottom_text']}"
-                        with st.spinner(f"Generando ilustración para variante {idx}..."):
-                            imagen = generar_ilustracion(prompt_imagen)
-                        if imagen:
-                            st.image(imagen, use_column_width=True)
-                        st.markdown("---")
-                    
-                    # Mostrar respuestas de depuración si están disponibles
-                    if "debug_response_variantes" in st.session_state:
-                        st.markdown("### Depuración de Variantes")
-                        st.json(st.session_state["debug_response_variantes"])
-                else:
-                    st.error("No se pudieron generar variantes del meme.")
-                    # Mostrar respuesta de depuración si está disponible
-                    if "debug_response_variantes" in st.session_state:
-                        st.markdown("### Depuración de Variantes")
-                        st.json(st.session_state["debug_response_variantes"])
-            else:
-                st.error("No se pudo convertir la idea al formato de meme. Intenta con otra idea.")
-                # Mostrar respuesta de depuración si está disponible
-                if "debug_response_formato_meme" in st.session_state:
-                    st.markdown("### Depuración de Formato de Meme")
-                    st.json(st.session_state["debug_response_formato_meme"])
+# Función para agregar texto al meme
+def agregar_texto_imagen(image, top_text, bottom_text, font_path="arial.ttf", font_size=40):
+    draw = ImageDraw.Draw(image)
+    width, height = image.size
 
-if __name__ == "__main__":
-    main()
+    # Cargar fuente
+    try:
+        font = ImageFont.truetype(font_path, font_size)
+    except IOError:
+        font = ImageFont.load_default()
+
+    # Función para ajustar el texto al ancho de la imagen
+    def ajustar_texto(texto, ancho_max, fuente):
+        palabras = texto.split()
+        lineas = []
+        linea_actual = ""
+        for palabra in palabras:
+            prueba = f"{linea_actual} {palabra}".strip()
+            ancho, _ = draw.textsize(prueba, font=fuente)
+            if ancho <= ancho_max:
+                linea_actual = prueba
+            else:
+                lineas.append(linea_actual)
+                linea_actual = palabra
+        if linea_actual:
+            lineas.append(linea_actual)
+        return lineas
+
+    # Agregar texto superior
+    top_lineas = ajustar_texto(top_text, width - 20, font)
+    y = 10
+    for linea in top_lineas:
+        ancho, alto = draw.textsize(linea, font=font)
+        draw.text(((width - ancho) / 2, y), linea, fill="white", font=font, stroke_width=2, stroke_fill="black")
+        y += alto
+
+    # Agregar texto inferior
+    bottom_lineas = ajustar_texto(bottom_text, width - 20, font)
+    y = height - (len(bottom_lineas) * (font_size + 10)) - 10
+    for linea in bottom_lineas:
+        ancho, alto = draw.textsize(linea, font=font)
+        draw.text(((width - ancho) / 2, y), linea, fill="white", font=font, stroke_width=2, stroke_fill="black")
+        y += alto
+
+    return image
+
+# Configuración de la aplicación Streamlit
+st.set_page_config(page_title="Generador de Memes", page_icon="😂", layout="centered")
+st.title("📸 Generador de Memes")
+st.write("Introduce una idea y genera un meme personalizado.")
+
+# Entrada de usuario
+idea_usuario = st.text_input("Introduce tu idea para el meme:", "")
+
+# Botón para generar el meme
+if st.button("Generar Meme") and idea_usuario:
+    with st.spinner("Generando el meme..."):
+        # Generar el texto del meme
+        top_text, bottom_text = generar_texto_meme(idea_usuario)
+        
+        if top_text and bottom_text:
+            st.write("**Texto del Meme:**")
+            st.write(f"**Parte Superior:** {top_text}")
+            st.write(f"**Parte Inferior:** {bottom_text}")
+            
+            # Generar la ilustración
+            imagen = generar_ilustracion(idea_usuario)
+            
+            if imagen:
+                # Agregar texto a la imagen
+                meme = agregar_texto_imagen(imagen, top_text, bottom_text)
+                
+                # Mostrar el meme
+                st.image(meme, caption="¡Aquí está tu meme!", use_column_width=True)
+                
+                # Opción para descargar el meme
+                buffered = BytesIO()
+                meme.save(buffered, format="PNG")
+                img_str = base64.b64encode(buffered.getvalue()).decode()
+                href = f'<a href="data:image/png;base64,{img_str}" download="meme.png">📥 Descargar Meme</a>'
+                st.markdown(href, unsafe_allow_html=True)
+        else:
+            st.error("No se pudo generar el texto del meme. Por favor, intenta de nuevo.")
+
+elif st.button("Generar Meme") and not idea_usuario:
+    st.warning("Por favor, introduce una idea para generar el meme.")
