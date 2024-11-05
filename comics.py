@@ -11,6 +11,7 @@ FONT_URLS = {
     "Cursiva": "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans-Oblique.ttf",
 }
 
+@st.cache_data(show_spinner=False)
 def descargar_fuente(estilo):
     """
     Descarga la fuente DejaVu Sans en el estilo especificado.
@@ -19,20 +20,19 @@ def descargar_fuente(estilo):
         estilo (str): Estilo de la fuente ('Normal', 'Negrita', 'Cursiva').
 
     Returns:
-        ImageFont.FreeTypeFont: Objeto de fuente cargado.
+        BytesIO: Objeto de bytes de la fuente descargada.
     """
     url = FONT_URLS.get(estilo, FONT_URLS["Normal"])
     try:
         response = requests.get(url)
         response.raise_for_status()
         font_bytes = BytesIO(response.content)
-        font = ImageFont.truetype(font_bytes, size=40)  # Tamaño por defecto; se ajustará más adelante
-        return font
+        return font_bytes
     except requests.exceptions.HTTPError as http_err:
-        st.error(f"Error HTTP al descargar la fuente: {http_err}")
+        st.error(f"Error HTTP al descargar la fuente '{estilo}': {http_err}")
     except Exception as e:
-        st.error(f"Error al descargar la fuente: {e}")
-    return ImageFont.load_default()
+        st.error(f"Error al descargar la fuente '{estilo}': {e}")
+    return None
 
 def generar_texto_meme(idea_usuario):
     """
@@ -121,14 +121,16 @@ def crear_meme(imagen, texto, estilo, color, tamaño):
     draw = ImageDraw.Draw(imagen_editable)
 
     # Descargar y cargar la fuente con el tamaño seleccionado
-    font = descargar_fuente(estilo)
-    # Ajustar el tamaño de la fuente si es necesario
-    if font.size != tamaño:
+    font_bytes = descargar_fuente(estilo)
+    if font_bytes:
         try:
-            font = ImageFont.truetype(font.path, size=tamaño)
-        except AttributeError:
-            # Si la fuente no tiene atributo 'path' (fuentes cargadas desde BytesIO)
-            font = ImageFont.truetype(BytesIO(requests.get(FONT_URLS[estilo]).content), size=tamaño)
+            font = ImageFont.truetype(font_bytes, size=tamaño)
+        except Exception as e:
+            st.error(f"No se pudo cargar la fuente '{estilo}' con tamaño {tamaño}: {e}")
+            font = ImageFont.load_default()
+    else:
+        font = ImageFont.load_default()
+        st.warning("Usando fuente predeterminada debido a problemas al descargar la fuente.")
 
     # Función para dibujar texto con contorno
     def dibujar_texto(texto, posicion_y):
@@ -241,3 +243,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
