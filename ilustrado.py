@@ -7,7 +7,6 @@ from PIL import Image
 from io import BytesIO
 import re
 import os
-import zipfile
 
 # Importar bibliotecas para manejar archivos
 import PyPDF2
@@ -25,8 +24,8 @@ def dividir_en_capitulos(texto):
         capitulos_limpios.append({'titulo': titulo, 'contenido': contenido})
     return capitulos_limpios
 
-# Función para extraer una frase significativa usando OpenRouter
-def extraer_frase_significativa(capitulo):
+# Función para resumir un capítulo usando OpenRouter
+def resumir_capitulo(capitulo):
     api_key = st.secrets["OPENROUTER_API_KEY"]
     headers = {
         "Content-Type": "application/json",
@@ -37,16 +36,16 @@ def extraer_frase_significativa(capitulo):
         "messages": [
             {
                 "role": "user",
-                "content": f"Elige una frase significativa del siguiente capítulo de una novela, asegurando coherencia en los personajes y el ambiente:\n\n{capitulo}"
+                "content": f"Resume el siguiente capítulo de una novela asegurando coherencia en los personajes y el ambiente:\n\n{capitulo}"
             }
         ]
     }
     response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
     if response.status_code == 200:
-        frase = response.json()['choices'][0]['message']['content'].strip()
-        return frase
+        resumen = response.json()['choices'][0]['message']['content']
+        return resumen
     else:
-        st.error(f"Error al extraer la frase significativa: {response.status_code} - {response.text}")
+        st.error(f"Error al resumir el capítulo: {response.status_code} - {response.text}")
         return None
 
 # Función para generar una ilustración usando Together API
@@ -80,28 +79,37 @@ def generar_ilustracion(prompt, estilo, width=512, height=512):
         st.error(f"Error al generar la imagen: {e}")
     return None
 
-# Función para crear un archivo ZIP con frases e ilustraciones
-def crear_zip(capitulos, frases, ilustraciones):
-    # Crear un objeto BytesIO para el ZIP
-    zip_buffer = BytesIO()
-    with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
-        for idx, cap in enumerate(capitulos, 1):
-            # Nombre de los archivos
-            frase_nombre = f"Capitulo_{idx}_Frase.txt"
-            ilustracion_nombre = f"Capitulo_{idx}_Ilustracion.png"
-            
-            # Agregar frase al ZIP
-            zip_file.writestr(frase_nombre, frases[idx-1])
-            
-            # Agregar ilustración al ZIP
-            if ilustraciones[idx-1]:
-                img_byte_arr = BytesIO()
-                ilustraciones[idx-1].save(img_byte_arr, format='PNG')
-                img_byte_arr.seek(0)
-                zip_file.writestr(ilustracion_nombre, img_byte_arr.read())
+# Función para crear un documento Word con resúmenes e ilustraciones
+def crear_documento_word(capitulos, resúmenes, ilustraciones):
+    document = Document()
+    document.add_heading('Historia Ilustrada', 0)
     
-    zip_buffer.seek(0)
-    return zip_buffer
+    for idx, cap in enumerate(capitulos):
+        # Agregar título del capítulo
+        document.add_heading(cap['titulo'], level=1)
+        
+        # Agregar resumen
+        document.add_heading('Resumen', level=2)
+        document.add_paragraph(resúmenes[idx])
+        
+        # Agregar imagen
+        if ilustraciones[idx]:
+            # Guardar imagen en BytesIO
+            img_byte_arr = BytesIO()
+            ilustraciones[idx].save(img_byte_arr, format='PNG')
+            img_byte_arr.seek(0)
+            # Agregar imagen al documento
+            document.add_picture(img_byte_arr, width=Inches(6))
+        
+        # Agregar una separación
+        document.add_page_break()
+    
+    # Guardar documento en BytesIO
+    doc_byte_arr = BytesIO()
+    document.save(doc_byte_arr)
+    doc_byte_arr.seek(0)
+    
+    return doc_byte_arr
 
 # Lista de estilos artísticos soportados
 supported_styles = [
@@ -131,7 +139,7 @@ st.title("Convertidor de Novela en Historia Ilustrada")
 
 # Instrucciones
 st.markdown("""
-Sube tu novela en formato `.txt`, `.docx` o `.pdf`, selecciona un estilo artístico para las ilustraciones y la aplicación extraerá una frase significativa de cada capítulo y generará ilustraciones coherentes para cada una. Al final, podrás descargar un archivo ZIP que contiene todas las frases significativas e ilustraciones generadas.
+Sube tu novela en formato `.txt`, `.docx` o `.pdf`, selecciona un estilo artístico para las ilustraciones y la aplicación resumirá cada capítulo y generará ilustraciones coherentes para cada uno.
 """)
 
 # Subida de archivo
@@ -178,24 +186,24 @@ if st.button("Procesar Novela"):
             if len(capitulos) == 0:
                 st.error("No se encontraron capítulos en el documento. Asegúrate de que los capítulos estén marcados con 'Capítulo' o 'Chapter' seguido de un número.")
             else:
-                # Crear listas para almacenar frases e ilustraciones
-                frases_significativas = []
+                # Crear listas para almacenar resúmenes e ilustraciones
+                resúmenes = []
                 ilustraciones = []
                 
                 for idx, cap in enumerate(capitulos, 1):
                     st.write(f"### {cap['titulo']}")
                     
-                    # Extraer frase significativa
-                    with st.spinner(f"Extrayendo frase significativa del capítulo {idx}..."):
-                        frase = extraer_frase_significativa(cap['contenido'])
-                        if frase:
-                            frases_significativas.append(frase)
-                            st.write("**Frase Significativa:**")
-                            st.write(frase)
+                    # Resumir capítulo
+                    with st.spinner(f"Resumiendo el capítulo {idx}..."):
+                        resumen = resumir_capitulo(cap['contenido'])
+                        if resumen:
+                            resúmenes.append(resumen)
+                            st.write("**Resumen:**")
+                            st.write(resumen)
                     
                     # Generar ilustración
                     with st.spinner(f"Generando ilustración para el capítulo {idx}..."):
-                        prompt = f"{frase}. Estilo artístico: {estilo_seleccionado}."
+                        prompt = f"{resumen}. Estilo artístico: {estilo_seleccionado}."
                         imagen = generar_ilustracion(prompt, estilo_seleccionado)
                         if imagen:
                             ilustraciones.append(imagen)
@@ -205,16 +213,16 @@ if st.button("Procesar Novela"):
                 
                 st.success("Procesamiento completado.")
                 
-                # Crear el archivo ZIP
-                with st.spinner("Creando archivo ZIP con frases significativas e ilustraciones..."):
-                    zip_file = crear_zip(capitulos, frases_significativas, ilustraciones)
+                # Crear el documento Word
+                with st.spinner("Creando documento Word..."):
+                    doc_word = crear_documento_word(capitulos, resúmenes, ilustraciones)
                 
                 # Proporcionar botón para descargar
                 st.download_button(
-                    label="Descargar Frases e Ilustraciones en ZIP",
-                    data=zip_file,
-                    file_name='frases_ilustraciones.zip',
-                    mime='application/zip'
+                    label="Descargar Historia Ilustrada en Word",
+                    data=doc_word,
+                    file_name='historia_ilustrada.docx',
+                    mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
                 )
     else:
         st.error("Por favor, sube un archivo para comenzar.")
