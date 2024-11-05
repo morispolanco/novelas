@@ -87,14 +87,13 @@ def cargar_fuentes_arial():
             st.warning(f"Fuente '{archivo}' no encontrada. Asegúrate de tener el archivo '{archivo}' en la carpeta 'fonts'.")
     return fuentes_disponibles
 
-def crear_meme(imagen, texto_superior, texto_inferior, estilo, color, tamaño):
+def crear_meme(imagen, texto, estilo, color, tamaño):
     """
-    Añade el texto superior e inferior al meme utilizando la fuente Arial y el estilo seleccionado.
+    Añade el texto generado al meme utilizando la fuente Arial y el estilo seleccionado.
 
     Args:
         imagen (PIL.Image): Imagen base para el meme.
-        texto_superior (str): Texto a añadir en la parte superior.
-        texto_inferior (str): Texto a añadir en la parte inferior.
+        texto (str): Texto a añadir en el meme.
         estilo (str): Estilo del texto ('Normal', 'Negrita', 'Cursiva').
         color (str): Color del texto en formato hexadecimal.
         tamaño (int): Tamaño de la fuente.
@@ -123,15 +122,20 @@ def crear_meme(imagen, texto_superior, texto_inferior, estilo, color, tamaño):
         st.warning("No se pudo cargar la fuente seleccionada. Usando fuente predeterminada.")
 
     # Función para dibujar texto con contorno
-    def dibujar_texto(texto, posicion):
+    def dibujar_texto(texto, posicion_y):
         if texto.strip() == "":
             return
-        text_bbox = draw.textbbox((0, 0), texto, font=font)
-        text_width = text_bbox[2] - text_bbox[0]
-        text_height = text_bbox[3] - text_bbox[1]
+        # Obtener el tamaño del texto
+        try:
+            text_bbox = draw.textbbox((0, 0), texto, font=font)
+            text_width = text_bbox[2] - text_bbox[0]
+            text_height = text_bbox[3] - text_bbox[1]
+        except AttributeError:
+            # Para versiones antiguas de Pillow
+            text_width, text_height = draw.textsize(texto, font=font)
 
         x = (ancho - text_width) / 2
-        y = posicion
+        y = posicion_y
 
         # Añadir contorno al texto para mayor legibilidad
         outline_range = 2
@@ -144,11 +148,19 @@ def crear_meme(imagen, texto_superior, texto_inferior, estilo, color, tamaño):
         # Añadir el texto principal en el color seleccionado
         draw.text((x, y), texto, font=font, fill=color)
 
-    # Dibujar texto superior
-    dibujar_texto(texto_superior.upper(), 10)
+    # Dibujar el texto en el centro de la imagen
+    try:
+        text_bbox = draw.textbbox((0, 0), texto, font=font)
+        text_width = text_bbox[2] - text_bbox[0]
+        text_height = text_bbox[3] - text_bbox[1]
+    except AttributeError:
+        # Para versiones antiguas de Pillow
+        text_width, text_height = draw.textsize(texto, font=font)
 
-    # Dibujar texto inferior
-    dibujar_texto(texto_inferior.upper(), alto - (tamaño + 20))
+    x = (ancho - text_width) / 2
+    y = (alto - text_height) / 2
+
+    dibujar_texto(texto, y)
 
     return imagen_editable
 
@@ -159,19 +171,14 @@ def main():
     st.markdown("""
     **Instrucciones:**
     1. Introduce una idea o descripción para tu meme.
-    2. Proporciona el texto que deseas en la parte superior e inferior.
-    3. Personaliza el estilo, color y tamaño del texto.
-    4. Haz clic en "Generar Meme".
-    5. Espera mientras se genera el texto y la imagen.
-    6. Disfruta de tu meme personalizado.
+    2. Personaliza el estilo, color y tamaño del texto.
+    3. Haz clic en "Generar Meme".
+    4. Espera mientras se genera el texto y la imagen.
+    5. Disfruta de tu meme personalizado.
     """)
 
     # Entrada de la idea del usuario
     idea_usuario = st.text_input("Introduce tu idea para el meme:")
-
-    # Entrada de texto superior e inferior
-    texto_superior = st.text_input("Texto Superior:", value="")
-    texto_inferior = st.text_input("Texto Inferior:", value="")
 
     # Selección de estilo
     st.markdown("### Personalización del Texto")
@@ -187,8 +194,6 @@ def main():
     if st.button("Generar Meme"):
         if idea_usuario.strip() == "":
             st.error("Por favor, introduce una idea para el meme.")
-        elif texto_superior.strip() == "" and texto_inferior.strip() == "":
-            st.error("Por favor, introduce al menos un texto (superior o inferior) para el meme.")
         else:
             with st.spinner("Generando el texto del meme..."):
                 texto_meme = generar_texto_meme(idea_usuario)
@@ -202,12 +207,9 @@ def main():
                 
                 if imagen:
                     with st.spinner("Creando el meme final..."):
-                        # Puedes dividir el texto_meme en líneas superior e inferior si lo deseas
-                        # Por ahora, usaremos el texto proporcionado por el usuario
                         meme = crear_meme(
                             imagen,
-                            texto_superior=texto_superior,
-                            texto_inferior=texto_inferior,
+                            texto=texto_meme,
                             estilo=estilo_seleccionado,
                             color=color_texto,
                             tamaño=tamaño_texto
