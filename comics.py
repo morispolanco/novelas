@@ -6,6 +6,9 @@ from io import BytesIO
 import os
 
 def generar_texto_meme(idea_usuario):
+    """
+    Genera el texto del meme utilizando la API de OpenRouter.
+    """
     api_key = st.secrets["OPENROUTER_API_KEY"]
     headers = {
         "Content-Type": "application/json",
@@ -33,6 +36,9 @@ def generar_texto_meme(idea_usuario):
     return None
 
 def generar_ilustracion(prompt, width=512, height=512):
+    """
+    Genera una ilustración basada en el prompt utilizando la API de Together.
+    """
     api_key = st.secrets["TOGETHER_API_KEY"]
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -62,17 +68,15 @@ def generar_ilustracion(prompt, width=512, height=512):
         st.error(f"Error al generar la imagen: {e}")
     return None
 
-def cargar_fuentes_disponibles():
+def cargar_fuentes_arial():
     """
-    Carga una lista de fuentes disponibles.
-    Puedes agregar más fuentes descargando los archivos .ttf y colocándolos en una carpeta llamada 'fonts'.
+    Carga las fuentes Arial disponibles desde la carpeta 'fonts'.
+    Asegúrate de tener las variantes 'arial.ttf', 'arialbd.ttf' y 'ariali.ttf' en la carpeta.
     """
     fuentes = {
-        "Arial": "arial.ttf",
-        "Impact": "impact.ttf",
-        "Comic Sans MS": "comic.ttf",
-        "Times New Roman": "times.ttf",
-        "Courier New": "cour.ttf",
+        "Normal": "arial.ttf",
+        "Negrita": "arialbd.ttf",
+        "Cursiva": "ariali.ttf",
     }
     fuentes_disponibles = {}
     for nombre, archivo in fuentes.items():
@@ -80,21 +84,20 @@ def cargar_fuentes_disponibles():
         if os.path.exists(ruta_fuente):
             fuentes_disponibles[nombre] = ruta_fuente
         else:
-            st.warning(f"Fuente '{nombre}' no encontrada. Asegúrate de tener el archivo '{archivo}' en la carpeta 'fonts'.")
+            st.warning(f"Fuente '{archivo}' no encontrada. Asegúrate de tener el archivo '{archivo}' en la carpeta 'fonts'.")
     return fuentes_disponibles
 
-def crear_meme(imagen, texto_superior, texto_inferior, fuente, color, tamaño, estilo):
+def crear_meme(imagen, texto_superior, texto_inferior, estilo, color, tamaño):
     """
-    Añade el texto superior e inferior al meme.
+    Añade el texto superior e inferior al meme utilizando la fuente Arial y el estilo seleccionado.
 
     Args:
         imagen (PIL.Image): Imagen base para el meme.
         texto_superior (str): Texto a añadir en la parte superior.
         texto_inferior (str): Texto a añadir en la parte inferior.
-        fuente (str): Nombre de la fuente seleccionada.
+        estilo (str): Estilo del texto ('Normal', 'Negrita', 'Cursiva').
         color (str): Color del texto en formato hexadecimal.
         tamaño (int): Tamaño de la fuente.
-        estilo (str): Estilo del texto ('Normal', 'Negrita', 'Cursiva').
 
     Returns:
         PIL.Image: Imagen con el texto añadido.
@@ -103,24 +106,15 @@ def crear_meme(imagen, texto_superior, texto_inferior, fuente, color, tamaño, e
     imagen_editable = imagen.copy()
     draw = ImageDraw.Draw(imagen_editable)
 
-    # Ruta de la fuente seleccionada
-    fuentes_disponibles = cargar_fuentes_disponibles()
-    ruta_fuente = fuentes_disponibles.get(fuente, None)
+    # Cargar la fuente Arial con el estilo seleccionado
+    fuentes_disponibles = cargar_fuentes_arial()
+    ruta_fuente = fuentes_disponibles.get(estilo, None)
 
-    # Cargar la fuente
     try:
         if ruta_fuente:
-            # Modificar el nombre de la fuente según el estilo
-            if estilo == "Negrita":
-                nombre_fuente = ruta_fuente.replace(".ttf", "bd.ttf")  # Ejemplo: arialbd.ttf
-            elif estilo == "Cursiva":
-                nombre_fuente = ruta_fuente.replace(".ttf", "i.ttf")   # Ejemplo: ariali.ttf
-            else:
-                nombre_fuente = ruta_fuente
-
-            font = ImageFont.truetype(nombre_fuente, size=tamaño)
+            font = ImageFont.truetype(ruta_fuente, size=tamaño)
         else:
-            # Si la fuente no está disponible, usar la fuente predeterminada
+            # Si no se encuentra la fuente específica, usar la fuente predeterminada
             font = ImageFont.load_default()
             st.warning("Usando fuente predeterminada.")
     except IOError:
@@ -129,7 +123,7 @@ def crear_meme(imagen, texto_superior, texto_inferior, fuente, color, tamaño, e
         st.warning("No se pudo cargar la fuente seleccionada. Usando fuente predeterminada.")
 
     # Función para dibujar texto con contorno
-    def dibujar_texto(texto, position):
+    def dibujar_texto(texto, posicion):
         if texto.strip() == "":
             return
         text_bbox = draw.textbbox((0, 0), texto, font=font)
@@ -137,7 +131,7 @@ def crear_meme(imagen, texto_superior, texto_inferior, fuente, color, tamaño, e
         text_height = text_bbox[3] - text_bbox[1]
 
         x = (ancho - text_width) / 2
-        y = position
+        y = posicion
 
         # Añadir contorno al texto para mayor legibilidad
         outline_range = 2
@@ -160,13 +154,13 @@ def crear_meme(imagen, texto_superior, texto_inferior, fuente, color, tamaño, e
 
 def main():
     st.set_page_config(page_title="Generador de Memes", page_icon="😄", layout="centered")
-    st.title("🖼️ Generador de Memes Personalizados")
+    st.title("🖼️ Generador de Memes Personalizados con Arial")
 
     st.markdown("""
     **Instrucciones:**
     1. Introduce una idea o descripción para tu meme.
     2. Proporciona el texto que deseas en la parte superior e inferior.
-    3. Personaliza la fuente, color, tamaño y estilo del texto.
+    3. Personaliza el estilo, color y tamaño del texto.
     4. Haz clic en "Generar Meme".
     5. Espera mientras se genera el texto y la imagen.
     6. Disfruta de tu meme personalizado.
@@ -179,13 +173,10 @@ def main():
     texto_superior = st.text_input("Texto Superior:", value="")
     texto_inferior = st.text_input("Texto Inferior:", value="")
 
-    # Selección de fuente
-    st.markdown("### Personalización del Texto")
-    fuentes_disponibles = cargar_fuentes_disponibles()
-    fuente_seleccionada = st.selectbox("Selecciona una fuente:", options=list(fuentes_disponibles.keys()), index=0)
-
     # Selección de estilo
-    estilo_seleccionado = st.selectbox("Selecciona un estilo de texto:", options=["Normal", "Negrita", "Cursiva"], index=0)
+    st.markdown("### Personalización del Texto")
+    estilos_disponibles = ["Normal", "Negrita", "Cursiva"]
+    estilo_seleccionado = st.selectbox("Selecciona un estilo de texto:", options=estilos_disponibles, index=0)
 
     # Selección de color
     color_texto = st.color_picker("Selecciona el color del texto:", "#FFFFFF")
@@ -217,10 +208,9 @@ def main():
                             imagen,
                             texto_superior=texto_superior,
                             texto_inferior=texto_inferior,
-                            fuente=fuente_seleccionada,
+                            estilo=estilo_seleccionado,
                             color=color_texto,
-                            tamaño=tamaño_texto,
-                            estilo=estilo_seleccionado
+                            tamaño=tamaño_texto
                         )
                     
                     if meme:
