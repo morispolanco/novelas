@@ -34,13 +34,9 @@ def crear_meme(imagen, texto, color, tamaño):
         if texto.strip() == "":
             return
         # Obtener el tamaño del texto
-        try:
-            text_bbox = draw.textbbox((0, 0), texto, font=font)
-            text_width = text_bbox[2] - text_bbox[0]
-            text_height = text_bbox[3] - text_bbox[1]
-        except AttributeError:
-            # Para versiones antiguas de Pillow
-            text_width, text_height = draw.textsize(texto, font=font)
+        text_bbox = draw.textbbox((0, 0), texto, font=font)
+        text_width = text_bbox[2] - text_bbox[0]
+        text_height = text_bbox[3] - text_bbox[1]
 
         x = (ancho - text_width) / 2
         y = posicion_y
@@ -57,13 +53,9 @@ def crear_meme(imagen, texto, color, tamaño):
         draw.text((x, y), texto, font=font, fill=color)
 
     # Dibujar el texto en el centro de la imagen
-    try:
-        text_bbox = draw.textbbox((0, 0), texto, font=font)
-        text_width = text_bbox[2] - text_bbox[0]
-        text_height = text_bbox[3] - text_bbox[1]
-    except AttributeError:
-        # Para versiones antiguas de Pillow
-        text_width, text_height = draw.textsize(texto, font=font)
+    text_bbox = draw.textbbox((0, 0), texto, font=font)
+    text_width = text_bbox[2] - text_bbox[0]
+    text_height = text_bbox[3] - text_bbox[1]
 
     x = (ancho - text_width) / 2
     y = (alto - text_height) / 2
