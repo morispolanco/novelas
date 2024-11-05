@@ -4,39 +4,144 @@ import base64
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 
+# URLs de descarga de la fuente DejaVu Sans y sus variantes
+FONT_URLS = {
+    "Normal": "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf",
+    "Negrita": "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans-Bold.ttf",
+    "Cursiva": "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans-Oblique.ttf",
+}
+
+def descargar_fuente(estilo):
+    """
+    Descarga la fuente DejaVu Sans en el estilo especificado.
+
+    Args:
+        estilo (str): Estilo de la fuente ('Normal', 'Negrita', 'Cursiva').
+
+    Returns:
+        ImageFont.FreeTypeFont: Objeto de fuente cargado.
+    """
+    url = FONT_URLS.get(estilo, FONT_URLS["Normal"])
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        font_bytes = BytesIO(response.content)
+        font = ImageFont.truetype(font_bytes, size=40)  # Tamaño por defecto; se ajustará más adelante
+        return font
+    except requests.exceptions.HTTPError as http_err:
+        st.error(f"Error HTTP al descargar la fuente: {http_err}")
+    except Exception as e:
+        st.error(f"Error al descargar la fuente: {e}")
+    return ImageFont.load_default()
+
 def generar_texto_meme(idea_usuario):
-    # [Función igual que antes]
-    pass
+    """
+    Genera el texto del meme utilizando la API de OpenRouter.
+    """
+    api_key = st.secrets["OPENROUTER_API_KEY"]
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+    data = {
+        "model": "gpt-3.5-turbo",  # Asegúrate de usar un modelo válido
+        "messages": [
+            {
+                "role": "user",
+                "content": f"Convierte esta idea en un texto de meme divertido: {idea_usuario}"
+            }
+        ]
+    }
+    try:
+        response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
+        response.raise_for_status()
+        response_data = response.json()
+        texto_meme = response_data["choices"][0]["message"]["content"].strip()
+        return texto_meme
+    except requests.exceptions.HTTPError as http_err:
+        st.error(f"Error HTTP al generar el texto del meme: {http_err}")
+        try:
+            error_detail = response.json()
+            st.error(f"Detalles del error: {error_detail}")
+        except:
+            st.error("No se pudo obtener detalles adicionales del error.")
+    except Exception as e:
+        st.error(f"Error al generar el texto del meme: {e}")
+    return None
 
 def generar_ilustracion(prompt, width=512, height=512):
-    # [Función igual que antes]
-    pass
-
-def crear_meme(imagen, texto, color, tamaño):
     """
-    Añade el texto generado al meme utilizando la fuente predeterminada de Pillow.
+    Genera una ilustración basada en el prompt utilizando la API de Together.
+    """
+    api_key = st.secrets["TOGETHER_API_KEY"]
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": "black-forest-labs/FLUX.1-pro",
+        "prompt": prompt,
+        "width": width,
+        "height": height,
+        "steps": 28,
+        "n": 1,
+        "response_format": "b64_json"
+    }
+    try:
+        response = requests.post("https://api.together.xyz/v1/images/generations", headers=headers, json=data)
+        response.raise_for_status()
+        response_data = response.json()
+        # Decodificar la imagen de base64
+        b64_image = response_data["data"][0]["b64_json"]
+        image_bytes = base64.b64decode(b64_image)
+        image = Image.open(BytesIO(image_bytes)).convert("RGB")
+        return image
+    except requests.exceptions.HTTPError as http_err:
+        st.error(f"Error HTTP al generar la imagen: {http_err} - {response.text}")
+    except Exception as e:
+        st.error(f"Error al generar la imagen: {e}")
+    return None
+
+def crear_meme(imagen, texto, estilo, color, tamaño):
+    """
+    Añade el texto generado al meme utilizando la fuente DejaVu Sans y el estilo seleccionado.
+
+    Args:
+        imagen (PIL.Image): Imagen base para el meme.
+        texto (str): Texto a añadir en el meme.
+        estilo (str): Estilo del texto ('Normal', 'Negrita', 'Cursiva').
+        color (str): Color del texto en formato hexadecimal.
+        tamaño (int): Tamaño de la fuente.
+
+    Returns:
+        PIL.Image: Imagen con el texto añadido.
     """
     ancho, alto = imagen.size
     imagen_editable = imagen.copy()
     draw = ImageDraw.Draw(imagen_editable)
 
-    # Cargar la fuente predeterminada con el tamaño seleccionado
-    font = ImageFont.load_default()
-    
-    try:
-        font = ImageFont.truetype("arial.ttf", size=tamaño)
-    except:
-        st.warning("No se pudo cargar 'arial.ttf'. Usando fuente predeterminada.")
-        font = ImageFont.load_default()
+    # Descargar y cargar la fuente con el tamaño seleccionado
+    font = descargar_fuente(estilo)
+    # Ajustar el tamaño de la fuente si es necesario
+    if font.size != tamaño:
+        try:
+            font = ImageFont.truetype(font.path, size=tamaño)
+        except AttributeError:
+            # Si la fuente no tiene atributo 'path' (fuentes cargadas desde BytesIO)
+            font = ImageFont.truetype(BytesIO(requests.get(FONT_URLS[estilo]).content), size=tamaño)
 
     # Función para dibujar texto con contorno
     def dibujar_texto(texto, posicion_y):
         if texto.strip() == "":
             return
         # Obtener el tamaño del texto
-        text_bbox = draw.textbbox((0, 0), texto, font=font)
-        text_width = text_bbox[2] - text_bbox[0]
-        text_height = text_bbox[3] - text_bbox[1]
+        try:
+            text_bbox = draw.textbbox((0, 0), texto, font=font)
+            text_width = text_bbox[2] - text_bbox[0]
+            text_height = text_bbox[3] - text_bbox[1]
+        except AttributeError:
+            # Para versiones antiguas de Pillow
+            text_width, text_height = draw.textsize(texto, font=font)
 
         x = (ancho - text_width) / 2
         y = posicion_y
@@ -53,9 +158,13 @@ def crear_meme(imagen, texto, color, tamaño):
         draw.text((x, y), texto, font=font, fill=color)
 
     # Dibujar el texto en el centro de la imagen
-    text_bbox = draw.textbbox((0, 0), texto, font=font)
-    text_width = text_bbox[2] - text_bbox[0]
-    text_height = text_bbox[3] - text_bbox[1]
+    try:
+        text_bbox = draw.textbbox((0, 0), texto, font=font)
+        text_width = text_bbox[2] - text_bbox[0]
+        text_height = text_bbox[3] - text_bbox[1]
+    except AttributeError:
+        # Para versiones antiguas de Pillow
+        text_width, text_height = draw.textsize(texto, font=font)
 
     x = (ancho - text_width) / 2
     y = (alto - text_height) / 2
@@ -66,12 +175,12 @@ def crear_meme(imagen, texto, color, tamaño):
 
 def main():
     st.set_page_config(page_title="Generador de Memes", page_icon="😄", layout="centered")
-    st.title("🖼️ Generador de Memes Personalizados")
+    st.title("🖼️ Generador de Memes Personalizados con DejaVu Sans")
 
     st.markdown("""
     **Instrucciones:**
     1. Introduce una idea o descripción para tu meme.
-    2. Personaliza el color y tamaño del texto.
+    2. Personaliza el estilo, color y tamaño del texto.
     3. Haz clic en "Generar Meme".
     4. Espera mientras se genera el texto y la imagen.
     5. Disfruta de tu meme personalizado.
@@ -79,6 +188,11 @@ def main():
 
     # Entrada de la idea del usuario
     idea_usuario = st.text_input("Introduce tu idea para el meme:")
+
+    # Selección de estilo
+    st.markdown("### Personalización del Texto")
+    estilos_disponibles = ["Normal", "Negrita", "Cursiva"]
+    estilo_seleccionado = st.selectbox("Selecciona un estilo de texto:", options=estilos_disponibles, index=0)
 
     # Selección de color
     color_texto = st.color_picker("Selecciona el color del texto:", "#FFFFFF")
@@ -92,23 +206,24 @@ def main():
         else:
             with st.spinner("Generando el texto del meme..."):
                 texto_meme = generar_texto_meme(idea_usuario)
-            
+
             if texto_meme:
                 st.success("Texto del meme generado exitosamente:")
                 st.write(f"**{texto_meme}**")
-                
+
                 with st.spinner("Generando la imagen del meme..."):
                     imagen = generar_ilustracion(idea_usuario)
-                
+
                 if imagen:
                     with st.spinner("Creando el meme final..."):
                         meme = crear_meme(
                             imagen,
                             texto=texto_meme,
+                            estilo=estilo_seleccionado,
                             color=color_texto,
                             tamaño=tamaño_texto
                         )
-                    
+
                     if meme:
                         st.image(meme, caption="🎉 Tu meme generado", use_column_width=True)
                         # Opcional: ofrecer descarga del meme
