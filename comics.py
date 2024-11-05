@@ -18,24 +18,26 @@ st.title("🖼️ Generador de Memes Personalizados")
 # Descripción
 st.write("""
     Ingresa una idea para tu meme y generaás tres variantes con ilustraciones únicas.
+    La idea se convertirá primero a un formato de meme estándar, y luego se generarán variantes.
     La generación de texto se realiza mediante la API de OpenRouter y las imágenes con la API de Together.
 """)
 
-def generar_variantes_idea(idea, num_variantes=3):
+def convertir_a_formato_meme(idea):
     """
-    Genera variantes de la idea utilizando la API de OpenRouter.
+    Convierte la idea ingresada por el usuario a un formato de meme estándar.
     """
     api_key = st.secrets["OPENROUTER_API_KEY"]
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"
     }
+    prompt = f"Convierte la siguiente idea en un formato de meme con 'Top Text' y 'Bottom Text': {idea}"
     data = {
         "model": "openai/gpt-4o-mini",
         "messages": [
             {
                 "role": "user",
-                "content": f"Genera {num_variantes} ideas para memes basadas en: {idea}"
+                "content": prompt
             }
         ]
     }
@@ -43,9 +45,60 @@ def generar_variantes_idea(idea, num_variantes=3):
         response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
         response.raise_for_status()
         response_data = response.json()
-        mensajes = response_data.get("choices", [])[0].get("message", {}).get("content", "")
-        # Suponiendo que las variantes están separadas por saltos de línea
-        variantes = [var.strip() for var in mensajes.split('\n') if var.strip()]
+        mensaje = response_data.get("choices", [])[0].get("message", {}).get("content", "")
+        # Extraer Top Text y Bottom Text
+        top_text = ""
+        bottom_text = ""
+        if "Top Text:" in mensaje and "Bottom Text:" in mensaje:
+            top_text = mensaje.split("Top Text:")[1].split("Bottom Text:")[0].strip()
+            bottom_text = mensaje.split("Bottom Text:")[1].strip()
+        return {"top_text": top_text, "bottom_text": bottom_text}
+    except requests.exceptions.HTTPError as http_err:
+        st.error(f"Error HTTP al convertir a formato de meme: {http_err} - {response.text}")
+    except Exception as e:
+        st.error(f"Error al convertir a formato de meme: {e}")
+    return {"top_text": "", "bottom_text": ""}
+
+def generar_variantes_meme(formato_meme, num_variantes=3):
+    """
+    Genera variantes del formato de meme utilizando la API de OpenRouter.
+    """
+    api_key = st.secrets["OPENROUTER_API_KEY"]
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+    # Crear un prompt basado en el formato de meme existente
+    prompt = f"Genera {num_variantes} variantes de este formato de meme:\nTop Text: {formato_meme['top_text']}\nBottom Text: {formato_meme['bottom_text']}"
+    data = {
+        "model": "openai/gpt-4o-mini",
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+    }
+    try:
+        response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
+        response.raise_for_status()
+        response_data = response.json()
+        mensaje = response_data.get("choices", [])[0].get("message", {}).get("content", "")
+        variantes = []
+        for line in mensaje.split('\n'):
+            if "Top Text:" in line and "Bottom Text:" in line:
+                top = line.split("Top Text:")[1].split("Bottom Text:")[0].strip()
+                bottom = line.split("Bottom Text:")[1].strip()
+                variantes.append({"top_text": top, "bottom_text": bottom})
+            elif "Top Text:" in line:
+                top = line.split("Top Text:")[1].strip()
+                # Asumir que la siguiente línea es Bottom Text
+                index = mensaje.split('\n').index(line)
+                if index + 1 < len(mensaje.split('\n')):
+                    next_line = mensaje.split('\n')[index + 1]
+                    if "Bottom Text:" in next_line:
+                        bottom = next_line.split("Bottom Text:")[1].strip()
+                        variantes.append({"top_text": top, "bottom_text": bottom})
         return variantes[:num_variantes]
     except requests.exceptions.HTTPError as http_err:
         st.error(f"Error HTTP al generar variantes: {http_err} - {response.text}")
@@ -94,21 +147,35 @@ def main():
         if not idea.strip():
             st.warning("Por favor, ingresa una idea para generar memes.")
         else:
-            with st.spinner("Generando variantes del meme..."):
-                variantes = generar_variantes_idea(idea)
+            with st.spinner("Convirtiendo la idea al formato de meme..."):
+                formato_meme = convertir_a_formato_meme(idea)
             
-            if variantes:
-                st.success("Variantes generadas exitosamente.")
-                for idx, variante in enumerate(variantes, 1):
-                    st.markdown(f"### Variante {idx}")
-                    st.write(variante)
-                    with st.spinner(f"Generando ilustración para variante {idx}..."):
-                        imagen = generar_ilustracion(variante)
-                    if imagen:
-                        st.image(imagen, use_column_width=True)
-                    st.markdown("---")
+            if formato_meme['top_text'] and formato_meme['bottom_text']:
+                st.success("Formato de meme generado exitosamente.")
+                st.markdown(f"**Top Text:** {formato_meme['top_text']}")
+                st.markdown(f"**Bottom Text:** {formato_meme['bottom_text']}")
+                st.markdown("---")
+                
+                with st.spinner("Generando variantes del meme..."):
+                    variantes = generar_variantes_meme(formato_meme)
+                
+                if variantes:
+                    st.success("Variantes generadas exitosamente.")
+                    for idx, variante in enumerate(variantes, 1):
+                        st.markdown(f"### Variante {idx}")
+                        st.markdown(f"**Top Text:** {variante['top_text']}")
+                        st.markdown(f"**Bottom Text:** {variante['bottom_text']}")
+                        # Crear un prompt para la ilustración combinando ambos textos
+                        prompt_imagen = f"{variante['top_text']} - {variante['bottom_text']}"
+                        with st.spinner(f"Generando ilustración para variante {idx}..."):
+                            imagen = generar_ilustracion(prompt_imagen)
+                        if imagen:
+                            st.image(imagen, use_column_width=True)
+                        st.markdown("---")
+                else:
+                    st.error("No se pudieron generar variantes del meme.")
             else:
-                st.error("No se pudieron generar variantes del meme.")
+                st.error("No se pudo convertir la idea al formato de meme. Intenta con otra idea.")
 
 if __name__ == "__main__":
     main()
