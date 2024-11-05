@@ -130,34 +130,34 @@ st.write("Introduce una idea y genera un meme personalizado.")
 idea_usuario = st.text_input("Introduce tu idea para el meme:", "")
 
 # Botón para generar el meme
-if st.button("Generar Meme") and idea_usuario:
-    with st.spinner("Generando el meme..."):
-        # Generar el texto del meme
-        top_text, bottom_text = generar_texto_meme(idea_usuario)
-        
-        if top_text and bottom_text:
-            st.write("**Texto del Meme:**")
-            st.write(f"**Parte Superior:** {top_text}")
-            st.write(f"**Parte Inferior:** {bottom_text}")
+if st.button("Generar Meme"):
+    if idea_usuario:
+        with st.spinner("Generando el meme..."):
+            # Generar el texto del meme
+            top_text, bottom_text = generar_texto_meme(idea_usuario)
             
-            # Generar la ilustración
-            imagen = generar_ilustracion(idea_usuario)
-            
-            if imagen:
-                # Agregar texto a la imagen
-                meme = agregar_texto_imagen(imagen, top_text, bottom_text)
+            if top_text and bottom_text:
+                st.write("**Texto del Meme:**")
+                st.write(f"**Parte Superior:** {top_text}")
+                st.write(f"**Parte Inferior:** {bottom_text}")
                 
-                # Mostrar el meme
-                st.image(meme, caption="¡Aquí está tu meme!", use_column_width=True)
+                # Generar la ilustración
+                imagen = generar_ilustracion(idea_usuario)
                 
-                # Opción para descargar el meme
-                buffered = BytesIO()
-                meme.save(buffered, format="PNG")
-                img_str = base64.b64encode(buffered.getvalue()).decode()
-                href = f'<a href="data:image/png;base64,{img_str}" download="meme.png">📥 Descargar Meme</a>'
-                st.markdown(href, unsafe_allow_html=True)
-        else:
-            st.error("No se pudo generar el texto del meme. Por favor, intenta de nuevo.")
-
-elif st.button("Generar Meme") and not idea_usuario:
-    st.warning("Por favor, introduce una idea para generar el meme.")
+                if imagen:
+                    # Agregar texto a la imagen
+                    meme = agregar_texto_imagen(imagen, top_text, bottom_text)
+                    
+                    # Mostrar el meme
+                    st.image(meme, caption="¡Aquí está tu meme!", use_column_width=True)
+                    
+                    # Opción para descargar el meme
+                    buffered = BytesIO()
+                    meme.save(buffered, format="PNG")
+                    img_str = base64.b64encode(buffered.getvalue()).decode()
+                    href = f'<a href="data:image/png;base64,{img_str}" download="meme.png">📥 Descargar Meme</a>'
+                    st.markdown(href, unsafe_allow_html=True)
+            else:
+                st.error("No se pudo generar el texto del meme. Por favor, intenta de nuevo.")
+    else:
+        st.warning("Por favor, introduce una idea para generar el meme.")
