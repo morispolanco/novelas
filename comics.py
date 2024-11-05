@@ -1,22 +1,21 @@
 import streamlit as st
 import requests
-from PIL import Image, ImageDraw, ImageFont
 import base64
+from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 
-# Función para generar el texto del meme usando OpenRouter
-def generar_texto_meme(idea):
+def generar_texto_meme(idea_usuario):
     api_key = st.secrets["OPENROUTER_API_KEY"]
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"
     }
     data = {
-        "model": "openai/gpt-4o-mini",  # Manteniendo el modelo original
+        "model": "openai/gpt-4o-mini",
         "messages": [
             {
                 "role": "user",
-                "content": f"Genera un formato de meme basado en la siguiente idea: {idea}. Proporciona el texto para la parte superior y la inferior del meme en el siguiente formato:\nTop: <texto superior>\nBottom: <texto inferior>"
+                "content": f"Convierte esta idea en un texto de meme divertido: {idea_usuario}"
             }
         ]
     }
@@ -24,34 +23,15 @@ def generar_texto_meme(idea):
         response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
         response.raise_for_status()
         response_data = response.json()
-        
-        # Depuración: Mostrar la respuesta completa
-        st.write("**Respuesta de OpenRouter:**", response_data)
-        
-        mensaje = response_data["choices"][0]["message"]["content"].strip()
-        
-        # Procesar el mensaje para extraer el texto del meme
-        top_text = ""
-        bottom_text = ""
-        for line in mensaje.split('\n'):
-            if line.lower().startswith("top:"):
-                top_text = line.split(":", 1)[1].strip()
-            elif line.lower().startswith("bottom:"):
-                bottom_text = line.split(":", 1)[1].strip()
-        
-        # Depuración: Mostrar los textos extraídos
-        st.write("**Texto Superior:**", top_text)
-        st.write("**Texto Inferior:**", bottom_text)
-        
-        return top_text, bottom_text
+        texto_meme = response_data["choices"][0]["message"]["content"].strip()
+        return texto_meme
     except requests.exceptions.HTTPError as http_err:
         st.error(f"Error HTTP al generar el texto del meme: {http_err} - {response.text}")
     except Exception as e:
         st.error(f"Error al generar el texto del meme: {e}")
-    return None, None
+    return None
 
-# Función para generar la ilustración usando Together API
-def generar_ilustracion(prompt, estilo="realistic", width=512, height=512):
+def generar_ilustracion(prompt, width=512, height=512):
     api_key = st.secrets["TOGETHER_API_KEY"]
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -73,7 +53,7 @@ def generar_ilustracion(prompt, estilo="realistic", width=512, height=512):
         # Decodificar la imagen de base64
         b64_image = response_data["data"][0]["b64_json"]
         image_bytes = base64.b64decode(b64_image)
-        image = Image.open(BytesIO(image_bytes)).convert("RGB")
+        image = Image.open(BytesIO(image_bytes))
         return image
     except requests.exceptions.HTTPError as http_err:
         st.error(f"Error HTTP al generar la imagen: {http_err} - {response.text}")
@@ -81,93 +61,46 @@ def generar_ilustracion(prompt, estilo="realistic", width=512, height=512):
         st.error(f"Error al generar la imagen: {e}")
     return None
 
-# Función para agregar texto al meme
-def agregar_texto_imagen(image, top_text, bottom_text, font_path="arial.ttf", font_size=40):
-    draw = ImageDraw.Draw(image)
-    width, height = image.size
-
-    # Cargar fuente
+def crear_meme(imagen, texto):
+    # Añade el texto al meme
+    ancho, alto = imagen.size
+    imagen_editable = imagen.copy()
+    draw = ImageDraw.Draw(imagen_editable)
     try:
-        font = ImageFont.truetype(font_path, font_size)
-        st.write(f"**Fuente cargada:** {font_path}")
+        font = ImageFont.truetype("arial.ttf", size=int(alto/10))
     except IOError:
-        st.warning(f"No se pudo cargar la fuente {font_path}. Usando la fuente predeterminada.")
+        # Si no se encuentra la fuente arial.ttf, usar una fuente predeterminada
         font = ImageFont.load_default()
-        st.write("**Fuente cargada:** Fuente predeterminada de PIL")
+    text_width, text_height = draw.textsize(texto, font=font)
+    x = (ancho - text_width) / 2
+    y = alto - text_height - 10
+    # Añadir contorno al texto
+    outline_range = 2
+    for adj in range(-outline_range, outline_range+1):
+        draw.text((x+adj, y), texto, font=font, fill="black")
+        draw.text((x, y+adj), texto, font=font, fill="black")
+        draw.text((x+adj, y+adj), texto, font=font, fill="black")
+    # Añadir texto blanco encima
+    draw.text((x, y), texto, font=font, fill="white")
+    return imagen_editable
 
-    # Función para ajustar el texto al ancho de la imagen
-    def ajustar_texto(texto, ancho_max, fuente):
-        palabras = texto.split()
-        lineas = []
-        linea_actual = ""
-        for palabra in palabras:
-            prueba = f"{linea_actual} {palabra}".strip()
-            ancho, _ = draw.textsize(prueba, font=fuente)
-            if ancho <= ancho_max:
-                linea_actual = prueba
-            else:
-                if linea_actual:  # Evitar líneas vacías
-                    lineas.append(linea_actual)
-                linea_actual = palabra
-        if linea_actual:
-            lineas.append(linea_actual)
-        return lineas
-
-    # Agregar texto superior
-    top_lineas = ajustar_texto(top_text, width - 20, font)
-    y = 10
-    for linea in top_lineas:
-        ancho, alto = draw.textsize(linea, font=font)
-        draw.text(((width - ancho) / 2, y), linea, fill="white", font=font, stroke_width=2, stroke_fill="black")
-        y += alto
-
-    # Agregar texto inferior
-    bottom_lineas = ajustar_texto(bottom_text, width - 20, font)
-    y = height - (len(bottom_lineas) * (font_size + 10)) - 10
-    for linea in bottom_lineas:
-        ancho, alto = draw.textsize(linea, font=font)
-        draw.text(((width - ancho) / 2, y), linea, fill="white", font=font, stroke_width=2, stroke_fill="black")
-        y += alto
-
-    return image
-
-# Configuración de la aplicación Streamlit
-st.set_page_config(page_title="Generador de Memes", page_icon="😂", layout="centered")
-st.title("📸 Generador de Memes")
-st.write("Introduce una idea y genera un meme personalizado.")
-
-# Entrada de usuario
-idea_usuario = st.text_input("Introduce tu idea para el meme:", "")
-
-# Botón para generar el meme
-if st.button("Generar Meme"):
-    if idea_usuario:
-        with st.spinner("Generando el meme..."):
-            # Generar el texto del meme
-            top_text, bottom_text = generar_texto_meme(idea_usuario)
-            
-            if top_text and bottom_text:
+def main():
+    st.title("Generador de Memes")
+    idea_usuario = st.text_input("Introduce tu idea para el meme:")
+    if st.button("Generar Meme"):
+        if idea_usuario:
+            with st.spinner("Generando el texto del meme..."):
+                texto_meme = generar_texto_meme(idea_usuario)
+            if texto_meme:
                 st.write("**Texto del Meme:**")
-                st.write(f"**Parte Superior:** {top_text}")
-                st.write(f"**Parte Inferior:** {bottom_text}")
-                
-                # Generar la ilustración
-                imagen = generar_ilustracion(idea_usuario)
-                
+                st.write(texto_meme)
+                with st.spinner("Generando la imagen del meme..."):
+                    imagen = generar_ilustracion(idea_usuario)
                 if imagen:
-                    # Agregar texto a la imagen
-                    meme = agregar_texto_imagen(imagen, top_text, bottom_text)
-                    
-                    # Mostrar el meme
-                    st.image(meme, caption="¡Aquí está tu meme!", use_column_width=True)
-                    
-                    # Opción para descargar el meme
-                    buffered = BytesIO()
-                    meme.save(buffered, format="PNG")
-                    img_str = base64.b64encode(buffered.getvalue()).decode()
-                    href = f'<a href="data:image/png;base64,{img_str}" download="meme.png">📥 Descargar Meme</a>'
-                    st.markdown(href, unsafe_allow_html=True)
-            else:
-                st.error("No se pudo generar el texto del meme. Por favor, intenta de nuevo.")
-    else:
-        st.warning("Por favor, introduce una idea para generar el meme.")
+                    meme = crear_meme(imagen, texto_meme)
+                    st.image(meme, caption="Tu meme generado")
+        else:
+            st.error("Por favor, introduce una idea para el meme.")
+
+if __name__ == "__main__":
+    main()
