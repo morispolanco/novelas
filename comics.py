@@ -68,33 +68,28 @@ def generar_ilustracion(prompt, width=512, height=512):
         st.error(f"Error al generar la imagen: {e}")
     return None
 
-def cargar_fuentes_dejavu():
+def cargar_fuentes_arial():
     """
-    Carga las fuentes DejaVu Sans disponibles desde la carpeta 'fonts'.
-    Asegúrate de tener las variantes 'DejaVuSans.ttf', 'DejaVuSans-Bold.ttf' y 'DejaVuSans-Oblique.ttf' en la carpeta.
+    Carga las fuentes Arial disponibles desde la carpeta 'fonts'.
+    Asegúrate de tener las variantes 'arial.ttf', 'arialbd.ttf' y 'ariali.ttf' en la carpeta.
     """
     fuentes = {
-        "Normal": "DejaVuSans.ttf",
-        "Negrita": "DejaVuSans-Bold.ttf",
-        "Cursiva": "DejaVuSans-Oblique.ttf",
+        "Normal": "arial.ttf",
+        "Negrita": "arialbd.ttf",
+        "Cursiva": "ariali.ttf",
     }
     fuentes_disponibles = {}
-    fuentes_faltantes = []
     for nombre, archivo in fuentes.items():
         ruta_fuente = os.path.join("fonts", archivo)
         if os.path.exists(ruta_fuente):
             fuentes_disponibles[nombre] = ruta_fuente
         else:
-            fuentes_faltantes.append(archivo)
-    
-    if fuentes_faltantes:
-        st.warning(f"Fuentes faltantes: {', '.join(fuentes_faltantes)}. Asegúrate de tener estos archivos en la carpeta 'fonts'.")
-    
+            st.warning(f"Fuente '{archivo}' no encontrada. Asegúrate de tener el archivo '{archivo}' en la carpeta 'fonts'.")
     return fuentes_disponibles
 
 def crear_meme(imagen, texto, estilo, color, tamaño):
     """
-    Añade el texto generado al meme utilizando la fuente seleccionada y el estilo.
+    Añade el texto generado al meme utilizando la fuente Arial y el estilo seleccionado.
 
     Args:
         imagen (PIL.Image): Imagen base para el meme.
@@ -110,8 +105,8 @@ def crear_meme(imagen, texto, estilo, color, tamaño):
     imagen_editable = imagen.copy()
     draw = ImageDraw.Draw(imagen_editable)
 
-    # Cargar la fuente seleccionada
-    fuentes_disponibles = cargar_fuentes_dejavu()
+    # Cargar la fuente Arial con el estilo seleccionado
+    fuentes_disponibles = cargar_fuentes_arial()
     ruta_fuente = fuentes_disponibles.get(estilo, None)
 
     try:
@@ -120,7 +115,7 @@ def crear_meme(imagen, texto, estilo, color, tamaño):
         else:
             # Si no se encuentra la fuente específica, usar la fuente predeterminada
             font = ImageFont.load_default()
-            st.warning("Usando fuente predeterminada debido a que la fuente seleccionada no está disponible.")
+            st.warning("Usando fuente predeterminada.")
     except IOError:
         # Fallback si no se puede cargar la fuente específica
         font = ImageFont.load_default()
@@ -228,8 +223,6 @@ def main():
                         img_str = base64.b64encode(buffered.getvalue()).decode()
                         href = f'<a href="data:file/png;base64,{img_str}" download="meme.png">📥 Descargar Meme</a>'
                         st.markdown(href, unsafe_allow_html=True)
-                    else:
-                        st.error("No se pudo crear el meme final.")
                 else:
                     st.error("No se pudo generar la imagen del meme.")
             else:
