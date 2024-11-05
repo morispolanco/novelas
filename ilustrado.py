@@ -7,11 +7,11 @@ from PIL import Image
 from io import BytesIO
 import re
 import os
+import zipfile
 
 # Importar bibliotecas para manejar archivos
 import PyPDF2
 from docx import Document
-from docx.shared import Inches
 
 # Función para dividir la novela en capítulos
 def dividir_en_capitulos(texto):
@@ -24,8 +24,8 @@ def dividir_en_capitulos(texto):
         capitulos_limpios.append({'titulo': titulo, 'contenido': contenido})
     return capitulos_limpios
 
-# Función para resumir un capítulo usando OpenRouter
-def resumir_capitulo(capitulo):
+# Función para generar un resumen de un párrafo usando OpenRouter
+def generar_resumen(capitulo):
     api_key = st.secrets["OPENROUTER_API_KEY"]
     headers = {
         "Content-Type": "application/json",
@@ -36,16 +36,16 @@ def resumir_capitulo(capitulo):
         "messages": [
             {
                 "role": "user",
-                "content": f"Resume el siguiente capítulo de una novela asegurando coherencia en los personajes y el ambiente:\n\n{capitulo}"
+                "content": f"Genera un resumen de un párrafo para el siguiente capítulo de una novela, asegurando coherencia en los personajes y el ambiente:\n\n{capitulo}"
             }
         ]
     }
     response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
     if response.status_code == 200:
-        resumen = response.json()['choices'][0]['message']['content']
+        resumen = response.json()['choices'][0]['message']['content'].strip()
         return resumen
     else:
-        st.error(f"Error al resumir el capítulo: {response.status_code} - {response.text}")
+        st.error(f"Error al generar el resumen: {response.status_code} - {response.text}")
         return None
 
 # Función para generar una ilustración usando Together API
@@ -79,37 +79,28 @@ def generar_ilustracion(prompt, estilo, width=512, height=512):
         st.error(f"Error al generar la imagen: {e}")
     return None
 
-# Función para crear un documento Word con resúmenes e ilustraciones
-def crear_documento_word(capitulos, resúmenes, ilustraciones):
-    document = Document()
-    document.add_heading('Historia Ilustrada', 0)
+# Función para crear un archivo ZIP con resúmenes e ilustraciones
+def crear_zip(capitulos, resúmenes, ilustraciones):
+    # Crear un objeto BytesIO para el ZIP
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
+        for idx, cap in enumerate(capitulos, 1):
+            # Nombre de los archivos
+            resumen_nombre = f"Capitulo_{idx}_Resumen.txt"
+            ilustracion_nombre = f"Capitulo_{idx}_Ilustracion.png"
+            
+            # Agregar resumen al ZIP
+            zip_file.writestr(resumen_nombre, resúmenes[idx-1])
+            
+            # Agregar ilustración al ZIP
+            if ilustraciones[idx-1]:
+                img_byte_arr = BytesIO()
+                ilustraciones[idx-1].save(img_byte_arr, format='PNG')
+                img_byte_arr.seek(0)
+                zip_file.writestr(ilustracion_nombre, img_byte_arr.read())
     
-    for idx, cap in enumerate(capitulos):
-        # Agregar título del capítulo
-        document.add_heading(cap['titulo'], level=1)
-        
-        # Agregar resumen
-        document.add_heading('Resumen', level=2)
-        document.add_paragraph(resúmenes[idx])
-        
-        # Agregar imagen
-        if ilustraciones[idx]:
-            # Guardar imagen en BytesIO
-            img_byte_arr = BytesIO()
-            ilustraciones[idx].save(img_byte_arr, format='PNG')
-            img_byte_arr.seek(0)
-            # Agregar imagen al documento
-            document.add_picture(img_byte_arr, width=Inches(6))
-        
-        # Agregar una separación
-        document.add_page_break()
-    
-    # Guardar documento en BytesIO
-    doc_byte_arr = BytesIO()
-    document.save(doc_byte_arr)
-    doc_byte_arr.seek(0)
-    
-    return doc_byte_arr
+    zip_buffer.seek(0)
+    return zip_buffer
 
 # Lista de estilos artísticos soportados
 supported_styles = [
@@ -139,7 +130,7 @@ st.title("Convertidor de Novela en Historia Ilustrada")
 
 # Instrucciones
 st.markdown("""
-Sube tu novela en formato `.txt`, `.docx` o `.pdf`, selecciona un estilo artístico para las ilustraciones y la aplicación resumirá cada capítulo y generará ilustraciones coherentes para cada uno.
+Sube tu novela en formato `.txt`, `.docx` o `.pdf`, selecciona un estilo artístico para las ilustraciones y la aplicación generará un resumen de un párrafo para cada capítulo y generará ilustraciones coherentes para cada una. Al final, podrás descargar un archivo ZIP que contiene todos los resúmenes e ilustraciones generados.
 """)
 
 # Subida de archivo
@@ -193,12 +184,12 @@ if st.button("Procesar Novela"):
                 for idx, cap in enumerate(capitulos, 1):
                     st.write(f"### {cap['titulo']}")
                     
-                    # Resumir capítulo
-                    with st.spinner(f"Resumiendo el capítulo {idx}..."):
-                        resumen = resumir_capitulo(cap['contenido'])
+                    # Generar resumen
+                    with st.spinner(f"Generando resumen para el capítulo {idx}..."):
+                        resumen = generar_resumen(cap['contenido'])
                         if resumen:
                             resúmenes.append(resumen)
-                            st.write("**Resumen:**")
+                            st.write("**Resumen de un párrafo:**")
                             st.write(resumen)
                     
                     # Generar ilustración
@@ -213,16 +204,16 @@ if st.button("Procesar Novela"):
                 
                 st.success("Procesamiento completado.")
                 
-                # Crear el documento Word
-                with st.spinner("Creando documento Word..."):
-                    doc_word = crear_documento_word(capitulos, resúmenes, ilustraciones)
+                # Crear el archivo ZIP
+                with st.spinner("Creando archivo ZIP con resúmenes e ilustraciones..."):
+                    zip_file = crear_zip(capitulos, resúmenes, ilustraciones)
                 
                 # Proporcionar botón para descargar
                 st.download_button(
-                    label="Descargar Historia Ilustrada en Word",
-                    data=doc_word,
-                    file_name='historia_ilustrada.docx',
-                    mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                    label="Descargar Resúmenes e Ilustraciones en ZIP",
+                    data=zip_file,
+                    file_name='resumenes_ilustraciones.zip',
+                    mime='application/zip'
                 )
     else:
         st.error("Por favor, sube un archivo para comenzar.")
