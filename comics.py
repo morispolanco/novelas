@@ -3,6 +3,7 @@ import requests
 import base64
 from PIL import Image
 from io import BytesIO
+import json
 
 # Configuración de la página
 st.set_page_config(
@@ -25,85 +26,124 @@ st.write("""
 def convertir_a_formato_meme(idea):
     """
     Convierte la idea ingresada por el usuario a un formato de meme estándar.
+    Retorna un diccionario con 'top_text' y 'bottom_text'.
     """
     api_key = st.secrets["OPENROUTER_API_KEY"]
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"
     }
-    prompt = f"Convierte la siguiente idea en un formato de meme con 'Top Text' y 'Bottom Text': {idea}"
+    
+    # Prompt mejorado para solicitar una respuesta en formato JSON
+    prompt = (
+        f"Convierte la siguiente idea en un formato de meme con 'Top Text' y 'Bottom Text' en formato JSON:\n"
+        f"Idea: {idea}\n\n"
+        f"Salida esperada:\n{{'top_text': '...', 'bottom_text': '...'}}"
+    )
+    
     data = {
-        "model": "openai/gpt-4o-mini",
+        "model": "openai/gpt-4",  # Asegúrate de que este sea el modelo correcto
         "messages": [
             {
                 "role": "user",
                 "content": prompt
             }
-        ]
+        ],
+        "temperature": 0.7  # Ajusta la temperatura según tus necesidades
     }
+    
     try:
         response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
         response.raise_for_status()
         response_data = response.json()
+        
+        # Registro de la respuesta para depuración
+        st.session_state["debug_response_formato_meme"] = response_data
+        
         mensaje = response_data.get("choices", [])[0].get("message", {}).get("content", "")
-        # Extraer Top Text y Bottom Text
-        top_text = ""
-        bottom_text = ""
-        if "Top Text:" in mensaje and "Bottom Text:" in mensaje:
-            top_text = mensaje.split("Top Text:")[1].split("Bottom Text:")[0].strip()
-            bottom_text = mensaje.split("Bottom Text:")[1].strip()
-        return {"top_text": top_text, "bottom_text": bottom_text}
+        
+        # Intentar parsear la respuesta como JSON
+        formato = json.loads(mensaje)
+        
+        # Validar que el formato tenga 'top_text' y 'bottom_text'
+        if 'top_text' in formato and 'bottom_text' in formato:
+            return {"top_text": formato['top_text'], "bottom_text": formato['bottom_text']}
+        else:
+            st.error("El formato de meme generado no contiene 'top_text' y 'bottom_text'.")
+            st.write("Formato de meme generado:", mensaje)
+    
+    except json.JSONDecodeError:
+        st.error("Error al decodificar la respuesta de la API al convertir a formato de meme.")
+        st.write("Respuesta de la API:", mensaje)
     except requests.exceptions.HTTPError as http_err:
         st.error(f"Error HTTP al convertir a formato de meme: {http_err} - {response.text}")
     except Exception as e:
         st.error(f"Error al convertir a formato de meme: {e}")
+    
     return {"top_text": "", "bottom_text": ""}
 
 def generar_variantes_meme(formato_meme, num_variantes=3):
     """
     Genera variantes del formato de meme utilizando la API de OpenRouter.
+    Retorna una lista de diccionarios con 'top_text' y 'bottom_text'.
     """
     api_key = st.secrets["OPENROUTER_API_KEY"]
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"
     }
-    # Crear un prompt basado en el formato de meme existente
-    prompt = f"Genera {num_variantes} variantes de este formato de meme:\nTop Text: {formato_meme['top_text']}\nBottom Text: {formato_meme['bottom_text']}"
+    
+    # Prompt mejorado para solicitar una respuesta en formato JSON
+    prompt = (
+        f"Genera {num_variantes} variantes de este formato de meme en formato JSON. "
+        f"Cada variante debe tener 'top_text' y 'bottom_text'. "
+        f"Formato de entrada:\nTop Text: {formato_meme['top_text']}\nBottom Text: {formato_meme['bottom_text']}\n\n"
+        f"Salida esperada:\n[\n  {{'top_text': '...', 'bottom_text': '...'}},\n  ...\n]"
+    )
+    
     data = {
-        "model": "openai/gpt-4o-mini",
+        "model": "openai/gpt-4",  # Asegúrate de que este sea el modelo correcto
         "messages": [
             {
                 "role": "user",
                 "content": prompt
             }
-        ]
+        ],
+        "temperature": 0.7  # Ajusta la temperatura según tus necesidades
     }
+    
     try:
         response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
         response.raise_for_status()
         response_data = response.json()
+        
+        # Registro de la respuesta para depuración
+        st.session_state["debug_response_variantes"] = response_data
+        
         mensaje = response_data.get("choices", [])[0].get("message", {}).get("content", "")
-        variantes = []
-        for line in mensaje.split('\n'):
-            if "Top Text:" in line and "Bottom Text:" in line:
-                top = line.split("Top Text:")[1].split("Bottom Text:")[0].strip()
-                bottom = line.split("Bottom Text:")[1].strip()
-                variantes.append({"top_text": top, "bottom_text": bottom})
-            elif "Top Text:" in line:
-                top = line.split("Top Text:")[1].strip()
-                # Asumir que la siguiente línea es Bottom Text
-                index = mensaje.split('\n').index(line)
-                if index + 1 < len(mensaje.split('\n')):
-                    next_line = mensaje.split('\n')[index + 1]
-                    if "Bottom Text:" in next_line:
-                        bottom = next_line.split("Bottom Text:")[1].strip()
-                        variantes.append({"top_text": top, "bottom_text": bottom})
-        return variantes[:num_variantes]
+        
+        # Intentar parsear la respuesta como JSON
+        variantes = json.loads(mensaje)
+        
+        # Validar que cada variante tenga 'top_text' y 'bottom_text'
+        variantes_validas = []
+        for variante in variantes:
+            if 'top_text' in variante and 'bottom_text' in variante:
+                variantes_validas.append({
+                    'top_text': variante['top_text'],
+                    'bottom_text': variante['bottom_text']
+                })
+        
+        return variantes_validas[:num_variantes]
+    
+    except json.JSONDecodeError:
+        st.error("Error al decodificar la respuesta de la API. Asegúrate de que la respuesta esté en formato JSON válido.")
+        st.write("Respuesta de la API:", mensaje)
     except requests.exceptions.HTTPError as http_err:
         st.error(f"Error HTTP al generar variantes: {http_err} - {response.text}")
     except Exception as e:
         st.error(f"Error al generar variantes: {e}")
+    
     return []
 
 def generar_ilustracion(prompt, width=512, height=512):
@@ -142,7 +182,7 @@ def generar_ilustracion(prompt, width=512, height=512):
 def main():
     # Entrada del usuario
     idea = st.text_input("Ingresa la idea para tu meme:", "")
-
+    
     if st.button("Generar Memes"):
         if not idea.strip():
             st.warning("Por favor, ingresa una idea para generar memes.")
@@ -172,10 +212,23 @@ def main():
                         if imagen:
                             st.image(imagen, use_column_width=True)
                         st.markdown("---")
+                    
+                    # Mostrar respuestas de depuración si están disponibles
+                    if "debug_response_variantes" in st.session_state:
+                        st.markdown("### Depuración de Variantes")
+                        st.json(st.session_state["debug_response_variantes"])
                 else:
                     st.error("No se pudieron generar variantes del meme.")
+                    # Mostrar respuesta de depuración si está disponible
+                    if "debug_response_variantes" in st.session_state:
+                        st.markdown("### Depuración de Variantes")
+                        st.json(st.session_state["debug_response_variantes"])
             else:
                 st.error("No se pudo convertir la idea al formato de meme. Intenta con otra idea.")
+                # Mostrar respuesta de depuración si está disponible
+                if "debug_response_formato_meme" in st.session_state:
+                    st.markdown("### Depuración de Formato de Meme")
+                    st.json(st.session_state["debug_response_formato_meme"])
 
 if __name__ == "__main__":
     main()
