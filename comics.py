@@ -12,7 +12,7 @@ def generar_texto_meme(idea):
         "Authorization": f"Bearer {api_key}"
     }
     data = {
-        "model": "openai/gpt-4-mini",  # Modelo corregido
+        "model": "openai/gpt-4o-mini",  # Manteniendo el modelo original
         "messages": [
             {
                 "role": "user",
@@ -89,8 +89,11 @@ def agregar_texto_imagen(image, top_text, bottom_text, font_path="arial.ttf", fo
     # Cargar fuente
     try:
         font = ImageFont.truetype(font_path, font_size)
+        st.write(f"**Fuente cargada:** {font_path}")
     except IOError:
+        st.warning(f"No se pudo cargar la fuente {font_path}. Usando la fuente predeterminada.")
         font = ImageFont.load_default()
+        st.write("**Fuente cargada:** Fuente predeterminada de PIL")
 
     # Función para ajustar el texto al ancho de la imagen
     def ajustar_texto(texto, ancho_max, fuente):
@@ -103,7 +106,8 @@ def agregar_texto_imagen(image, top_text, bottom_text, font_path="arial.ttf", fo
             if ancho <= ancho_max:
                 linea_actual = prueba
             else:
-                lineas.append(linea_actual)
+                if linea_actual:  # Evitar líneas vacías
+                    lineas.append(linea_actual)
                 linea_actual = palabra
         if linea_actual:
             lineas.append(linea_actual)
