@@ -5,6 +5,7 @@ from docx import Document
 from io import BytesIO
 import pickle
 import os
+import re  # Importar regex
 
 # Configuración de la página
 st.set_page_config(
@@ -171,8 +172,11 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas, tipo_libro):
     mensaje = (
         f"{caracteristicas}\n\n"
         f"Escribe el capítulo {capitulo_num} de un libro de tipo '{tipo_libro}' sobre el siguiente tema: {prompt}. "
-        f"El capítulo debe comenzar con un título apropiado y tener aproximadamente 2000 palabras. "
-        f"No debe contener subdivisiones ni subcapítulos.{resumen_texto} {instrucciones}"
+        f"El capítulo debe seguir el formato exacto a continuación:\n\n"
+        f"**Título:** [Título del Capítulo]\n\n"
+        f"---\n\n"
+        f"[Contenido del Capítulo]\n\n"
+        f"{resumen_texto} {instrucciones}"
     )
     data = {
         "model": "openai/gpt-4o-mini",
@@ -181,7 +185,8 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas, tipo_libro):
                 "role": "user",
                 "content": mensaje
             }
-        ]
+        ],
+        "temperature": 0.2  # Reducir la temperatura para mayor coherencia
     }
     try:
         response = requests.post(url, headers=headers, json=data)
@@ -189,18 +194,23 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas, tipo_libro):
         respuesta = response.json()
         if 'choices' in respuesta and len(respuesta['choices']) > 0:
             contenido_completo = respuesta['choices'][0]['message']['content']
-            lineas = contenido_completo.strip().split('\n', 1)
-            if len(lineas) >= 1:
-                titulo_linea = lineas[0].strip()
-                if "**Título:**" in titulo_linea or "**Titulo:**" in titulo_linea:
-                    titulo_capitulo = titulo_linea.replace("**Título:**", "").replace("**Titulo:**", "").strip()
-                    contenido = '\n'.join(lineas[1:]).strip()
-                    return titulo_capitulo, contenido
+            
+            # Utilizar regex para extraer el título
+            titulo_match = re.search(r"\*\*Título:\*\*\s*(.+)", contenido_completo, re.IGNORECASE)
+            if titulo_match:
+                titulo_capitulo = titulo_match.group(1).strip()
+                # Extraer el contenido después del título y los guiones
+                contenido_match = re.search(r"\*\*Título:\*\*.*?\n\n---\n\n(.+)", contenido_completo, re.DOTALL)
+                if contenido_match:
+                    contenido = contenido_match.group(1).strip()
                 else:
-                    st.warning(f"No se pudo extraer el título del Capítulo {capitulo_num}.")
-                    return f"Capítulo {capitulo_num}", contenido_completo
+                    # Intentar extraer contenido después de los guiones
+                    contenido = contenido_completo.split('\n\n---\n\n', 1)[-1].strip()
+                return titulo_capitulo, contenido
             else:
                 st.warning(f"No se pudo extraer el título del Capítulo {capitulo_num}.")
+                # Mostrar la respuesta completa para depuración
+                st.text_area(f"Respuesta de la API para el Capítulo {capitulo_num}:", contenido_completo, height=300)
                 return f"Capítulo {capitulo_num}", contenido_completo
         else:
             st.error(f"Respuesta inesperada de la API al generar el capítulo {capitulo_num}.")
@@ -231,7 +241,8 @@ def resumir_capitulo(capitulo, tipo_libro):
                 "role": "user",
                 "content": prompt_resumen
             }
-        ]
+        ],
+        "temperature": 0.2  # Reducir la temperatura para mayor coherencia
     }
     try:
         response = requests.post(url, headers=headers, json=data)
