@@ -152,7 +152,18 @@ if 'idioma' not in st.session_state:
 # Intentar cargar el estado guardado al iniciar la aplicación
 estado_cargado = cargar_estado()
 
-# Función para generar un capítulo de cualquier tipo de libro
+def eliminar_secciones(contenido):
+    """
+    Elimina secciones, subcapítulos y subdivisiones del contenido generado.
+    """
+    # Patrón para detectar encabezados (por ejemplo, líneas que comienzan con ###, ##, etc.)
+    patron_encabezados = re.compile(r"^(#+\s).+", re.MULTILINE)
+    # Eliminar los encabezados
+    contenido_sin_secciones = patron_encabezados.sub("", contenido)
+    # Eliminar líneas vacías resultantes de la eliminación
+    contenido_sin_secciones = "\n".join([linea for linea in contenido_sin_secciones.split("\n") if linea.strip() != ""])
+    return contenido_sin_secciones
+
 def generar_capitulo(prompt, capitulo_num, resumen_previas, tipo_libro, idioma, intentos=3):
     for intento in range(intentos):
         url = "https://openrouter.ai/api/v1/chat/completions"
@@ -175,16 +186,16 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas, tipo_libro, idioma, 
         
         caracteristicas = CARACTERISTICAS_LIBRO.get(tipo_libro, "")
         
-        # Incluir el idioma en el prompt
+        # Prompt mejorado para evitar secciones
         mensaje = (
             f"{caracteristicas}\n\n"
             f"Escribe el capítulo {capitulo_num} de un libro de tipo '{tipo_libro}' en **{idioma}** sobre el siguiente tema: {prompt}. "
             f"El capítulo debe seguir el formato exacto a continuación y ser **aproximadamente 3000 palabras**.\n\n"
             f"**Título:** [Título del Capítulo]\n\n"
             f"---\n\n"
-            f"[Contenido del Capítulo]\n\n"
+            f"[Contenido del Capítulo] (Debe ser un texto continuo sin secciones, subcapítulos ni subdivisiones)\n\n"
             f"{instrucciones}\n\n"
-            f"**Por favor, asegúrate de seguir este formato exactamente sin añadir texto adicional.**"
+            f"**Por favor, asegúrate de seguir este formato exactamente sin añadir texto adicional ni secciones.**"
         )
         data = {
             "model": "openai/gpt-4o-mini",
@@ -215,6 +226,10 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas, tipo_libro, idioma, 
                     else:
                         # Intentar extraer contenido después de los guiones
                         contenido = contenido_completo.split('\n\n---\n\n', 1)[-1].strip()
+                    
+                    # Limpiar el contenido para eliminar secciones
+                    contenido = eliminar_secciones(contenido)
+                    
                     return titulo_capitulo, contenido
                 else:
                     st.warning(f"No se pudo extraer el título del Capítulo {capitulo_num} en el intento {intento + 1}.")
@@ -231,7 +246,6 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas, tipo_libro, idioma, 
     st.error(f"No se pudo generar el Capítulo {capitulo_num} después de {intentos} intentos.")
     return None, None
 
-# Función para resumir un capítulo utilizando la API de OpenRouter
 def resumir_capitulo(capitulo, tipo_libro, idioma):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
@@ -264,6 +278,8 @@ def resumir_capitulo(capitulo, tipo_libro, idioma):
         if 'choices' in respuesta and len(respuesta['choices']) > 0:
             resumen = respuesta['choices'][0]['message']['content']
             resumen = ' '.join(resumen.split())
+            # Limpiar el resumen para eliminar secciones si es necesario
+            resumen = eliminar_secciones(resumen)
             return resumen
         else:
             st.error("Respuesta inesperada de la API al resumir el capítulo.")
@@ -272,7 +288,6 @@ def resumir_capitulo(capitulo, tipo_libro, idioma):
         st.error(f"Error al resumir el capítulo: {e}")
         return None
 
-# Función para crear el documento Word con títulos
 def crear_documento(capitulo_list, titulo, tipo_libro, idioma):
     doc = Document()
     doc.add_heading(titulo, 0)
