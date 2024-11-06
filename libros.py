@@ -261,7 +261,6 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas, tipo_libro, idioma, 
         # Esperar antes de reintentar
         time.sleep(2)
     
-    st.markdown("### **Función para resumir un capítulo**")
     def resumir_capitulo(capitulo, tipo_libro, idioma):
         url = "https://openrouter.ai/api/v1/chat/completions"
         headers = {
@@ -443,7 +442,7 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas, tipo_libro, idioma, 
                         st.session_state.capitulos, 
                         st.session_state.titulo_obra, 
                         st.session_state.tipo_libro,
-                        st.session_state.idioma  # Pasar el idioma seleccionado 
+                        st.session_state.idioma  # Pasar el idioma seleccionado
                     )
                     st.download_button(
                         label="Descargar Libro en Word",
