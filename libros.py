@@ -172,11 +172,12 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas, tipo_libro):
     mensaje = (
         f"{caracteristicas}\n\n"
         f"Escribe el capítulo {capitulo_num} de un libro de tipo '{tipo_libro}' sobre el siguiente tema: {prompt}. "
-        f"El capítulo debe seguir el formato exacto a continuación:\n\n"
+        f"El capítulo debe seguir el formato exacto a continuación y ser **aproximadamente 3000 palabras**.\n\n"
         f"**Título:** [Título del Capítulo]\n\n"
         f"---\n\n"
         f"[Contenido del Capítulo]\n\n"
-        f"{resumen_texto} {instrucciones}"
+        f"{instrucciones}\n\n"
+        f"**Por favor, asegúrate de seguir este formato exactamente sin añadir texto adicional.**"
     )
     data = {
         "model": "openai/gpt-4o-mini",
@@ -186,7 +187,8 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas, tipo_libro):
                 "content": mensaje
             }
         ],
-        "temperature": 0.2  # Reducir la temperatura para mayor coherencia
+        "temperature": 0.2,  # Reducir la temperatura para mayor coherencia
+        "max_tokens": 4000     # Aumentar el límite de tokens para capítulos más largos
     }
     try:
         response = requests.post(url, headers=headers, json=data)
@@ -242,7 +244,8 @@ def resumir_capitulo(capitulo, tipo_libro):
                 "content": prompt_resumen
             }
         ],
-        "temperature": 0.2  # Reducir la temperatura para mayor coherencia
+        "temperature": 0.2,  # Reducir la temperatura para mayor coherencia
+        "max_tokens": 1500     # Ajustar el límite de tokens según la necesidad
     }
     try:
         response = requests.post(url, headers=headers, json=data)
