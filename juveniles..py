@@ -3,59 +3,17 @@ import requests
 import time
 from docx import Document
 from io import BytesIO
-import nltk
-import pickle
 import os
-
-# Descargar recursos de NLTK si no están ya descargados
-nltk.download('punkt', quiet=True)
 
 # Configuración de la página
 st.set_page_config(
-    page_title="📝 Generador de Novelas Juveniles",
+    page_title="📝 Generador de Cuentos Infantiles",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-st.title("📝 Generador de Novelas Juveniles")
-st.write("Esta aplicación genera una novela juvenil basada en el tema o idea que ingreses, dividida en capítulos con títulos, evitando la repetición de contenido.")
-
-# Ruta del archivo donde se guardará el estado
-ESTADO_ARCHIVO = 'estado_generacion.pkl'
-
-def guardar_estado():
-    """Guarda el estado de la sesión en un archivo local."""
-    with open(ESTADO_ARCHIVO, 'wb') as f:
-        pickle.dump({
-            'capitulos': st.session_state.capitulos,
-            'resumenes': st.session_state.resumenes,
-            'titulo_obra': st.session_state.titulo_obra,
-            'proceso_generado': st.session_state.proceso_generado,
-            'prompt': st.session_state.prompt
-        }, f)
-
-def cargar_estado():
-    """Carga el estado de la sesión desde un archivo local."""
-    if os.path.exists(ESTADO_ARCHIVO):
-        with open(ESTADO_ARCHIVO, 'rb') as f:
-            estado = pickle.load(f)
-            st.session_state.capitulos = estado.get('capitulos', [])
-            st.session_state.resumenes = estado.get('resumenes', [])
-            st.session_state.titulo_obra = estado.get('titulo_obra', "Novela Juvenil")
-            st.session_state.proceso_generado = estado.get('proceso_generado', False)
-            st.session_state.prompt = estado.get('prompt', "")
-        return True
-    return False
-
-def limpiar_estado():
-    """Limpia el estado de la sesión y elimina el archivo de estado si existe."""
-    st.session_state.capitulos = []
-    st.session_state.resumenes = []
-    st.session_state.titulo_obra = "Novela Juvenil"
-    st.session_state.proceso_generado = False
-    st.session_state.prompt = ""
-    if os.path.exists(ESTADO_ARCHIVO):
-        os.remove(ESTADO_ARCHIVO)
+st.title("📝 Generador de Cuentos Infantiles")
+st.write("Esta aplicación genera un cuento infantil en inglés o español basado en el tema o idea que ingreses, adaptado al rango de edades seleccionado y dividido en capítulos con títulos, evitando la repetición de contenido.")
 
 # Inicializar estado de la sesión
 if 'capitulos' not in st.session_state:
@@ -63,72 +21,73 @@ if 'capitulos' not in st.session_state:
 if 'resumenes' not in st.session_state:
     st.session_state.resumenes = []
 if 'titulo_obra' not in st.session_state:
-    st.session_state.titulo_obra = "Novela Juvenil"
+    st.session_state.titulo_obra = "Cuento Infantil"
 if 'proceso_generado' not in st.session_state:
     st.session_state.proceso_generado = False
 if 'prompt' not in st.session_state:
     st.session_state.prompt = ""
+if 'idioma' not in st.session_state:
+    st.session_state.idioma = "Español"
+if 'rango_edades' not in st.session_state:
+    st.session_state.rango_edades = "6-8 años"
 
-# Intentar cargar el estado guardado al iniciar la aplicación
-estado_cargado = cargar_estado()
-
-# Texto que define las características de una novela juvenil
-caracteristicas_novela_juvenil = """
-**Características de una buena novela juvenil:**
+# Características de un buen cuento infantil
+caracteristicas_cuento_infantil = """
+**Características de un buen cuento infantil:**
 
 1. **Extensión**
-   - **Longitud moderada**: Entre 40,000 y 80,000 palabras. Adaptar la extensión de cada capítulo para alcanzar la longitud total deseada.
+   - **Brevedad adecuada**: Adaptado a la capacidad de atención del rango de edad seleccionado, generalmente entre 500 y 2000 palabras.
 
 2. **Estilo**
-   - **Lenguaje accesible**: Directo y sencillo, reflejando el mundo juvenil sin ser condescendiente.
-   - **Narración en primera o tercera persona**: Para una conexión íntima con los personajes o para múltiples perspectivas.
-   - **Diálogos auténticos**: Realistas y creíbles, reflejando la comunicación cotidiana de los jóvenes.
+   - **Lenguaje simple y claro**: Adecuado para la edad, con vocabulario accesible.
+   - **Narración en tercera persona**: Facilita la comprensión y conexión con los personajes.
+   - **Diálogos sencillos y expresivos**: Que reflejen la comunicación típica de los niños.
 
 3. **Tema**
-   - **Problemas universales y específicos de la juventud**: Identidad, independencia, conflictos familiares, amistad, primer amor, presión social, descubrimiento personal, salud mental, acoso, racismo, discriminación, etc.
-   - **Desarrollo emocional**: Enfocado en el crecimiento emocional de los personajes, mostrando cómo enfrentan y superan sus miedos y limitaciones.
+   - **Valores positivos**: Amistad, honestidad, valentía, empatía, etc.
+   - **Lecciones de vida**: Enseñanzas que fomenten el desarrollo moral y emocional.
+   - **Elementos mágicos o fantásticos**: Para estimular la imaginación.
 
-4. **Protagonistas atractivos y cercanos**
-   - Jóvenes de edades cercanas a la audiencia, con características atractivas pero imperfectas, enfrentando dilemas morales y evolucionando a lo largo de la historia.
+4. **Protagonistas Atractivos**
+   - Personajes con los que los niños puedan identificarse, generalmente niños o animales antropomórficos.
 
-5. **Subgéneros variados**
-   - Romance, ciencia ficción, fantasía, aventuras, misterio, horror, etc., manteniendo el enfoque en temas relevantes para la adolescencia.
+5. **Estructura Clara**
+   - **Inicio, desarrollo y desenlace**: Facilita la comprensión de la trama.
+   - **Conflicto sencillo**: Resolución positiva que inspire al lector.
 
-6. **Narrativa ágil**
-   - Ritmo rápido para captar la atención, con capítulos cortos y giros frecuentes en la trama.
+6. **Ilustraciones (Opcional)**
+   - Aunque no se generan en este proyecto, considerar la inclusión de imágenes para enriquecer la experiencia de lectura.
 
-7. **Mensaje positivo o inspirador**
-   - Transmitir mensajes de superación, esperanza, autenticidad, tolerancia y empatía, ayudando a los lectores a enfrentar sus propios desafíos personales.
+7. **Ritmo Agradable**
+   - Narrativa ágil que mantenga el interés sin ser apresurada.
 """
 
-# Función para generar un capítulo de la novela juvenil
-def generar_capitulo(prompt, capitulo_num, resumen_previas):
+# Función para generar un capítulo de cuento infantil
+def generar_capitulo(prompt, capitulo_num, resumen_previas, idioma, rango_edades):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
     }
     instrucciones = (
-        "Asegúrate de que el contenido generado cumpla con las características de una novela juvenil. "
-        "Desarrolla los personajes secundarios y explora sus motivaciones. "
-        "Utiliza un lenguaje accesible, desarrolla personajes jóvenes y cercanos a la audiencia, "
-        "aborda temas relevantes para adolescentes y jóvenes adultos, y mantiene una narrativa ágil con diálogos auténticos. "
-        "Evita repetir información ya mencionada en capítulos anteriores. "
-        "Cada capítulo debe comenzar con un título apropiado."
+        "Asegúrate de que el contenido generado cumpla con las características de un cuento infantil. "
+        "Desarrolla personajes atractivos y cercanos a la audiencia infantil, adapta el lenguaje al rango de edades seleccionado, "
+        "incluye valores positivos y una lección de vida. Mantén una narrativa ágil con diálogos sencillos y expresivos. "
+        "Evita repetir información ya mencionada en capítulos anteriores. Cada capítulo debe comenzar con un título apropiado."
     )
     if resumen_previas:
-        resumen_texto = " Hasta ahora, la novela ha cubierto los siguientes puntos: " + resumen_previas
+        resumen_texto = " Hasta ahora, el cuento ha cubierto los siguientes puntos: " + resumen_previas
     else:
         resumen_texto = ""
     
     mensaje = (
-        f"**Características de la novela juvenil:** {caracteristicas_novela_juvenil}\n\n"
-        f"Escribe el capítulo {capitulo_num} de una novela juvenil sobre el siguiente tema: {prompt}. "
-        f"El capítulo debe comenzar con un título apropiado y tener aproximadamente 2000 palabras. "
+        f"**Características del cuento infantil:** {caracteristicas_cuento_infantil}\n\n"
+        f"Escribe el capítulo {capitulo_num} de un cuento infantil en {idioma} sobre el siguiente tema: {prompt}. "
+        f"El capítulo debe comenzar con un título apropiado y tener una extensión adecuada para el rango de edades {rango_edades}. "
         f"No debe contener subdivisiones ni subcapítulos.{resumen_texto} {instrucciones}"
     )
     data = {
-        "model": "openai/gpt-4o-mini",
+        "model": "gpt-4",
         "messages": [
             {
                 "role": "user",
@@ -158,19 +117,19 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas):
         return None, None
 
 # Función para resumir un capítulo utilizando la API de OpenRouter
-def resumir_capitulo(capitulo):
+def resumir_capitulo(capitulo, idioma):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
     }
     prompt_resumen = (
-        "Proporciona un resumen conciso y relevante del siguiente capítulo de una novela juvenil. "
-        "El resumen debe resaltar los puntos clave de la trama, los desarrollos de los personajes y los eventos principales, evitando detalles redundantes.\n\n"
+        "Proporciona un resumen conciso y relevante del siguiente capítulo de un cuento infantil en "
+        f"{idioma}. El resumen debe resaltar los puntos clave de la trama, los desarrollos de los personajes y los eventos principales, evitando detalles redundantes.\n\n"
         f"Capítulo:\n{capitulo}\n\nResumen:"
     )
     data = {
-        "model": "openai/gpt-4o-mini",
+        "model": "gpt-4",
         "messages": [
             {
                 "role": "user",
@@ -194,7 +153,7 @@ def resumir_capitulo(capitulo):
         return None
 
 # Función para crear el documento Word con títulos
-def crear_documento(capitulo_list, titulo):
+def crear_documento(capitulo_list, titulo, idioma):
     doc = Document()
     doc.add_heading(titulo, 0)
     for idx, (titulo_capitulo, capitulo) in enumerate(capitulo_list, 1):
@@ -210,7 +169,7 @@ st.sidebar.title("Opciones")
 
 # Determinar las opciones disponibles en la barra lateral
 opciones_disponibles = []
-if estado_cargado and len(st.session_state.capitulos) < 24:
+if len(st.session_state.capitulos) < 24 and st.session_state.capitulos:
     opciones_disponibles = ["Continuar Generando", "Iniciar Nueva Generación"]
 else:
     opciones_disponibles = ["Iniciar Nueva Generación"]
@@ -220,7 +179,14 @@ opcion = st.sidebar.radio("¿Qué deseas hacer?", opciones_disponibles)
 
 mostrar_formulario = False
 if opcion == "Iniciar Nueva Generación":
-    limpiar_estado()
+    # Limpiar el estado de la sesión
+    st.session_state.capitulos = []
+    st.session_state.resumenes = []
+    st.session_state.titulo_obra = "Cuento Infantil"
+    st.session_state.proceso_generado = False
+    st.session_state.prompt = ""
+    st.session_state.idioma = "Español"
+    st.session_state.rango_edades = "6-8 años"
     mostrar_formulario = True
 elif opcion == "Continuar Generando":
     if len(st.session_state.capitulos) >= 24:
@@ -229,19 +195,43 @@ elif opcion == "Continuar Generando":
         mostrar_formulario = True
 
 if mostrar_formulario:
-    with st.form(key='form_novela_juvenil'):
+    with st.form(key='form_cuento_infantil'):
         if opcion == "Iniciar Nueva Generación":
             st.session_state.prompt = st.text_area(
-                "Ingresa el tema o idea para la novela juvenil:",
+                "Ingresa el tema o idea para el cuento infantil:",
                 height=200,
                 value=""
             )
+            st.session_state.idioma = st.selectbox(
+                "Selecciona el idioma del cuento:",
+                options=["Español", "Inglés"],
+                index=0
+            )
+            st.session_state.rango_edades = st.selectbox(
+                "Selecciona el rango de edades para el cuento:",
+                options=["3-5 años", "6-8 años", "9-12 años"],
+                index=1
+            )
         else:
             st.text_area(
-                "Tema o idea para la novela juvenil:",
+                "Tema o idea para el cuento infantil:",
                 height=200,
                 value=st.session_state.prompt,
                 disabled=True
+            )
+            st.selectbox(
+                "Idioma del cuento:",
+                options=["Español", "Inglés"],
+                index=0,
+                disabled=True,
+                key='idioma_display'
+            )
+            st.selectbox(
+                "Rango de edades del cuento:",
+                options=["3-5 años", "6-8 años", "9-12 años"],
+                index=1,
+                disabled=True,
+                key='rango_edades_display'
             )
         
         cap_generadas = len(st.session_state.capitulos)
@@ -252,17 +242,20 @@ if mostrar_formulario:
             max_value=cap_restantes,
             value=min(3, cap_restantes)
         )
-        submit_button = st.form_submit_button(label='Generar Novela Juvenil')
+        submit_button = st.form_submit_button(label='Generar Cuento Infantil')
 
     if submit_button:
         if opcion == "Iniciar Nueva Generación":
             if not st.session_state.prompt.strip():
-                st.error("Por favor, ingresa un tema o idea válida para la novela juvenil.")
+                st.error("Por favor, ingresa un tema o idea válida para el cuento infantil.")
+                st.stop()
+            elif len(st.session_state.prompt.strip()) < 5:
+                st.error("El tema o idea debe tener al menos 5 caracteres.")
                 st.stop()
         else:
             pass
         
-        st.success("Iniciando la generación de la novela juvenil...")
+        st.success("Iniciando la generación del cuento infantil...")
         st.session_state.proceso_generado = True
         progreso = st.progress(0)
         
@@ -274,22 +267,24 @@ if mostrar_formulario:
         
         for i in range(inicio, fin + 1):
             st.write(f"Generando **Capítulo {i}**...")
-            if st.session_state.resumenes:
-                resumen_previas = ' '.join(st.session_state.resumenes)
-            else:
-                resumen_previas = ''
-            titulo_capitulo, capitulo = generar_capitulo(st.session_state.prompt, i, resumen_previas)
+            resumen_previas = ' '.join(st.session_state.resumenes) if st.session_state.resumenes else ''
+            titulo_capitulo, capitulo = generar_capitulo(
+                st.session_state.prompt, 
+                i, 
+                resumen_previas, 
+                st.session_state.idioma, 
+                st.session_state.rango_edades
+            )
             if capitulo:
                 st.session_state.capitulos.append((titulo_capitulo, capitulo))
-                resumen = resumir_capitulo(capitulo)
+                resumen = resumir_capitulo(capitulo, st.session_state.idioma)
                 if resumen:
                     st.session_state.resumenes.append(resumen)
                 else:
                     st.warning(f"No se pudo generar un resumen para el Capítulo {i}.")
-                guardar_estado()
                 cap_generadas_en_ejecucion += 1
             else:
-                st.error("La generación de la novela se ha detenido debido a un error.")
+                st.error("La generación del cuento se ha detenido debido a un error.")
                 break
             progreso.progress(cap_generadas_en_ejecucion / num_capitulos)
             time.sleep(2)
@@ -298,22 +293,22 @@ if mostrar_formulario:
         
         if cap_generadas_en_ejecucion == num_capitulos:
             st.success(f"Se han generado {cap_generadas_en_ejecucion} capítulos exitosamente.")
-            st.session_state.titulo_obra = st.text_input("Título de la novela juvenil:", value=st.session_state.titulo_obra)
+            st.session_state.titulo_obra = st.text_input("Título del cuento infantil:", value=st.session_state.titulo_obra)
             if st.session_state.titulo_obra:
-                documento = crear_documento(st.session_state.capitulos, st.session_state.titulo_obra)
+                documento = crear_documento(st.session_state.capitulos, st.session_state.titulo_obra, st.session_state.idioma)
                 st.download_button(
-                    label="Descargar Novela en Word",
+                    label="Descargar Cuento en Word",
                     data=documento,
-                    file_name="novela_juvenil.docx",
+                    file_name="cuento_infantil.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
         else:
             st.info(f"Generación interrumpida. Has generado {cap_generadas_en_ejecucion} de {num_capitulos} capítulos.")
 
-# Mostrar la novela generada
+# Mostrar el cuento generado
 if st.session_state.capitulos and st.session_state.proceso_generado:
     st.markdown("---")
-    st.header("📖 Novela Juvenil Generada")
+    st.header("📖 Cuento Infantil Generado")
     for idx, (titulo_capitulo, capitulo) in enumerate(st.session_state.capitulos, 1):
         st.subheader(f"Capítulo {idx}: {titulo_capitulo}")
         st.write(capitulo)
