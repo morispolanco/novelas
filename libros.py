@@ -5,8 +5,7 @@ from docx import Document
 from io import BytesIO
 import pickle
 import os
-import re
-import json  # Importar JSON
+import re  # Importar regex
 
 # Configuración de la página
 st.set_page_config(
@@ -157,8 +156,8 @@ def eliminar_secciones(contenido):
     """
     Elimina secciones, subcapítulos y subdivisiones del contenido generado.
     """
-    # Patrón para detectar encabezados de Markdown (###, ##, etc.)
-    patron_encabezados = re.compile(r"^\s*#{1,6}\s+.*$", re.MULTILINE)
+    # Patrón para detectar encabezados (por ejemplo, líneas que comienzan con ###, ##, etc.)
+    patron_encabezados = re.compile(r"^(#+\s).+", re.MULTILINE)
     # Eliminar los encabezados
     contenido_sin_secciones = patron_encabezados.sub("", contenido)
     # Eliminar líneas vacías resultantes de la eliminación
@@ -187,29 +186,17 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas, tipo_libro, idioma, 
         
         caracteristicas = CARACTERISTICAS_LIBRO.get(tipo_libro, "")
         
-        # Prompt mejorado con ejemplo y claridad
+        # Prompt mejorado para evitar secciones
         mensaje = (
             f"{caracteristicas}\n\n"
             f"Escribe el capítulo {capitulo_num} de un libro de tipo '{tipo_libro}' en **{idioma}** sobre el siguiente tema: {prompt}. "
-            f"El capítulo debe seguir el formato exacto a continuación y ser **aproximadamente 2500 palabras**.\n\n"
-            f"**Formato del Capítulo en JSON:**\n"
-            f"{{\n"
-            f"  \"titulo\": \"[Título del Capítulo]\",\n"
-            f"  \"contenido\": \"[Contenido del Capítulo]\"\n"
-            f"}}\n\n"
+            f"El capítulo debe seguir el formato exacto a continuación y ser **aproximadamente 3000 palabras**.\n\n"
+            f"**Título:** [Título del Capítulo]\n\n"
+            f"---\n\n"
+            f"[Contenido del Capítulo] (Debe ser un texto continuo sin secciones, subcapítulos ni subdivisiones)\n\n"
             f"{instrucciones}\n\n"
-            f"**Ejemplo:**\n"
-            f"{{\n"
-            f"  \"titulo\": \"La Importancia de la Autoestima\",\n"
-            f"  \"contenido\": \"La autoestima es un componente fundamental para el bienestar personal. En este capítulo, exploraremos cómo ...\"\n"
-            f"}}\n\n"
             f"**Por favor, asegúrate de seguir este formato exactamente sin añadir texto adicional ni secciones.**"
         )
-        
-        # Añadir información adicional en reintentos
-        if intento > 0:
-            mensaje += f"\n\n**Intento {intento + 1}: Asegúrate de que el capítulo sea un texto continuo sin secciones ni encabezados.**"
-        
         data = {
             "model": "openai/gpt-4o-mini",
             "messages": [
@@ -219,7 +206,7 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas, tipo_libro, idioma, 
                 }
             ],
             "temperature": 0.2,  # Reducir la temperatura para mayor coherencia
-            "max_tokens": 3000     # Reducir el límite de tokens a 3000
+            "max_tokens": 4000     # Aumentar el límite de tokens para capítulos más largos
         }
         try:
             response = requests.post(url, headers=headers, json=data)
@@ -228,31 +215,26 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas, tipo_libro, idioma, 
             if 'choices' in respuesta and len(respuesta['choices']) > 0:
                 contenido_completo = respuesta['choices'][0]['message']['content']
                 
-                # Intentar parsear el contenido como JSON
-                try:
-                    contenido_json = json.loads(contenido_completo)
-                    titulo_capitulo = contenido_json.get("titulo", "").strip()
-                    contenido = contenido_json.get("contenido", "").strip()
-                    
-                    if titulo_capitulo and contenido:
-                        # Limpiar el contenido para eliminar secciones
-                        contenido = eliminar_secciones(contenido)
-                        return titulo_capitulo, contenido
+                # Utilizar regex para extraer el título
+                titulo_match = re.search(r"\*\*Título:\*\*\s*(.+)", contenido_completo, re.IGNORECASE)
+                if titulo_match:
+                    titulo_capitulo = titulo_match.group(1).strip()
+                    # Extraer el contenido después del título y los guiones
+                    contenido_match = re.search(r"\*\*Título:\*\*.*?\n\n---\n\n(.+)", contenido_completo, re.DOTALL)
+                    if contenido_match:
+                        contenido = contenido_match.group(1).strip()
                     else:
-                        st.warning(f"Faltan campos en el JSON del Capítulo {capitulo_num} en el intento {intento + 1}.")
-                        st.text_area(
-                            f"Respuesta de la API para el Capítulo {capitulo_num} en el intento {intento + 1} (JSON Inválido):",
-                            contenido_completo,
-                            height=300
-                        )
-                except json.JSONDecodeError:
-                    st.warning(f"No se pudo parsear el JSON del Capítulo {capitulo_num} en el intento {intento + 1}.")
+                        # Intentar extraer contenido después de los guiones
+                        contenido = contenido_completo.split('\n\n---\n\n', 1)[-1].strip()
+                    
+                    # Limpiar el contenido para eliminar secciones
+                    contenido = eliminar_secciones(contenido)
+                    
+                    return titulo_capitulo, contenido
+                else:
+                    st.warning(f"No se pudo extraer el título del Capítulo {capitulo_num} en el intento {intento + 1}.")
                     # Mostrar la respuesta completa para depuración
-                    st.text_area(
-                        f"Respuesta de la API para el Capítulo {capitulo_num} en el intento {intento + 1} (No JSON):",
-                        contenido_completo,
-                        height=300
-                    )
+                    st.text_area(f"Respuesta de la API para el Capítulo {capitulo_num} en el intento {intento + 1}:", contenido_completo, height=300)
             else:
                 st.error(f"Respuesta inesperada de la API al generar el capítulo {capitulo_num} en el intento {intento + 1}.")
         except requests.exceptions.RequestException as e:
@@ -261,202 +243,205 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas, tipo_libro, idioma, 
         # Esperar antes de reintentar
         time.sleep(2)
     
-    def resumir_capitulo(capitulo, tipo_libro, idioma):
-        url = "https://openrouter.ai/api/v1/chat/completions"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
-        }
-        caracteristicas = CARACTERISTICAS_LIBRO.get(tipo_libro, "")
-        prompt_resumen = (
-            f"{caracteristicas}\n\n"
-            f"Proporciona un resumen conciso y relevante del siguiente capítulo del libro en **{idioma}**. "
-            "El resumen debe resaltar los puntos clave de la trama, los desarrollos de los conceptos y los eventos principales, "
-            "evitando detalles redundantes.\n\n"
-            f"Capítulo:\n{capitulo}\n\nResumen:"
-        )
-        data = {
-            "model": "openai/gpt-4o-mini",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt_resumen
-                }
-            ],
-            "temperature": 0.2,  # Reducir la temperatura para mayor coherencia
-            "max_tokens": 1500     # Ajustar el límite de tokens según la necesidad
-        }
-        try:
-            response = requests.post(url, headers=headers, json=data)
-            response.raise_for_status()
-            respuesta = response.json()
-            if 'choices' in respuesta and len(respuesta['choices']) > 0:
-                resumen = respuesta['choices'][0]['message']['content']
-                resumen = ' '.join(resumen.split())
-                # Limpiar el resumen para eliminar secciones si es necesario
-                resumen = eliminar_secciones(resumen)
-                return resumen
-            else:
-                st.error("Respuesta inesperada de la API al resumir el capítulo.")
-                return None
-        except requests.exceptions.RequestException as e:
-            st.error(f"Error al resumir el capítulo: {e}")
-            return None
+    st.error(f"No se pudo generar el Capítulo {capitulo_num} después de {intentos} intentos.")
+    return None, None
 
-    def crear_documento(capitulo_list, titulo, tipo_libro, idioma):
-        doc = Document()
-        doc.add_heading(titulo, 0)
-        doc.add_paragraph(f"Tipo de Libro: {tipo_libro}")
-        doc.add_paragraph(f"Idioma: {idioma}")  # Agregar el idioma como metadato
-        doc.add_paragraph()
-        for idx, (titulo_capitulo, capitulo) in enumerate(capitulo_list, 1):
-            doc.add_heading(f"Capítulo {idx}: {titulo_capitulo}", level=1)
-            doc.add_paragraph(capitulo)
-        buffer = BytesIO()
-        doc.save(buffer)
-        buffer.seek(0)
-        return buffer
-
-    # Interfaz de usuario para seleccionar opciones
-    st.sidebar.title("Opciones")
-
-    # Determinar las opciones disponibles en la barra lateral
-    opciones_disponibles = []
-    if estado_cargado and len(st.session_state.capitulos) < 24:
-        opciones_disponibles = ["Continuar Generando", "Iniciar Nueva Generación"]
-    else:
-        opciones_disponibles = ["Iniciar Nueva Generación"]
-
-    # Radio buttons sin necesidad de botón de envío
-    opcion = st.sidebar.radio("¿Qué deseas hacer?", opciones_disponibles)
-
-    mostrar_formulario = False
-    if opcion == "Iniciar Nueva Generación":
-        limpiar_estado()
-        mostrar_formulario = True
-    elif opcion == "Continuar Generando":
-        if len(st.session_state.capitulos) >= 24:
-            st.sidebar.info("Has alcanzado el límite máximo de 24 capítulos.")
+def resumir_capitulo(capitulo, tipo_libro, idioma):
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
+    }
+    caracteristicas = CARACTERISTICAS_LIBRO.get(tipo_libro, "")
+    prompt_resumen = (
+        f"{caracteristicas}\n\n"
+        f"Proporciona un resumen conciso y relevante del siguiente capítulo del libro en **{idioma}**. "
+        "El resumen debe resaltar los puntos clave de la trama, los desarrollos de los conceptos y los eventos principales, "
+        "evitando detalles redundantes.\n\n"
+        f"Capítulo:\n{capitulo}\n\nResumen:"
+    )
+    data = {
+        "model": "openai/gpt-4o-mini",
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt_resumen
+            }
+        ],
+        "temperature": 0.2,  # Reducir la temperatura para mayor coherencia
+        "max_tokens": 1500     # Ajustar el límite de tokens según la necesidad
+    }
+    try:
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+        respuesta = response.json()
+        if 'choices' in respuesta and len(respuesta['choices']) > 0:
+            resumen = respuesta['choices'][0]['message']['content']
+            resumen = ' '.join(resumen.split())
+            # Limpiar el resumen para eliminar secciones si es necesario
+            resumen = eliminar_secciones(resumen)
+            return resumen
         else:
-            mostrar_formulario = True
+            st.error("Respuesta inesperada de la API al resumir el capítulo.")
+            return None
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error al resumir el capítulo: {e}")
+        return None
 
-    if mostrar_formulario:
-        with st.form(key='form_libro'):
-            if opcion == "Iniciar Nueva Generación":
-                st.session_state.tipo_libro = st.selectbox(
-                    "Selecciona el tipo de libro que deseas generar:",
-                    options=list(CARACTERISTICAS_LIBRO.keys())
-                )
-                st.session_state.idioma = st.selectbox(
-                    "Selecciona el idioma del libro:",
-                    options=["Español", "Inglés"]
-                )
-                st.session_state.prompt = st.text_area(
-                    "Ingresa la idea o tema para el libro:",
-                    height=200,
-                    value=""
-                )
-            else:
-                st.selectbox(
-                    "Tipo de libro:",
-                    options=list(CARACTERISTICAS_LIBRO.keys()),
-                    index=list(CARACTERISTICAS_LIBRO.keys()).index(st.session_state.tipo_libro),
-                    disabled=True
-                )
-                st.selectbox(
-                    "Idioma del libro:",
-                    options=["Español", "Inglés"],
-                    index=["Español", "Inglés"].index(st.session_state.idioma),
-                    disabled=True
-                )
-                st.text_area(
-                    "Idea o tema para el libro:",
-                    height=200,
-                    value=st.session_state.prompt,
-                    disabled=True
-                )
-            
-            cap_generadas = len(st.session_state.capitulos)
-            cap_restantes = 24 - cap_generadas
-            num_capitulos = st.slider(
-                "Número de capítulos a generar:",
-                min_value=1,
-                max_value=cap_restantes,
-                value=min(3, cap_restantes)
+def crear_documento(capitulo_list, titulo, tipo_libro, idioma):
+    doc = Document()
+    doc.add_heading(titulo, 0)
+    doc.add_paragraph(f"Tipo de Libro: {tipo_libro}")
+    doc.add_paragraph(f"Idioma: {idioma}")  # Agregar el idioma como metadato
+    doc.add_paragraph()
+    for idx, (titulo_capitulo, capitulo) in enumerate(capitulo_list, 1):
+        doc.add_heading(f"Capítulo {idx}: {titulo_capitulo}", level=1)
+        doc.add_paragraph(capitulo)
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+# Interfaz de usuario para seleccionar opciones
+st.sidebar.title("Opciones")
+
+# Determinar las opciones disponibles en la barra lateral
+opciones_disponibles = []
+if estado_cargado and len(st.session_state.capitulos) < 24:
+    opciones_disponibles = ["Continuar Generando", "Iniciar Nueva Generación"]
+else:
+    opciones_disponibles = ["Iniciar Nueva Generación"]
+
+# Radio buttons sin necesidad de botón de envío
+opcion = st.sidebar.radio("¿Qué deseas hacer?", opciones_disponibles)
+
+mostrar_formulario = False
+if opcion == "Iniciar Nueva Generación":
+    limpiar_estado()
+    mostrar_formulario = True
+elif opcion == "Continuar Generando":
+    if len(st.session_state.capitulos) >= 24:
+        st.sidebar.info("Has alcanzado el límite máximo de 24 capítulos.")
+    else:
+        mostrar_formulario = True
+
+if mostrar_formulario:
+    with st.form(key='form_libro'):
+        if opcion == "Iniciar Nueva Generación":
+            st.session_state.tipo_libro = st.selectbox(
+                "Selecciona el tipo de libro que deseas generar:",
+                options=list(CARACTERISTICAS_LIBRO.keys())
             )
-            submit_button = st.form_submit_button(label='Generar Libro')
+            st.session_state.idioma = st.selectbox(
+                "Selecciona el idioma del libro:",
+                options=["Español", "Inglés"]
+            )
+            st.session_state.prompt = st.text_area(
+                "Ingresa la idea o tema para el libro:",
+                height=200,
+                value=""
+            )
+        else:
+            st.selectbox(
+                "Tipo de libro:",
+                options=list(CARACTERISTICAS_LIBRO.keys()),
+                index=list(CARACTERISTICAS_LIBRO.keys()).index(st.session_state.tipo_libro),
+                disabled=True
+            )
+            st.selectbox(
+                "Idioma del libro:",
+                options=["Español", "Inglés"],
+                index=["Español", "Inglés"].index(st.session_state.idioma),
+                disabled=True
+            )
+            st.text_area(
+                "Idea o tema para el libro:",
+                height=200,
+                value=st.session_state.prompt,
+                disabled=True
+            )
         
-        if submit_button:
-            if opcion == "Iniciar Nueva Generación":
-                if not st.session_state.prompt.strip():
-                    st.error("Por favor, ingresa una idea o tema válida para el libro.")
-                    st.stop()
+        cap_generadas = len(st.session_state.capitulos)
+        cap_restantes = 24 - cap_generadas
+        num_capitulos = st.slider(
+            "Número de capítulos a generar:",
+            min_value=1,
+            max_value=cap_restantes,
+            value=min(3, cap_restantes)
+        )
+        submit_button = st.form_submit_button(label='Generar Libro')
+    
+    if submit_button:
+        if opcion == "Iniciar Nueva Generación":
+            if not st.session_state.prompt.strip():
+                st.error("Por favor, ingresa una idea o tema válida para el libro.")
+                st.stop()
+        else:
+            pass
+        
+        st.success("Iniciando la generación del libro...")
+        st.session_state.proceso_generado = True
+        progreso = st.progress(0)
+        
+        inicio = len(st.session_state.capitulos) + 1
+        fin = inicio + num_capitulos - 1
+        if fin > 24:
+            fin = 24
+        cap_generadas_en_ejecucion = 0
+        
+        for i in range(inicio, fin + 1):
+            st.write(f"Generando **Capítulo {i}**...")
+            if st.session_state.resumenes:
+                resumen_previas = ' '.join(st.session_state.resumenes)
             else:
-                pass
-            
-            st.success("Iniciando la generación del libro...")
-            st.session_state.proceso_generado = True
-            progreso = st.progress(0)
-            
-            inicio = len(st.session_state.capitulos) + 1
-            fin = inicio + num_capitulos - 1
-            if fin > 24:
-                fin = 24
-            cap_generadas_en_ejecucion = 0
-            
-            for i in range(inicio, fin + 1):
-                st.write(f"Generando **Capítulo {i}**...")
-                if st.session_state.resumenes:
-                    resumen_previas = ' '.join(st.session_state.resumenes)
+                resumen_previas = ''
+            titulo_capitulo, capitulo = generar_capitulo(
+                st.session_state.prompt, 
+                i, 
+                resumen_previas,
+                st.session_state.tipo_libro,
+                st.session_state.idioma  # Pasar el idioma seleccionado
+            )
+            if capitulo:
+                st.session_state.capitulos.append((titulo_capitulo, capitulo))
+                resumen = resumir_capitulo(capitulo, st.session_state.tipo_libro, st.session_state.idioma)  # Pasar el idioma seleccionado
+                if resumen:
+                    st.session_state.resumenes.append(resumen)
                 else:
-                    resumen_previas = ''
-                titulo_capitulo, capitulo = generar_capitulo(
-                    st.session_state.prompt, 
-                    i, 
-                    resumen_previas,
+                    st.warning(f"No se pudo generar un resumen para el Capítulo {i}.")
+                guardar_estado()
+                cap_generadas_en_ejecucion += 1
+            else:
+                st.error("La generación del libro se ha detenido debido a un error.")
+                break
+            progreso.progress(cap_generadas_en_ejecucion / num_capitulos)
+            time.sleep(2)
+        
+        progreso.empty()
+        
+        if cap_generadas_en_ejecucion == num_capitulos:
+            st.success(f"Se han generado {cap_generadas_en_ejecucion} capítulos exitosamente.")
+            st.session_state.titulo_obra = st.text_input("Título del libro:", value=st.session_state.titulo_obra)
+            if st.session_state.titulo_obra:
+                documento = crear_documento(
+                    st.session_state.capitulos, 
+                    st.session_state.titulo_obra, 
                     st.session_state.tipo_libro,
                     st.session_state.idioma  # Pasar el idioma seleccionado
                 )
-                if capitulo:
-                    st.session_state.capitulos.append((titulo_capitulo, capitulo))
-                    resumen = resumir_capitulo(capitulo, st.session_state.tipo_libro, st.session_state.idioma)  # Pasar el idioma seleccionado
-                    if resumen:
-                        st.session_state.resumenes.append(resumen)
-                    else:
-                        st.warning(f"No se pudo generar un resumen para el Capítulo {i}.")
-                    guardar_estado()
-                    cap_generadas_en_ejecucion += 1
-                else:
-                    st.error("La generación del libro se ha detenido debido a un error.")
-                    break
-                progreso.progress(cap_generadas_en_ejecucion / num_capitulos)
-                time.sleep(2)
-            
-            progreso.empty()
-            
-            if cap_generadas_en_ejecucion == num_capitulos:
-                st.success(f"Se han generado {cap_generadas_en_ejecucion} capítulos exitosamente.")
-                st.session_state.titulo_obra = st.text_input("Título del libro:", value=st.session_state.titulo_obra)
-                if st.session_state.titulo_obra:
-                    documento = crear_documento(
-                        st.session_state.capitulos, 
-                        st.session_state.titulo_obra, 
-                        st.session_state.tipo_libro,
-                        st.session_state.idioma  # Pasar el idioma seleccionado
-                    )
-                    st.download_button(
-                        label="Descargar Libro en Word",
-                        data=documento,
-                        file_name="libro.docx",
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    )
-            else:
-                st.info(f"Generación interrumpida. Has generado {cap_generadas_en_ejecucion} de {num_capitulos} capítulos.")
+                st.download_button(
+                    label="Descargar Libro en Word",
+                    data=documento,
+                    file_name="libro.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
+        else:
+            st.info(f"Generación interrumpida. Has generado {cap_generadas_en_ejecucion} de {num_capitulos} capítulos.")
 
-    # Mostrar el libro generado
-    if st.session_state.capitulos and st.session_state.proceso_generado:
-        st.markdown("---")
-        st.header("📖 Libro Generado")
-        for idx, (titulo_capitulo, capitulo) in enumerate(st.session_state.capitulos, 1):
-            st.subheader(f"Capítulo {idx}: {titulo_capitulo}")
-            st.write(capitulo)
+# Mostrar el libro generado
+if st.session_state.capitulos and st.session_state.proceso_generado:
+    st.markdown("---")
+    st.header("📖 Libro Generado")
+    for idx, (titulo_capitulo, capitulo) in enumerate(st.session_state.capitulos, 1):
+        st.subheader(f"Capítulo {idx}: {titulo_capitulo}")
+        st.write(capitulo)
