@@ -75,7 +75,75 @@ CARACTERISTICAS_LIBRO = {
     7. **Originalidad**
        - **Perspectivas innovadoras** o enfoques únicos sobre el tema.
     """,
-    # Agrega más géneros o tipos según sea necesario
+    "Autoayuda": """
+    **Características de un buen libro de autoayuda:**
+    1. **Objetivo Claro**
+       - **Enfoque específico** en mejorar aspectos concretos de la vida del lector.
+    2. **Estructura Práctica**
+       - **Incluye ejercicios, ejemplos y consejos** aplicables a situaciones reales.
+    3. **Lenguaje Motivador**
+       - **Tonos positivos y alentadores** que inspiran al lector a tomar acción.
+    4. **Testimonios y Casos de Estudio**
+       - **Historias reales** que ilustran los puntos clave y demuestran eficacia.
+    5. **Conclusiones Accionables**
+       - **Pasos concretos** que el lector puede seguir para implementar los consejos.
+    6. **Accesibilidad**
+       - **Contenido fácil de entender** y aplicar para cualquier persona, independientemente de su trasfondo.
+    7. **Inspiración y Empoderamiento**
+       - **Fomenta la confianza** y la capacidad del lector para superar desafíos personales.
+    """,
+    "Psicología": """
+    **Características de un buen libro de psicología:**
+    1. **Fundamento Científico**
+       - **Basado en teorías y estudios** psicológicos reconocidos.
+    2. **Análisis Profundo**
+       - **Exploración detallada** de conceptos y fenómenos psicológicos.
+    3. **Casos de Estudio**
+       - **Ejemplos prácticos** que ilustran teorías y aplicaciones.
+    4. **Claridad y Precisión**
+       - **Lenguaje técnico pero accesible**, adecuado para lectores no especializados.
+    5. **Aplicaciones Prácticas**
+       - **Cómo aplicar los conceptos** en la vida diaria para mejorar el bienestar psicológico.
+    6. **Estructura Coherente**
+       - **Organización lógica** que facilita la comprensión y retención del contenido.
+    7. **Reflexión y Autoconocimiento**
+       - **Fomenta la introspección** y el entendimiento personal del lector.
+    """,
+    "Relaciones": """
+    **Características de un buen libro sobre relaciones:**
+    1. **Dinámica Interpersonal**
+       - **Exploración de diferentes tipos de relaciones** (amistades, parejas, familiares).
+    2. **Consejos Prácticos**
+       - **Estrategias para mejorar la comunicación** y resolver conflictos.
+    3. **Desarrollo Emocional**
+       - **Fomento de la inteligencia emocional** y la empatía.
+    4. **Historias y Ejemplos**
+       - **Narrativas que ejemplifican conceptos clave** y facilitan la comprensión.
+    5. **Reflexión Personal**
+       - **Ejercicios para que el lector evalúe** y mejore sus propias relaciones.
+    6. **Diversidad y Inclusión**
+       - **Consideración de diferentes perspectivas** y experiencias en las relaciones.
+    7. **Construcción de Confianza**
+       - **Métodos para establecer y mantener la confianza** en las relaciones interpersonales.
+    """,
+    "Negocios": """
+    **Características de un buen libro de negocios:**
+    1. **Estrategias Empresariales**
+       - **Métodos para iniciar, gestionar y escalar** negocios de manera efectiva.
+    2. **Análisis de Mercado**
+       - **Técnicas para investigar y comprender** el mercado objetivo y la competencia.
+    3. **Gestión Financiera**
+       - **Fundamentos de finanzas empresariales**, incluyendo presupuestos, inversiones y flujo de caja.
+    4. **Liderazgo y Gestión de Equipos**
+       - **Desarrollo de habilidades de liderazgo** efectivo y gestión de equipos de alto rendimiento.
+    5. **Innovación y Competitividad**
+       - **Fomento de la creatividad** y adaptación al cambio para mantener la competitividad.
+    6. **Planificación Estratégica**
+       - **Definición de objetivos claros** y desarrollo de planes para alcanzarlos.
+    7. **Casos de Éxito y Fracaso**
+       - **Ejemplos reales** que ilustran mejores prácticas y lecciones aprendidas.
+    """
+    # Puedes agregar más tipos según sea necesario
 }
 
 def guardar_estado():
@@ -141,8 +209,8 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas, tipo_libro):
     }
     instrucciones = (
         "Asegúrate de que el contenido generado cumpla con las características del tipo de libro seleccionado. "
-        "Desarrolla los personajes secundarios y explora sus motivaciones. "
-        "Utiliza un lenguaje adecuado al género, desarrolla personajes relevantes y cercanos a la audiencia, "
+        "Desarrolla los conceptos clave y explora sus aplicaciones. "
+        "Utiliza un lenguaje adecuado al género, desarrolla ideas relevantes y cercanas a la audiencia, "
         "aborda temas pertinentes para el tipo de libro y mantiene una narrativa coherente con el género. "
         "Evita repetir información ya mencionada en capítulos anteriores. "
         "Cada capítulo debe comenzar con un título apropiado."
@@ -201,7 +269,7 @@ def resumir_capitulo(capitulo, tipo_libro):
     prompt_resumen = (
         f"{caracteristicas}\n\n"
         "Proporciona un resumen conciso y relevante del siguiente capítulo del libro. "
-        "El resumen debe resaltar los puntos clave de la trama, los desarrollos de los personajes y los eventos principales, "
+        "El resumen debe resaltar los puntos clave de la trama, los desarrollos de los conceptos y los eventos principales, "
         "evitando detalles redundantes.\n\n"
         f"Capítulo:\n{capitulo}\n\nResumen:"
     )
