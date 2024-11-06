@@ -21,60 +21,6 @@ ESTADO_ARCHIVO = 'estado_generacion.pkl'
 
 # Definir características para diferentes géneros o tipos de libro
 CARACTERISTICAS_LIBRO = {
-    "Novela Juvenil": """
-    **Características de una buena novela juvenil:**
-    1. **Extensión**
-       - **Longitud moderada**: Entre 40,000 y 80,000 palabras. Adaptar la extensión de cada capítulo para alcanzar la longitud total deseada.
-    2. **Estilo**
-       - **Lenguaje accesible**: Directo y sencillo, reflejando el mundo juvenil sin ser condescendiente.
-       - **Narración en primera o tercera persona**: Para una conexión íntima con los personajes o para múltiples perspectivas.
-       - **Diálogos auténticos**: Realistas y creíbles, reflejando la comunicación cotidiana de los jóvenes.
-    3. **Tema**
-       - **Problemas universales y específicos de la juventud**: Identidad, independencia, conflictos familiares, amistad, primer amor, presión social, descubrimiento personal, salud mental, acoso, racismo, discriminación, etc.
-       - **Desarrollo emocional**: Enfocado en el crecimiento emocional de los personajes, mostrando cómo enfrentan y superan sus miedos y limitaciones.
-    4. **Protagonistas atractivos y cercanos**
-       - Jóvenes de edades cercanas a la audiencia, con características atractivas pero imperfectas, enfrentando dilemas morales y evolucionando a lo largo de la historia.
-    5. **Subgéneros variados**
-       - Romance, ciencia ficción, fantasía, aventuras, misterio, horror, etc., manteniendo el enfoque en temas relevantes para la adolescencia.
-    6. **Narrativa ágil**
-       - Ritmo rápido para captar la atención, con capítulos cortos y giros frecuentes en la trama.
-    7. **Mensaje positivo o inspirador**
-       - Transmitir mensajes de superación, esperanza, autenticidad, tolerancia y empatía, ayudando a los lectores a enfrentar sus propios desafíos personales.
-    """,
-    "Novela de Ciencia Ficción": """
-    **Características de una buena novela de ciencia ficción:**
-    1. **Mundo Elaborado**
-       - **Construcción detallada del universo**: Reglas físicas, tecnológicas y sociales bien definidas.
-    2. **Innovación Tecnológica**
-       - **Tecnologías avanzadas o futuristas** que impulsan la trama y generan conflictos.
-    3. **Temas Filosóficos y Éticos**
-       - **Exploración de cuestiones profundas** como la inteligencia artificial, la ética científica, la identidad, etc.
-    4. **Personajes Complejos**
-       - **Protagonistas y antagonistas** con motivaciones claras y evolución a lo largo de la historia.
-    5. **Trama Intrigante**
-       - **Conflictos y giros inesperados** que mantienen el interés del lector.
-    6. **Integración de Ciencia y Ficción**
-       - **Base científica sólida** combinada con elementos ficticios para crear una narrativa creíble.
-    7. **Visión del Futuro**
-       - **Predicciones o reflexiones** sobre el futuro de la humanidad y la tecnología.
-    """,
-    "Ensayo": """
-    **Características de un buen ensayo:**
-    1. **Tesis Clara**
-       - **Idea principal** bien definida que guía todo el ensayo.
-    2. **Estructura Coherente**
-       - **Introducción, desarrollo y conclusión** organizados de manera lógica.
-    3. **Argumentación Sólida**
-       - **Evidencias y ejemplos** que respaldan la tesis.
-    4. **Estilo Propio**
-       - **Voz única** que refleja el pensamiento y la personalidad del autor.
-    5. **Profundidad y Reflexión**
-       - **Análisis profundo** de los temas tratados, mostrando un entendimiento claro.
-    6. **Claridad y Concisión**
-       - **Lenguaje preciso y directo** que facilita la comprensión del lector.
-    7. **Originalidad**
-       - **Perspectivas innovadoras** o enfoques únicos sobre el tema.
-    """,
     "Autoayuda": """
     **Características de un buen libro de autoayuda:**
     1. **Objetivo Claro**
@@ -244,10 +190,15 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas, tipo_libro):
         if 'choices' in respuesta and len(respuesta['choices']) > 0:
             contenido_completo = respuesta['choices'][0]['message']['content']
             lineas = contenido_completo.strip().split('\n', 1)
-            if len(lineas) == 2:
-                titulo_capitulo = lineas[0].strip().replace("Título:", "").replace("Titulo:", "").strip()
-                contenido = lineas[1].strip()
-                return titulo_capitulo, contenido
+            if len(lineas) >= 1:
+                titulo_linea = lineas[0].strip()
+                if "**Título:**" in titulo_linea or "**Titulo:**" in titulo_linea:
+                    titulo_capitulo = titulo_linea.replace("**Título:**", "").replace("**Titulo:**", "").strip()
+                    contenido = '\n'.join(lineas[1:]).strip()
+                    return titulo_capitulo, contenido
+                else:
+                    st.warning(f"No se pudo extraer el título del Capítulo {capitulo_num}.")
+                    return f"Capítulo {capitulo_num}", contenido_completo
             else:
                 st.warning(f"No se pudo extraer el título del Capítulo {capitulo_num}.")
                 return f"Capítulo {capitulo_num}", contenido_completo
