@@ -84,25 +84,17 @@ def crear_zip(capitulos, resúmenes, ilustraciones):
         for idx, cap in enumerate(capitulos, 1):
             # Nombre de los archivos
             resumen_nombre = f"Capitulo_{idx}_Resumen.txt"
-            # Guardar cada ilustración con un nombre único
-            ilustracion_nombre_1 = f"Capitulo_{idx}_Ilustracion_1.png"
-            ilustracion_nombre_2 = f"Capitulo_{idx}_Ilustracion_2.png"
+            ilustracion_nombre = f"Capitulo_{idx}_Ilustracion.png"
             
             # Agregar resumen al ZIP
             zip_file.writestr(resumen_nombre, resúmenes[idx-1])
             
-            # Agregar ilustraciones al ZIP
-            if ilustraciones[idx-1][0]:
-                img_byte_arr_1 = BytesIO()
-                ilustraciones[idx-1][0].save(img_byte_arr_1, format='PNG')
-                img_byte_arr_1.seek(0)
-                zip_file.writestr(ilustracion_nombre_1, img_byte_arr_1.read())
-            
-            if ilustraciones[idx-1][1]:
-                img_byte_arr_2 = BytesIO()
-                ilustraciones[idx-1][1].save(img_byte_arr_2, format='PNG')
-                img_byte_arr_2.seek(0)
-                zip_file.writestr(ilustracion_nombre_2, img_byte_arr_2.read())
+            # Agregar ilustración al ZIP
+            if ilustraciones[idx-1]:
+                img_byte_arr = BytesIO()
+                ilustraciones[idx-1].save(img_byte_arr, format='PNG')
+                img_byte_arr.seek(0)
+                zip_file.writestr(ilustracion_nombre, img_byte_arr.read())
     
     zip_buffer.seek(0)
     return zip_buffer
@@ -112,7 +104,7 @@ st.title("Convertidor de Novela en Historia Ilustrada")
 
 # Instrucciones
 st.markdown("""
-Sube tu novela en formato `.txt`, `.docx` o `.pdf`, y la aplicación generará un resumen de un párrafo para cada capítulo y dos ilustraciones coherentes en estilo 'Arte Digital'. Al final, podrás descargar un archivo ZIP que contiene todos los resúmenes e ilustraciones generados.
+Sube tu novela en formato `.txt`, `.docx` o `.pdf`, y la aplicación generará un resumen de un párrafo para cada capítulo y una ilustración coherente en estilo 'Arte Digital'. Al final, podrás descargar un archivo ZIP que contiene todos los resúmenes e ilustraciones generados.
 """)
 
 # Subida de archivo
@@ -171,17 +163,14 @@ if st.button("Procesar Novela"):
                             st.write("**Resumen de un párrafo:**")
                             st.write(resumen)
                     
-                    # Generar dos ilustraciones
-                    ilustraciones_capitulo = []
-                    for i in range(2):
-                        with st.spinner(f"Generando ilustración {i+1} para el capítulo {idx}..."):
-                            prompt = f"{resumen}. Estilo artístico: Arte Digital."
-                            imagen = generar_ilustracion(prompt)
-                            if imagen:
-                                ilustraciones_capitulo.append(imagen)
-                                st.image(imagen, caption=f"Ilustración {i+1} Capítulo {idx} - Arte Digital", use_column_width=True)
+                    # Generar una ilustración
+                    with st.spinner(f"Generando ilustración para el capítulo {idx}..."):
+                        prompt = f"{resumen}. Estilo artístico: Arte Digital."
+                        imagen = generar_ilustracion(prompt)
+                        if imagen:
+                            ilustraciones.append(imagen)
+                            st.image(imagen, caption=f"Ilustración Capítulo {idx} - Arte Digital", use_column_width=True)
                     
-                    ilustraciones.append(ilustraciones_capitulo)
                     st.markdown("---")
                 
                 st.success("Procesamiento completado.")
