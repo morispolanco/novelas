@@ -87,7 +87,7 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas, idioma, rango_edades
         f"No debe contener subdivisiones ni subcapítulos.{resumen_texto} {instrucciones}"
     )
     data = {
-        "model": "gpt-4",
+        "model": "openai/gpt-4o-mini",  # Manteniendo el modelo original
         "messages": [
             {
                 "role": "user",
@@ -129,7 +129,7 @@ def resumir_capitulo(capitulo, idioma):
         f"Capítulo:\n{capitulo}\n\nResumen:"
     )
     data = {
-        "model": "gpt-4",
+        "model": "openai/gpt-4o-mini",  # Manteniendo el modelo original
         "messages": [
             {
                 "role": "user",
@@ -222,14 +222,14 @@ if mostrar_formulario:
             st.selectbox(
                 "Idioma del cuento:",
                 options=["Español", "Inglés"],
-                index=0,
+                index=0 if st.session_state.idioma == "Español" else 1,
                 disabled=True,
                 key='idioma_display'
             )
             st.selectbox(
                 "Rango de edades del cuento:",
                 options=["3-5 años", "6-8 años", "9-12 años"],
-                index=1,
+                index=["3-5 años", "6-8 años", "9-12 años"].index(st.session_state.rango_edades),
                 disabled=True,
                 key='rango_edades_display'
             )
