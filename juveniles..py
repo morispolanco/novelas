@@ -3,46 +3,39 @@ import requests
 import time
 from docx import Document
 from io import BytesIO
-import os
 
-# Definir la cantidad máxima de capítulos
-MAX_CAPITULOS = 10
+# Definir la cantidad máxima de historias
+MAX_HISTORIAS = 24
 
 # Configuración de la página
 st.set_page_config(
-    page_title="📝 Generador de Cuentos Infantiles",
+    page_title="📝 Generador de Historias Infantiles",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-st.title("📝 Generador de Cuentos Infantiles")
-st.write("Esta aplicación genera un cuento infantil en español, inglés o latín basado en el tema o idea que ingreses, adaptado al rango de edades seleccionado y dividido en capítulos con títulos, evitando la repetición de contenido.")
+st.title("📝 Generador de Historias Infantiles")
+st.write("Esta aplicación genera hasta 24 historias infantiles en inglés basadas en el tema o idea que ingreses. Cada historia se identifica como un capítulo y tiene aproximadamente 1500 palabras.")
 
 # Inicializar estado de la sesión
-if 'capitulos' not in st.session_state:
-    st.session_state.capitulos = []
-if 'resumenes' not in st.session_state:
-    st.session_state.resumenes = []
+if 'historias' not in st.session_state:
+    st.session_state.historias = []
 if 'titulo_obra' not in st.session_state:
-    st.session_state.titulo_obra = "Cuento Infantil"
+    st.session_state.titulo_obra = "Historias Infantiles"
 if 'proceso_generado' not in st.session_state:
     st.session_state.proceso_generado = False
 if 'prompt' not in st.session_state:
     st.session_state.prompt = ""
-if 'idioma' not in st.session_state:
-    st.session_state.idioma = "Español"
-if 'rango_edades' not in st.session_state:
-    st.session_state.rango_edades = "6-8 años"
 
-# Características de un buen cuento infantil
-caracteristicas_cuento_infantil = """
-**Características de un buen cuento infantil:**
+# Características de una buena historia infantil
+caracteristicas_historia_infantil = """
+**Características de una buena historia infantil:**
 
 1. **Extensión**
-   - **Brevedad adecuada**: Adaptado a la capacidad de atención del rango de edad seleccionado, generalmente entre 500 y 2000 palabras.
+   - **Brevedad adecuada**: Aproximadamente 1500 palabras, adaptada a la capacidad de atención de los niños.
 
 2. **Estilo**
-   - **Lenguaje simple y claro**: Adecuado para la edad, con vocabulario accesible.
+   - **Lenguaje simple y claro**: Adecuado para niños, con vocabulario accesible.
    - **Narración en tercera persona**: Facilita la comprensión y conexión con los personajes.
    - **Diálogos sencillos y expresivos**: Que reflejen la comunicación típica de los niños.
 
@@ -65,29 +58,25 @@ caracteristicas_cuento_infantil = """
    - Narrativa ágil que mantenga el interés sin ser apresurada.
 """
 
-# Función para generar un capítulo de cuento infantil
-def generar_capitulo(prompt, capitulo_num, resumen_previas, idioma, rango_edades):
+# Función para generar una historia infantil
+def generar_historia(prompt, historia_num):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
     }
     instrucciones = (
-        "Asegúrate de que el contenido generado cumpla con las características de un cuento infantil. "
-        "Desarrolla personajes atractivos y cercanos a la audiencia infantil, adapta el lenguaje al rango de edades seleccionado, "
+        "Asegúrate de que el contenido generado cumpla con las características de una historia infantil. "
+        "Desarrolla personajes atractivos y cercanos a la audiencia infantil, adapta el lenguaje a niños, "
         "incluye valores positivos y una lección de vida. Mantén una narrativa ágil con diálogos sencillos y expresivos. "
-        "Evita repetir información ya mencionada en capítulos anteriores. Cada capítulo debe comenzar con un título apropiado."
+        "Evita repetir información ya mencionada en historias anteriores. Cada historia debe comenzar con un título apropiado."
     )
-    if resumen_previas:
-        resumen_texto = " Hasta ahora, el cuento ha cubierto los siguientes puntos: " + resumen_previas
-    else:
-        resumen_texto = ""
     
     mensaje = (
-        f"**Características del cuento infantil:** {caracteristicas_cuento_infantil}\n\n"
-        f"Escribe el capítulo {capitulo_num} de un cuento infantil en {idioma} sobre el siguiente tema: {prompt}. "
-        f"El capítulo debe comenzar con un título apropiado y tener una extensión adecuada para el rango de edades {rango_edades}. "
-        f"No debe contener subdivisiones ni subcapítulos.{resumen_texto} {instrucciones}"
+        f"**Características de la historia infantil:** {caracteristicas_historia_infantil}\n\n"
+        f"Escribe la historia {historia_num} de una serie de historias infantiles en inglés sobre el siguiente tema: {prompt}. "
+        f"La historia debe comenzar con un título apropiado y tener aproximadamente 1500 palabras. "
+        f"No debe contener subdivisiones ni subcapítulos. {instrucciones}"
     )
     data = {
         "model": "openai/gpt-4o-mini",  # Manteniendo el modelo original
@@ -106,62 +95,26 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas, idioma, rango_edades
             contenido_completo = respuesta['choices'][0]['message']['content']
             lineas = contenido_completo.strip().split('\n', 1)
             if len(lineas) == 2:
-                titulo_capitulo = lineas[0].strip().replace("Título:", "").replace("Titulo:", "").strip()
+                titulo_historia = lineas[0].strip().replace("Título:", "").replace("Titulo:", "").strip()
                 contenido = lineas[1].strip()
-                return titulo_capitulo, contenido
+                return titulo_historia, contenido
             else:
-                st.warning(f"No se pudo extraer el título del Capítulo {capitulo_num}.")
-                return f"Capítulo {capitulo_num}", contenido_completo
+                st.warning(f"No se pudo extraer el título de la Historia {historia_num}.")
+                return f"Historia {historia_num}", contenido_completo
         else:
-            st.error(f"Respuesta inesperada de la API al generar el capítulo {capitulo_num}.")
+            st.error(f"Respuesta inesperada de la API al generar la Historia {historia_num}.")
             return None, None
     except requests.exceptions.RequestException as e:
-        st.error(f"Error al generar el capítulo {capitulo_num}: {e}")
+        st.error(f"Error al generar la Historia {historia_num}: {e}")
         return None, None
 
-# Función para resumir un capítulo utilizando la API de OpenRouter
-def resumir_capitulo(capitulo, idioma):
-    url = "https://openrouter.ai/api/v1/chat/completions"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
-    }
-    prompt_resumen = (
-        "Proporciona un resumen conciso y relevante del siguiente capítulo de un cuento infantil en "
-        f"{idioma}. El resumen debe resaltar los puntos clave de la trama, los desarrollos de los personajes y los eventos principales, evitando detalles redundantes.\n\n"
-        f"Capítulo:\n{capitulo}\n\nResumen:"
-    )
-    data = {
-        "model": "openai/gpt-4o-mini",  # Manteniendo el modelo original
-        "messages": [
-            {
-                "role": "user",
-                "content": prompt_resumen
-            }
-        ]
-    }
-    try:
-        response = requests.post(url, headers=headers, json=data)
-        response.raise_for_status()
-        respuesta = response.json()
-        if 'choices' in respuesta and len(respuesta['choices']) > 0:
-            resumen = respuesta['choices'][0]['message']['content']
-            resumen = ' '.join(resumen.split())
-            return resumen
-        else:
-            st.error("Respuesta inesperada de la API al resumir el capítulo.")
-            return None
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error al resumir el capítulo: {e}")
-        return None
-
 # Función para crear el documento Word con títulos
-def crear_documento(capitulo_list, titulo, idioma):
+def crear_documento(historias_list, titulo):
     doc = Document()
     doc.add_heading(titulo, 0)
-    for idx, (titulo_capitulo, capitulo) in enumerate(capitulo_list, 1):
-        doc.add_heading(f"Capítulo {idx}: {titulo_capitulo}", level=1)
-        doc.add_paragraph(capitulo)
+    for idx, (titulo_historia, historia) in enumerate(historias_list, 1):
+        doc.add_heading(f"Capítulo {idx}: {titulo_historia}", level=1)
+        doc.add_paragraph(historia)
     buffer = BytesIO()
     doc.save(buffer)
     buffer.seek(0)
@@ -172,7 +125,7 @@ st.sidebar.title("Opciones")
 
 # Determinar las opciones disponibles en la barra lateral
 opciones_disponibles = []
-if len(st.session_state.capitulos) < MAX_CAPITULOS and st.session_state.capitulos:
+if len(st.session_state.historias) < MAX_HISTORIAS and st.session_state.historias:
     opciones_disponibles = ["Continuar Generando", "Iniciar Nueva Generación"]
 else:
     opciones_disponibles = ["Iniciar Nueva Generación"]
@@ -183,74 +136,47 @@ opcion = st.sidebar.radio("¿Qué deseas hacer?", opciones_disponibles)
 mostrar_formulario = False
 if opcion == "Iniciar Nueva Generación":
     # Limpiar el estado de la sesión
-    st.session_state.capitulos = []
-    st.session_state.resumenes = []
-    st.session_state.titulo_obra = "Cuento Infantil"
+    st.session_state.historias = []
+    st.session_state.titulo_obra = "Historias Infantiles"
     st.session_state.proceso_generado = False
     st.session_state.prompt = ""
-    st.session_state.idioma = "Español"
-    st.session_state.rango_edades = "6-8 años"
     mostrar_formulario = True
 elif opcion == "Continuar Generando":
-    if len(st.session_state.capitulos) >= MAX_CAPITULOS:
-        st.sidebar.info(f"Has alcanzado el límite máximo de {MAX_CAPITULOS} capítulos.")
+    if len(st.session_state.historias) >= MAX_HISTORIAS:
+        st.sidebar.info(f"Has alcanzado el límite máximo de {MAX_HISTORIAS} historias.")
     else:
         mostrar_formulario = True
 
 if mostrar_formulario:
-    with st.form(key='form_cuento_infantil'):
+    with st.form(key='form_historia_infantil'):
         if opcion == "Iniciar Nueva Generación":
             st.session_state.prompt = st.text_area(
-                "Ingresa el tema o idea para el cuento infantil:",
+                "Ingresa el tema o idea para las historias infantiles:",
                 height=200,
                 value=""
             )
-            st.session_state.idioma = st.selectbox(
-                "Selecciona el idioma del cuento:",
-                options=["Español", "Inglés", "Latín"],  # Añadido "Latín"
-                index=0
-            )
-            st.session_state.rango_edades = st.selectbox(
-                "Selecciona el rango de edades para el cuento:",
-                options=["3-5 años", "6-8 años", "9-12 años"],
-                index=1
-            )
         else:
             st.text_area(
-                "Tema o idea para el cuento infantil:",
+                "Tema o idea para las historias infantiles:",
                 height=200,
                 value=st.session_state.prompt,
                 disabled=True
             )
-            st.selectbox(
-                "Idioma del cuento:",
-                options=["Español", "Inglés", "Latín"],  # Añadido "Latín"
-                index=["Español", "Inglés", "Latín"].index(st.session_state.idioma),
-                disabled=True,
-                key='idioma_display'
-            )
-            st.selectbox(
-                "Rango de edades del cuento:",
-                options=["3-5 años", "6-8 años", "9-12 años"],
-                index=["3-5 años", "6-8 años", "9-12 años"].index(st.session_state.rango_edades),
-                disabled=True,
-                key='rango_edades_display'
-            )
         
-        cap_generadas = len(st.session_state.capitulos)
-        cap_restantes = MAX_CAPITULOS - cap_generadas
-        num_capitulos = st.slider(
-            "Número de capítulos a generar:",
+        historias_generadas = len(st.session_state.historias)
+        historias_restantes = MAX_HISTORIAS - historias_generadas
+        num_historias = st.slider(
+            "Número de historias a generar:",
             min_value=1,
-            max_value=cap_restantes,
-            value=min(3, cap_restantes)
+            max_value=historias_restantes,
+            value=min(3, historias_restantes)
         )
-        submit_button = st.form_submit_button(label='Generar Cuento Infantil')
+        submit_button = st.form_submit_button(label='Generar Historias Infantiles')
 
     if submit_button:
         if opcion == "Iniciar Nueva Generación":
             if not st.session_state.prompt.strip():
-                st.error("Por favor, ingresa un tema o idea válida para el cuento infantil.")
+                st.error("Por favor, ingresa un tema o idea válida para las historias infantiles.")
                 st.stop()
             elif len(st.session_state.prompt.strip()) < 5:
                 st.error("El tema o idea debe tener al menos 5 caracteres.")
@@ -258,66 +184,51 @@ if mostrar_formulario:
         else:
             pass
         
-        st.success("Iniciando la generación del cuento infantil...")
+        st.success("Iniciando la generación de las historias infantiles...")
         st.session_state.proceso_generado = True
         progreso = st.progress(0)
         
-        inicio = len(st.session_state.capitulos) + 1
-        fin = inicio + num_capitulos - 1
-        if fin > MAX_CAPITULOS:
-            fin = MAX_CAPITULOS
-        cap_generadas_en_ejecucion = 0
+        inicio = len(st.session_state.historias) + 1
+        fin = inicio + num_historias - 1
+        if fin > MAX_HISTORIAS:
+            fin = MAX_HISTORIAS
+        historias_generadas_ejecucion = 0
         
         for i in range(inicio, fin + 1):
             st.write(f"Generando **Capítulo {i}**...")
-            resumen_previas = ' '.join(st.session_state.resumenes) if st.session_state.resumenes else ''
-            titulo_capitulo, capitulo = generar_capitulo(
+            titulo_historia, historia = generar_historia(
                 st.session_state.prompt, 
-                i, 
-                resumen_previas, 
-                st.session_state.idioma, 
-                st.session_state.rango_edades
+                i
             )
-            if capitulo:
-                st.session_state.capitulos.append((titulo_capitulo, capitulo))
-                resumen = resumir_capitulo(capitulo, st.session_state.idioma)
-                if resumen:
-                    st.session_state.resumenes.append(resumen)
-                else:
-                    st.warning(f"No se pudo generar un resumen para el Capítulo {i}.")
-                cap_generadas_en_ejecucion += 1
+            if historia:
+                st.session_state.historias.append((titulo_historia, historia))
+                historias_generadas_ejecucion += 1
             else:
-                st.error("La generación del cuento se ha detenido debido a un error.")
+                st.error("La generación de las historias se ha detenido debido a un error.")
                 break
-            progreso.progress(cap_generadas_en_ejecucion / num_capitulos)
-            time.sleep(2)
+            progreso.progress(historias_generadas_ejecucion / num_historias)
+            time.sleep(2)  # Opcional: Ajustar o eliminar según necesidad
         
         progreso.empty()
         
-        if cap_generadas_en_ejecucion == num_capitulos:
-            st.success(f"Se han generado {cap_generadas_en_ejecucion} capítulos exitosamente.")
-            st.session_state.titulo_obra = st.text_input("Título del cuento infantil:", value=st.session_state.titulo_obra)
+        if historias_generadas_ejecucion == num_historias:
+            st.success(f"Se han generado {historias_generadas_ejecucion} historias exitosamente.")
+            st.session_state.titulo_obra = st.text_input("Título de las historias infantiles:", value=st.session_state.titulo_obra)
             if st.session_state.titulo_obra:
-                documento = crear_documento(st.session_state.capitulos, st.session_state.titulo_obra, st.session_state.idioma)
-                # Ajustar el nombre del archivo según el idioma
-                nombre_archivo = "cuento_infantil.docx"
-                if st.session_state.idioma == "Latín":
-                    nombre_archivo = "fabula_infantilis.docx"
-                elif st.session_state.idioma == "Inglés":
-                    nombre_archivo = "children_story.docx"
+                documento = crear_documento(st.session_state.historias, st.session_state.titulo_obra)
                 st.download_button(
-                    label="Descargar Cuento en Word",
+                    label="Descargar Historias en Word",
                     data=documento,
-                    file_name=nombre_archivo,
+                    file_name="historias_infantiles.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
         else:
-            st.info(f"Generación interrumpida. Has generado {cap_generadas_en_ejecucion} de {num_capitulos} capítulos.")
+            st.info(f"Generación interrumpida. Has generado {historias_generadas_ejecucion} de {num_historias} historias.")
 
-# Mostrar el cuento generado
-if st.session_state.capitulos and st.session_state.proceso_generado:
+# Mostrar las historias generadas
+if st.session_state.historias and st.session_state.proceso_generado:
     st.markdown("---")
-    st.header("📖 Cuento Infantil Generado")
-    for idx, (titulo_capitulo, capitulo) in enumerate(st.session_state.capitulos, 1):
-        st.subheader(f"Capítulo {idx}: {titulo_capitulo}")
-        st.write(capitulo)
+    st.header("📖 Historias Infantiles Generadas")
+    for idx, (titulo_historia, historia) in enumerate(st.session_state.historias, 1):
+        st.subheader(f"Capítulo {idx}: {titulo_historia}")
+        st.write(historia)
