@@ -1,5 +1,3 @@
-# app.py
-
 import streamlit as st
 import requests
 import base64
@@ -9,7 +7,6 @@ import re
 import os
 import zipfile
 
-# Importar bibliotecas para manejar archivos
 import PyPDF2
 from docx import Document
 
@@ -49,7 +46,7 @@ def generar_resumen(capitulo):
         return None
 
 # Función para generar una ilustración usando Together API
-def generar_ilustracion(prompt, estilo, width=512, height=512):
+def generar_ilustracion(prompt, width=512, height=512):
     api_key = st.secrets["TOGETHER_API_KEY"]
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -87,57 +84,39 @@ def crear_zip(capitulos, resúmenes, ilustraciones):
         for idx, cap in enumerate(capitulos, 1):
             # Nombre de los archivos
             resumen_nombre = f"Capitulo_{idx}_Resumen.txt"
-            ilustracion_nombre = f"Capitulo_{idx}_Ilustracion.png"
+            # Guardar cada ilustración con un nombre único
+            ilustracion_nombre_1 = f"Capitulo_{idx}_Ilustracion_1.png"
+            ilustracion_nombre_2 = f"Capitulo_{idx}_Ilustracion_2.png"
             
             # Agregar resumen al ZIP
             zip_file.writestr(resumen_nombre, resúmenes[idx-1])
             
-            # Agregar ilustración al ZIP
-            if ilustraciones[idx-1]:
-                img_byte_arr = BytesIO()
-                ilustraciones[idx-1].save(img_byte_arr, format='PNG')
-                img_byte_arr.seek(0)
-                zip_file.writestr(ilustracion_nombre, img_byte_arr.read())
+            # Agregar ilustraciones al ZIP
+            if ilustraciones[idx-1][0]:
+                img_byte_arr_1 = BytesIO()
+                ilustraciones[idx-1][0].save(img_byte_arr_1, format='PNG')
+                img_byte_arr_1.seek(0)
+                zip_file.writestr(ilustracion_nombre_1, img_byte_arr_1.read())
+            
+            if ilustraciones[idx-1][1]:
+                img_byte_arr_2 = BytesIO()
+                ilustraciones[idx-1][1].save(img_byte_arr_2, format='PNG')
+                img_byte_arr_2.seek(0)
+                zip_file.writestr(ilustracion_nombre_2, img_byte_arr_2.read())
     
     zip_buffer.seek(0)
     return zip_buffer
-
-# Lista de estilos artísticos soportados
-supported_styles = [
-    "Realismo",
-    "Impresionismo",
-    "Expresionismo",
-    "Surrealismo",
-    "Arte Abstracto",
-    "Arte Digital",
-    "Estilo Manga",
-    "Estilo de Cómic",
-    "Arte Minimalista",
-    "Arte Pop",
-    "Cyberpunk",
-    "Arte Gótico",
-    "Steampunk",
-    "Arte Deco",
-    "Arte Futurista",
-    "Arte Fantástico",
-    "Arte Sci-Fi",
-    "Arte Barroco",
-    "Arte Moderno"
-]
 
 # Título de la aplicación
 st.title("Convertidor de Novela en Historia Ilustrada")
 
 # Instrucciones
 st.markdown("""
-Sube tu novela en formato `.txt`, `.docx` o `.pdf`, selecciona un estilo artístico para las ilustraciones y la aplicación generará un resumen de un párrafo para cada capítulo y generará ilustraciones coherentes para cada una. Al final, podrás descargar un archivo ZIP que contiene todos los resúmenes e ilustraciones generados.
+Sube tu novela en formato `.txt`, `.docx` o `.pdf`, y la aplicación generará un resumen de un párrafo para cada capítulo y dos ilustraciones coherentes en estilo 'Arte Digital'. Al final, podrás descargar un archivo ZIP que contiene todos los resúmenes e ilustraciones generados.
 """)
 
 # Subida de archivo
 uploaded_file = st.file_uploader("Sube tu novela", type=["txt", "pdf", "docx"])
-
-# Selección de estilo artístico
-estilo_seleccionado = st.selectbox("Selecciona un estilo artístico para las ilustraciones", supported_styles)
 
 # Botón para procesar
 if st.button("Procesar Novela"):
@@ -192,14 +171,17 @@ if st.button("Procesar Novela"):
                             st.write("**Resumen de un párrafo:**")
                             st.write(resumen)
                     
-                    # Generar ilustración
-                    with st.spinner(f"Generando ilustración para el capítulo {idx}..."):
-                        prompt = f"{resumen}. Estilo artístico: {estilo_seleccionado}."
-                        imagen = generar_ilustracion(prompt, estilo_seleccionado)
-                        if imagen:
-                            ilustraciones.append(imagen)
-                            st.image(imagen, caption=f"Ilustración Capítulo {idx} - {estilo_seleccionado}", use_column_width=True)
+                    # Generar dos ilustraciones
+                    ilustraciones_capitulo = []
+                    for i in range(2):
+                        with st.spinner(f"Generando ilustración {i+1} para el capítulo {idx}..."):
+                            prompt = f"{resumen}. Estilo artístico: Arte Digital."
+                            imagen = generar_ilustracion(prompt)
+                            if imagen:
+                                ilustraciones_capitulo.append(imagen)
+                                st.image(imagen, caption=f"Ilustración {i+1} Capítulo {idx} - Arte Digital", use_column_width=True)
                     
+                    ilustraciones.append(ilustraciones_capitulo)
                     st.markdown("---")
                 
                 st.success("Procesamiento completado.")
@@ -216,4 +198,4 @@ if st.button("Procesar Novela"):
                     mime='application/zip'
                 )
     else:
-        st.error("Por favor, sube un archivo para comenzar.") 
+        st.error("Por favor, sube un archivo para comenzar.")
