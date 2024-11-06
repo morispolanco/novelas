@@ -5,6 +5,9 @@ from docx import Document
 from io import BytesIO
 import os
 
+# Definir la cantidad máxima de capítulos
+MAX_CAPITULOS = 10
+
 # Configuración de la página
 st.set_page_config(
     page_title="📝 Generador de Cuentos Infantiles",
@@ -13,7 +16,7 @@ st.set_page_config(
 )
 
 st.title("📝 Generador de Cuentos Infantiles")
-st.write("Esta aplicación genera un cuento infantil en inglés o español basado en el tema o idea que ingreses, adaptado al rango de edades seleccionado y dividido en capítulos con títulos, evitando la repetición de contenido.")
+st.write("Esta aplicación genera un cuento infantil en español, inglés o latín basado en el tema o idea que ingreses, adaptado al rango de edades seleccionado y dividido en capítulos con títulos, evitando la repetición de contenido.")
 
 # Inicializar estado de la sesión
 if 'capitulos' not in st.session_state:
@@ -169,7 +172,7 @@ st.sidebar.title("Opciones")
 
 # Determinar las opciones disponibles en la barra lateral
 opciones_disponibles = []
-if len(st.session_state.capitulos) < 24 and st.session_state.capitulos:
+if len(st.session_state.capitulos) < MAX_CAPITULOS and st.session_state.capitulos:
     opciones_disponibles = ["Continuar Generando", "Iniciar Nueva Generación"]
 else:
     opciones_disponibles = ["Iniciar Nueva Generación"]
@@ -189,8 +192,8 @@ if opcion == "Iniciar Nueva Generación":
     st.session_state.rango_edades = "6-8 años"
     mostrar_formulario = True
 elif opcion == "Continuar Generando":
-    if len(st.session_state.capitulos) >= 24:
-        st.sidebar.info("Has alcanzado el límite máximo de 24 capítulos.")
+    if len(st.session_state.capitulos) >= MAX_CAPITULOS:
+        st.sidebar.info(f"Has alcanzado el límite máximo de {MAX_CAPITULOS} capítulos.")
     else:
         mostrar_formulario = True
 
@@ -204,7 +207,7 @@ if mostrar_formulario:
             )
             st.session_state.idioma = st.selectbox(
                 "Selecciona el idioma del cuento:",
-                options=["Español", "Inglés"],
+                options=["Español", "Inglés", "Latín"],  # Añadido "Latín"
                 index=0
             )
             st.session_state.rango_edades = st.selectbox(
@@ -221,8 +224,8 @@ if mostrar_formulario:
             )
             st.selectbox(
                 "Idioma del cuento:",
-                options=["Español", "Inglés"],
-                index=0 if st.session_state.idioma == "Español" else 1,
+                options=["Español", "Inglés", "Latín"],  # Añadido "Latín"
+                index=["Español", "Inglés", "Latín"].index(st.session_state.idioma),
                 disabled=True,
                 key='idioma_display'
             )
@@ -235,7 +238,7 @@ if mostrar_formulario:
             )
         
         cap_generadas = len(st.session_state.capitulos)
-        cap_restantes = 24 - cap_generadas
+        cap_restantes = MAX_CAPITULOS - cap_generadas
         num_capitulos = st.slider(
             "Número de capítulos a generar:",
             min_value=1,
@@ -261,8 +264,8 @@ if mostrar_formulario:
         
         inicio = len(st.session_state.capitulos) + 1
         fin = inicio + num_capitulos - 1
-        if fin > 24:
-            fin = 24
+        if fin > MAX_CAPITULOS:
+            fin = MAX_CAPITULOS
         cap_generadas_en_ejecucion = 0
         
         for i in range(inicio, fin + 1):
@@ -296,10 +299,16 @@ if mostrar_formulario:
             st.session_state.titulo_obra = st.text_input("Título del cuento infantil:", value=st.session_state.titulo_obra)
             if st.session_state.titulo_obra:
                 documento = crear_documento(st.session_state.capitulos, st.session_state.titulo_obra, st.session_state.idioma)
+                # Ajustar el nombre del archivo según el idioma
+                nombre_archivo = "cuento_infantil.docx"
+                if st.session_state.idioma == "Latín":
+                    nombre_archivo = "fabula_infantilis.docx"
+                elif st.session_state.idioma == "Inglés":
+                    nombre_archivo = "children_story.docx"
                 st.download_button(
                     label="Descargar Cuento en Word",
                     data=documento,
-                    file_name="cuento_infantil.docx",
+                    file_name=nombre_archivo,
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
         else:
