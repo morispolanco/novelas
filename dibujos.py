@@ -15,7 +15,7 @@ st.markdown("""
 Ingresa una descripción de la escena que deseas ilustrar, selecciona un estilo artístico y elige el tamaño de la imagen. 
 La aplicación transformará esta información en un prompt adecuado para el modelo FLUX de Stable Diffusion, 
 incluyendo un prompt negativo para controlar la calidad y características de la imagen, 
-y generará una imagen con las dimensiones especificadas.
+y generará **dos** imágenes con las dimensiones especificadas.
 """)
 
 def transform_description_and_style_to_prompt(description, style):
@@ -23,10 +23,10 @@ def transform_description_and_style_to_prompt(description, style):
     Transforma la descripción de la escena y el estilo artístico en un prompt optimizado para el modelo FLUX 
     utilizando la API de OpenRouter, incluyendo un prompt negativo.
     """
-    api_key = st.secrets["OPENROUTER_API_KEY"]
+    openrouter_api_key = st.secrets["OPENROUTER_API_KEY"]
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
+        "Authorization": f"Bearer {openrouter_api_key}"
     }
     
     # Prompt negativo definido
@@ -44,7 +44,7 @@ def transform_description_and_style_to_prompt(description, style):
     )
     
     data = {
-        "model": "openai/gpt-4o-mini",
+        "model": "openai/gpt-4o-mini",  # Verificar el nombre correcto del modelo
         "messages": [
             {
                 "role": "user",
@@ -56,46 +56,62 @@ def transform_description_and_style_to_prompt(description, style):
     try:
         response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
         response.raise_for_status()
-        prompt = response.json()["choices"][0]["message"]["content"].strip()
-        return prompt
+        response_json = response.json()
+        
+        # Validar la estructura de la respuesta
+        if "choices" in response_json and len(response_json["choices"]) > 0:
+            prompt = response_json["choices"][0]["message"]["content"].strip()
+            return prompt
+        else:
+            st.error("La respuesta de OpenRouter no contiene el formato esperado.")
     except requests.exceptions.HTTPError as http_err:
-        st.error(f"Error HTTP al transformar la descripción y estilo: {http_err} - {response.text}")
+        st.error(f"Error HTTP al transformar la descripción y estilo: {http_err}")
     except Exception as e:
         st.error(f"Error al transformar la descripción y estilo: {e}")
     return None
 
-def generate_image(prompt, width, height):
+def generate_images(prompt, width, height, num_images=2):
     """
-    Genera una imagen utilizando la API de Together (Stable Diffusion) a partir de un prompt.
-    La imagen tendrá el tamaño especificado por el usuario.
+    Genera múltiples imágenes utilizando la API de Together (Stable Diffusion) a partir de un prompt.
+    Las imágenes tendrán el tamaño especificado por el usuario.
     """
-    api_key = st.secrets["TOGETHER_API_KEY"]
+    together_api_key = st.secrets["TOGETHER_API_KEY"]
     headers = {
-        "Authorization": f"Bearer {api_key}",
+        "Authorization": f"Bearer {together_api_key}",
         "Content-Type": "application/json"
     }
     data = {
-        "model": "black-forest-labs/FLUX.1-pro",
+        "model": "black-forest-labs/FLUX.1-pro",  # Verificar el nombre correcto del modelo
         "prompt": prompt,
         "width": width,
         "height": height,
         "steps": 28,
-        "n": 1,
+        "n": num_images,  # Solicitar múltiples imágenes
         "response_format": "b64_json"
     }
     try:
         response = requests.post("https://api.together.xyz/v1/images/generations", headers=headers, json=data)
         response.raise_for_status()
         response_data = response.json()
-        # Decodificar la imagen de base64
-        b64_image = response_data["data"][0]["b64_json"]
-        image_bytes = base64.b64decode(b64_image)
-        image = Image.open(BytesIO(image_bytes))
-        return image
+        
+        images = []
+        # Validar la estructura de la respuesta
+        if "data" in response_data and len(response_data["data"]) >= num_images:
+            for i in range(num_images):
+                b64_image = response_data["data"][i].get("b64_json")
+                if b64_image:
+                    image_bytes = base64.b64decode(b64_image)
+                    image = Image.open(BytesIO(image_bytes))
+                    images.append(image)
+                else:
+                    st.error(f"La imagen {i+1} no contiene datos en formato base64.")
+        else:
+            st.error("La respuesta de Together no contiene suficientes datos de imagen.")
+        return images
     except requests.exceptions.HTTPError as http_err:
-        st.error(f"Error HTTP al generar la imagen: {http_err} - {response.text}")
+        st.error(f"Error HTTP al generar las imágenes: {http_err}")
     except Exception as e:
-        st.error(f"Error al generar la imagen: {e}")
+        st.error(f"Error al generar las imágenes: {e}")
     return None
 
 # Opciones de estilos artísticos soportados por FLUX
@@ -188,8 +204,8 @@ if size_option == "Personalizado":
 else:
     selected_width, selected_height = predefined_sizes[size_option]
 
-# Botón para generar la ilustración
-if st.button("Generar Ilustración"):
+# Botón para generar las ilustraciones
+if st.button("Generar Ilustraciones"):
     if not scene_description.strip():
         st.warning("Por favor, ingresa una descripción de la escena.")
     elif not (selected_style.strip() or custom_style.strip()):
@@ -204,7 +220,7 @@ if st.button("Generar Ilustración"):
         width = selected_width
         height = selected_height
         
-        # Validación adicional de dimensiones (opcional)
+        # Validación adicional de dimensiones
         if width % 64 != 0 or height % 64 != 0:
             st.warning("Por favor, ingresa dimensiones que sean múltiplos de 64 para garantizar la compatibilidad.")
         elif width < 64 or height < 64:
@@ -219,11 +235,16 @@ if st.button("Generar Ilustración"):
                 st.subheader("Prompt Generado para el Modelo FLUX de Stable Diffusion")
                 st.write(prompt)
                 
-                with st.spinner("Generando la imagen con el modelo FLUX de Stable Diffusion..."):
-                    image = generate_image(prompt, width, height)
+                with st.spinner("Generando las imágenes con el modelo FLUX de Stable Diffusion..."):
+                    images = generate_images(prompt, width, height, num_images=2)
             
-                if image:
-                    st.subheader("Ilustración Generada")
-                    st.image(image, caption="Imagen generada por FLUX de Stable Diffusion", use_column_width=True)
+                if images:
+                    st.subheader("Ilustraciones Generadas")
+                    # Mostrar las dos imágenes lado a lado
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.image(images[0], caption="Imagen 1 generada por FLUX de Stable Diffusion", use_column_width=True)
+                    with col2:
+                        st.image(images[1], caption="Imagen 2 generada por FLUX de Stable Diffusion", use_column_width=True)
                 else:
-                    st.error("No se pudo generar la imagen.")
+                    st.error("No se pudieron generar las imágenes.")
