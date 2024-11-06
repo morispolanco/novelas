@@ -443,7 +443,7 @@ def generar_capitulo(prompt, capitulo_num, resumen_previas, tipo_libro, idioma, 
                         st.session_state.capitulos, 
                         st.session_state.titulo_obra, 
                         st.session_state.tipo_libro,
-                        st.session_state.idioma  # Pasar el idioma seleccionado
+                        st.session_state.idioma  # Pasar el idioma seleccionado 
                     )
                     st.download_button(
                         label="Descargar Libro en Word",
