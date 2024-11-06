@@ -102,7 +102,8 @@ def guardar_estado():
             'titulo_obra': st.session_state.titulo_obra,
             'proceso_generado': st.session_state.proceso_generado,
             'prompt': st.session_state.prompt,
-            'tipo_libro': st.session_state.tipo_libro
+            'tipo_libro': st.session_state.tipo_libro,
+            'idioma': st.session_state.idioma  # Guardar el idioma seleccionado
         }, f)
 
 def cargar_estado():
@@ -116,6 +117,7 @@ def cargar_estado():
             st.session_state.proceso_generado = estado.get('proceso_generado', False)
             st.session_state.prompt = estado.get('prompt', "")
             st.session_state.tipo_libro = estado.get('tipo_libro', list(CARACTERISTICAS_LIBRO.keys())[0])
+            st.session_state.idioma = estado.get('idioma', "Español")  # Cargar el idioma seleccionado
         return True
     return False
 
@@ -127,6 +129,7 @@ def limpiar_estado():
     st.session_state.proceso_generado = False
     st.session_state.prompt = ""
     st.session_state.tipo_libro = list(CARACTERISTICAS_LIBRO.keys())[0]
+    st.session_state.idioma = "Español"  # Valor por defecto
     if os.path.exists(ESTADO_ARCHIVO):
         os.remove(ESTADO_ARCHIVO)
 
@@ -143,86 +146,93 @@ if 'prompt' not in st.session_state:
     st.session_state.prompt = ""
 if 'tipo_libro' not in st.session_state:
     st.session_state.tipo_libro = list(CARACTERISTICAS_LIBRO.keys())[0]  # Valor por defecto
+if 'idioma' not in st.session_state:
+    st.session_state.idioma = "Español"  # Valor por defecto
 
 # Intentar cargar el estado guardado al iniciar la aplicación
 estado_cargado = cargar_estado()
 
 # Función para generar un capítulo de cualquier tipo de libro
-def generar_capitulo(prompt, capitulo_num, resumen_previas, tipo_libro):
-    url = "https://openrouter.ai/api/v1/chat/completions"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
-    }
-    instrucciones = (
-        "Asegúrate de que el contenido generado cumpla con las características del tipo de libro seleccionado. "
-        "Desarrolla los conceptos clave y explora sus aplicaciones. "
-        "Utiliza un lenguaje adecuado al género, desarrolla ideas relevantes y cercanas a la audiencia, "
-        "aborda temas pertinentes para el tipo de libro y mantiene una narrativa coherente con el género. "
-        "Evita repetir información ya mencionada en capítulos anteriores. "
-        "Cada capítulo debe comenzar con un título apropiado."
-    )
-    if resumen_previas:
-        resumen_texto = " Hasta ahora, el libro ha cubierto los siguientes puntos: " + resumen_previas
-    else:
-        resumen_texto = ""
-    
-    caracteristicas = CARACTERISTICAS_LIBRO.get(tipo_libro, "")
-    
-    mensaje = (
-        f"{caracteristicas}\n\n"
-        f"Escribe el capítulo {capitulo_num} de un libro de tipo '{tipo_libro}' sobre el siguiente tema: {prompt}. "
-        f"El capítulo debe seguir el formato exacto a continuación y ser **aproximadamente 3000 palabras**.\n\n"
-        f"**Título:** [Título del Capítulo]\n\n"
-        f"---\n\n"
-        f"[Contenido del Capítulo]\n\n"
-        f"{instrucciones}\n\n"
-        f"**Por favor, asegúrate de seguir este formato exactamente sin añadir texto adicional.**"
-    )
-    data = {
-        "model": "openai/gpt-4o-mini",
-        "messages": [
-            {
-                "role": "user",
-                "content": mensaje
-            }
-        ],
-        "temperature": 0.2,  # Reducir la temperatura para mayor coherencia
-        "max_tokens": 4000     # Aumentar el límite de tokens para capítulos más largos
-    }
-    try:
-        response = requests.post(url, headers=headers, json=data)
-        response.raise_for_status()
-        respuesta = response.json()
-        if 'choices' in respuesta and len(respuesta['choices']) > 0:
-            contenido_completo = respuesta['choices'][0]['message']['content']
-            
-            # Utilizar regex para extraer el título
-            titulo_match = re.search(r"\*\*Título:\*\*\s*(.+)", contenido_completo, re.IGNORECASE)
-            if titulo_match:
-                titulo_capitulo = titulo_match.group(1).strip()
-                # Extraer el contenido después del título y los guiones
-                contenido_match = re.search(r"\*\*Título:\*\*.*?\n\n---\n\n(.+)", contenido_completo, re.DOTALL)
-                if contenido_match:
-                    contenido = contenido_match.group(1).strip()
-                else:
-                    # Intentar extraer contenido después de los guiones
-                    contenido = contenido_completo.split('\n\n---\n\n', 1)[-1].strip()
-                return titulo_capitulo, contenido
-            else:
-                st.warning(f"No se pudo extraer el título del Capítulo {capitulo_num}.")
-                # Mostrar la respuesta completa para depuración
-                st.text_area(f"Respuesta de la API para el Capítulo {capitulo_num}:", contenido_completo, height=300)
-                return f"Capítulo {capitulo_num}", contenido_completo
+def generar_capitulo(prompt, capitulo_num, resumen_previas, tipo_libro, idioma, intentos=3):
+    for intento in range(intentos):
+        url = "https://openrouter.ai/api/v1/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
+        }
+        instrucciones = (
+            "Asegúrate de que el contenido generado cumpla con las características del tipo de libro seleccionado. "
+            "Desarrolla los conceptos clave y explora sus aplicaciones. "
+            "Utiliza un lenguaje adecuado al género, desarrolla ideas relevantes y cercanas a la audiencia, "
+            "aborda temas pertinentes para el tipo de libro y mantiene una narrativa coherente con el género. "
+            "Evita repetir información ya mencionada en capítulos anteriores. "
+            "Cada capítulo debe comenzar con un título apropiado."
+        )
+        if resumen_previas:
+            resumen_texto = " Hasta ahora, el libro ha cubierto los siguientes puntos: " + resumen_previas
         else:
-            st.error(f"Respuesta inesperada de la API al generar el capítulo {capitulo_num}.")
-            return None, None
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error al generar el capítulo {capitulo_num}: {e}")
-        return None, None
+            resumen_texto = ""
+        
+        caracteristicas = CARACTERISTICAS_LIBRO.get(tipo_libro, "")
+        
+        # Incluir el idioma en el prompt
+        mensaje = (
+            f"{caracteristicas}\n\n"
+            f"Escribe el capítulo {capitulo_num} de un libro de tipo '{tipo_libro}' en **{idioma}** sobre el siguiente tema: {prompt}. "
+            f"El capítulo debe seguir el formato exacto a continuación y ser **aproximadamente 3000 palabras**.\n\n"
+            f"**Título:** [Título del Capítulo]\n\n"
+            f"---\n\n"
+            f"[Contenido del Capítulo]\n\n"
+            f"{instrucciones}\n\n"
+            f"**Por favor, asegúrate de seguir este formato exactamente sin añadir texto adicional.**"
+        )
+        data = {
+            "model": "openai/gpt-4o-mini",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": mensaje
+                }
+            ],
+            "temperature": 0.2,  # Reducir la temperatura para mayor coherencia
+            "max_tokens": 4000     # Aumentar el límite de tokens para capítulos más largos
+        }
+        try:
+            response = requests.post(url, headers=headers, json=data)
+            response.raise_for_status()
+            respuesta = response.json()
+            if 'choices' in respuesta and len(respuesta['choices']) > 0:
+                contenido_completo = respuesta['choices'][0]['message']['content']
+                
+                # Utilizar regex para extraer el título
+                titulo_match = re.search(r"\*\*Título:\*\*\s*(.+)", contenido_completo, re.IGNORECASE)
+                if titulo_match:
+                    titulo_capitulo = titulo_match.group(1).strip()
+                    # Extraer el contenido después del título y los guiones
+                    contenido_match = re.search(r"\*\*Título:\*\*.*?\n\n---\n\n(.+)", contenido_completo, re.DOTALL)
+                    if contenido_match:
+                        contenido = contenido_match.group(1).strip()
+                    else:
+                        # Intentar extraer contenido después de los guiones
+                        contenido = contenido_completo.split('\n\n---\n\n', 1)[-1].strip()
+                    return titulo_capitulo, contenido
+                else:
+                    st.warning(f"No se pudo extraer el título del Capítulo {capitulo_num} en el intento {intento + 1}.")
+                    # Mostrar la respuesta completa para depuración
+                    st.text_area(f"Respuesta de la API para el Capítulo {capitulo_num} en el intento {intento + 1}:", contenido_completo, height=300)
+            else:
+                st.error(f"Respuesta inesperada de la API al generar el capítulo {capitulo_num} en el intento {intento + 1}.")
+        except requests.exceptions.RequestException as e:
+            st.error(f"Error al generar el capítulo {capitulo_num} en el intento {intento + 1}: {e}")
+        
+        # Esperar antes de reintentar
+        time.sleep(2)
+    
+    st.error(f"No se pudo generar el Capítulo {capitulo_num} después de {intentos} intentos.")
+    return None, None
 
 # Función para resumir un capítulo utilizando la API de OpenRouter
-def resumir_capitulo(capitulo, tipo_libro):
+def resumir_capitulo(capitulo, tipo_libro, idioma):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",
@@ -231,7 +241,7 @@ def resumir_capitulo(capitulo, tipo_libro):
     caracteristicas = CARACTERISTICAS_LIBRO.get(tipo_libro, "")
     prompt_resumen = (
         f"{caracteristicas}\n\n"
-        "Proporciona un resumen conciso y relevante del siguiente capítulo del libro. "
+        f"Proporciona un resumen conciso y relevante del siguiente capítulo del libro en **{idioma}**. "
         "El resumen debe resaltar los puntos clave de la trama, los desarrollos de los conceptos y los eventos principales, "
         "evitando detalles redundantes.\n\n"
         f"Capítulo:\n{capitulo}\n\nResumen:"
@@ -263,10 +273,11 @@ def resumir_capitulo(capitulo, tipo_libro):
         return None
 
 # Función para crear el documento Word con títulos
-def crear_documento(capitulo_list, titulo, tipo_libro):
+def crear_documento(capitulo_list, titulo, tipo_libro, idioma):
     doc = Document()
     doc.add_heading(titulo, 0)
     doc.add_paragraph(f"Tipo de Libro: {tipo_libro}")
+    doc.add_paragraph(f"Idioma: {idioma}")  # Agregar el idioma como metadato
     doc.add_paragraph()
     for idx, (titulo_capitulo, capitulo) in enumerate(capitulo_list, 1):
         doc.add_heading(f"Capítulo {idx}: {titulo_capitulo}", level=1)
@@ -306,6 +317,10 @@ if mostrar_formulario:
                 "Selecciona el tipo de libro que deseas generar:",
                 options=list(CARACTERISTICAS_LIBRO.keys())
             )
+            st.session_state.idioma = st.selectbox(
+                "Selecciona el idioma del libro:",
+                options=["Español", "Inglés"]
+            )
             st.session_state.prompt = st.text_area(
                 "Ingresa la idea o tema para el libro:",
                 height=200,
@@ -316,6 +331,12 @@ if mostrar_formulario:
                 "Tipo de libro:",
                 options=list(CARACTERISTICAS_LIBRO.keys()),
                 index=list(CARACTERISTICAS_LIBRO.keys()).index(st.session_state.tipo_libro),
+                disabled=True
+            )
+            st.selectbox(
+                "Idioma del libro:",
+                options=["Español", "Inglés"],
+                index=["Español", "Inglés"].index(st.session_state.idioma),
                 disabled=True
             )
             st.text_area(
@@ -363,11 +384,12 @@ if mostrar_formulario:
                 st.session_state.prompt, 
                 i, 
                 resumen_previas,
-                st.session_state.tipo_libro
+                st.session_state.tipo_libro,
+                st.session_state.idioma  # Pasar el idioma seleccionado
             )
             if capitulo:
                 st.session_state.capitulos.append((titulo_capitulo, capitulo))
-                resumen = resumir_capitulo(capitulo, st.session_state.tipo_libro)
+                resumen = resumir_capitulo(capitulo, st.session_state.tipo_libro, st.session_state.idioma)  # Pasar el idioma seleccionado
                 if resumen:
                     st.session_state.resumenes.append(resumen)
                 else:
@@ -386,7 +408,12 @@ if mostrar_formulario:
             st.success(f"Se han generado {cap_generadas_en_ejecucion} capítulos exitosamente.")
             st.session_state.titulo_obra = st.text_input("Título del libro:", value=st.session_state.titulo_obra)
             if st.session_state.titulo_obra:
-                documento = crear_documento(st.session_state.capitulos, st.session_state.titulo_obra, st.session_state.tipo_libro)
+                documento = crear_documento(
+                    st.session_state.capitulos, 
+                    st.session_state.titulo_obra, 
+                    st.session_state.tipo_libro,
+                    st.session_state.idioma  # Pasar el idioma seleccionado
+                )
                 st.download_button(
                     label="Descargar Libro en Word",
                     data=documento,
