@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 st.title("📝 Generador de Historias Infantiles")
-st.write("Esta aplicación genera hasta 24 historias infantiles en inglés basadas en el tema o idea que ingreses. Cada historia se identifica como un capítulo y tiene aproximadamente 1500 palabras.")
+st.write("Esta aplicación genera hasta 24 historias infantiles en inglés basadas en el tema o idea que ingreses. Cada historia se identifica como un capítulo y tiene aproximadamente 1000 palabras.")
 
 # Inicializar estado de la sesión
 if 'historias' not in st.session_state:
@@ -32,7 +32,7 @@ caracteristicas_historia_infantil = """
 **Características de una buena historia infantil:**
 
 1. **Extensión**
-   - **Brevedad adecuada**: Aproximadamente 1500 palabras, adaptada a la capacidad de atención de los niños.
+   - **Brevedad adecuada**: Aproximadamente 1000 palabras, adaptada a la capacidad de atención de los niños.
 
 2. **Estilo**
    - **Lenguaje simple y claro**: Adecuado para niños, con vocabulario accesible.
@@ -75,7 +75,7 @@ def generar_historia(prompt, historia_num):
     mensaje = (
         f"**Características de la historia infantil:** {caracteristicas_historia_infantil}\n\n"
         f"Escribe la historia {historia_num} de una serie de historias infantiles en inglés sobre el siguiente tema: {prompt}. "
-        f"La historia debe comenzar con un título apropiado y tener aproximadamente 1500 palabras. "
+        f"La historia debe comenzar con un título apropiado y tener aproximadamente 1000 palabras. "
         f"No debe contener subdivisiones ni subcapítulos. {instrucciones}"
     )
     data = {
