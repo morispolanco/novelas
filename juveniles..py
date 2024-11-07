@@ -17,9 +17,8 @@ st.set_page_config(
 
 st.title("📝 Generador de Cuentos de Aventuras para Niños (9-12 años)")
 st.write("""
-Esta aplicación genera hasta 24 capítulos de cuentos de aventuras para niños de 9 a 12 años en inglés.
+Esta aplicación genera hasta 24 capítulos de cuentos de aventuras para niños de 9 a 12 años en el idioma seleccionado.
 Cada capítulo presenta una aventura independiente con personajes únicos y escenarios imaginativos.
-Cada capítulo comienza con la palabra "CHAPTER".
 """)
 
 # Inicializar estado de la sesión
@@ -31,10 +30,12 @@ if 'proceso_generado' not in st.session_state:
     st.session_state.proceso_generado = False
 if 'num_capitulos' not in st.session_state:
     st.session_state.num_capitulos = 1
+if 'idioma' not in st.session_state:
+    st.session_state.idioma = "Inglés"
 
 # Prompt personalizado proporcionado por el usuario
 PROMPT_BASE = """
-Escribe un cuento de aventuras destinado a niños y niñas de entre 9 a 12 años. La historia debe ser emocionante y apropiada para la edad, incluyendo elementos como desafíos, personajes valientes y escenarios imaginativos. Asegúrate de que el contenido sea entretenido, pero también seguro y adecuado para los niños. Incluye un conflicto interesante y una resolución que deje un mensaje positivo. Ponle título precedido de la palabra CHAPTER.
+Escribe un cuento de aventuras destinado a niños y niñas de entre 9 a 12 años. La historia debe ser emocionante y apropiada para la edad, incluyendo elementos como desafíos, personajes valientes y escenarios imaginativos. Asegúrate de que el contenido sea entretenido, pero también seguro y adecuado para los niños. Incluye un conflicto interesante y una resolución que deje un mensaje positivo. Ponle título al cuento.
 
 # Requisitos y Sugerencias
 - El cuento debe tener entre 500 y 700 palabras, con un lenguaje accesible y comprensible para lectores de este grupo de edad.
@@ -56,29 +57,49 @@ Escribe un cuento de aventuras destinado a niños y niñas de entre 9 a 12 años
 La salida debe ser un cuento escrito en párrafos bien formados, con un flujo narrativo constante y diálogo claro cuando sea necesario. Cada vez que cambie un personaje que hable, usa un salto de línea para mayor claridad.
 """
 
-# Función para extraer el título usando expresiones regulares
-def extraer_titulo(respuesta, capitulo_num):
-    # Buscamos "CHAPTER {n}: Título"
-    patron = rf'CHAPTER\s*{capitulo_num}:\s*(.*)'
-    match = re.search(patron, respuesta, re.IGNORECASE)
-    if match:
-        return match.group(1).strip()
+# Función para extraer el título
+def extraer_titulo(respuesta):
+    # Suponiendo que el título es la primera línea
+    lines = respuesta.strip().split('\n')
+    if lines:
+        return lines[0].strip()
     return "Título No Encontrado"
 
 # Función con reintentos para generar un capítulo
 @backoff.on_exception(backoff.expo, requests.exceptions.RequestException, max_tries=3)
-def generar_capitulo(capitulo_num):
+def generar_capitulo(capitulo_num, idioma):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
     }
+
+    # Seleccionar el modelo según la solicitud del usuario
+    modelo = "openai/gpt-4o-mini"  # Modelo solicitado por el usuario
+
+    # Construir el prompt dependiendo del idioma
+    if idioma.lower() == "inglés":
+        prompt = PROMPT_BASE
+    elif idioma.lower() == "español":
+        prompt = PROMPT_BASE.replace(
+            "Escribe un cuento de aventuras destinado a niños y niñas de entre 9 a 12 años.",
+            "Escribe un cuento de aventuras destinado a niños y niñas de entre 9 a 12 años en español."
+        )
+    elif idioma.lower() == "latín":
+        prompt = PROMPT_BASE.replace(
+            "Escribe un cuento de aventuras destinado a niños y niñas de entre 9 a 12 años.",
+            "Escribe un cuento de aventuras destinado a niños y niñas de entre 9 a 12 años en latín."
+        )
+    else:
+        prompt = PROMPT_BASE  # Por defecto en inglés
+
     mensaje = (
-        f"{PROMPT_BASE}\n\n"
-        f"CHAPTER {capitulo_num}:"
+        f"{prompt}\n\n"
+        f"Titulo: "
     )
+
     data = {
-        "model": "openai/gpt-4o-mini",  # Mantener el modelo sin cambios
+        "model": modelo,
         "messages": [
             {
                 "role": "user",
@@ -86,14 +107,15 @@ def generar_capitulo(capitulo_num):
             }
         ]
     }
+
     response = requests.post(url, headers=headers, json=data)
     response.raise_for_status()
     respuesta = response.json()
     if 'choices' in respuesta and len(respuesta['choices']) > 0:
         contenido_completo = respuesta['choices'][0]['message']['content']
-        titulo_capitulo = extraer_titulo(contenido_completo, capitulo_num)
+        titulo_capitulo = extraer_titulo(contenido_completo)
         # Extraer el contenido sin el título
-        contenido = contenido_completo.replace(f"CHAPTER {capitulo_num}: {titulo_capitulo}", "").strip()
+        contenido = contenido_completo.replace(titulo_capitulo, "", 1).strip()
         return titulo_capitulo, contenido
     else:
         st.error(f"Respuesta inesperada de la API al generar el Capítulo {capitulo_num}.")
@@ -104,7 +126,7 @@ def crear_documento(capitulos_list, titulo):
     doc = Document()
     doc.add_heading(titulo, 0)
     for idx, (titulo_capitulo, capitulo) in enumerate(capitulos_list, 1):
-        doc.add_heading(f"CHAPTER {idx}: {titulo_capitulo}", level=1)
+        doc.add_heading(f"{titulo_capitulo}", level=1)
         doc.add_paragraph(capitulo)
     buffer = BytesIO()
     doc.save(buffer)
@@ -113,6 +135,10 @@ def crear_documento(capitulos_list, titulo):
 
 # Interfaz de usuario para seleccionar opción
 st.sidebar.title("Opciones")
+
+# Selección de idioma
+idiomas = ["Inglés", "Español", "Latín"]
+idioma_seleccionado = st.sidebar.selectbox("Selecciona el idioma del cuento:", idiomas)
 
 # Determinar las opciones disponibles en la barra lateral
 opciones_disponibles = []
@@ -131,11 +157,13 @@ if opcion == "Iniciar Nueva Generación":
     st.session_state.titulo_obra = "Cuentos de Aventuras"
     st.session_state.proceso_generado = False
     st.session_state.num_capitulos = 1
+    st.session_state.idioma = idioma_seleccionado
     mostrar_formulario = True
 elif opcion == "Continuar Generando":
     if len(st.session_state.capitulos) >= MAX_CAPITULOS:
         st.sidebar.info(f"Has alcanzado el límite máximo de {MAX_CAPITULOS} capítulos.")
     else:
+        st.session_state.idioma = idioma_seleccionado
         mostrar_formulario = True
 
 if mostrar_formulario:
@@ -171,8 +199,8 @@ if mostrar_formulario:
         capitulos_generados_ejecucion = 0
         
         for i in range(inicio, fin + 1):
-            st.write(f"Generando **CHAPTER {i}**...")
-            titulo_capitulo, capitulo = generar_capitulo(i)
+            st.write(f"Generando **Cuento {i}**...")
+            titulo_capitulo, capitulo = generar_capitulo(i, st.session_state.idioma)
             if capitulo:
                 st.session_state.capitulos.append((titulo_capitulo, capitulo))
                 capitulos_generados_ejecucion += 1
@@ -195,6 +223,14 @@ if mostrar_formulario:
                     file_name="cuentos_de_aventuras.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
+                # Opcional: Añadir descarga en PDF
+                # documento_pdf = crear_pdf(st.session_state.capitulos, st.session_state.titulo_obra)
+                # st.download_button(
+                #     label="Descargar Cuentos en PDF",
+                #     data=documento_pdf,
+                #     file_name="cuentos_de_aventuras.pdf",
+                #     mime="application/pdf"
+                # )
         else:
             st.info(f"Generación interrumpida. Has generado {capitulos_generados_ejecucion} de {st.session_state.num_capitulos} capítulos.")
 
@@ -203,5 +239,5 @@ if st.session_state.capitulos and st.session_state.proceso_generado:
     st.markdown("---")
     st.header("📖 Cuentos de Aventuras Generados")
     for idx, (titulo_capitulo, capitulo) in enumerate(st.session_state.capitulos, 1):
-        st.subheader(f"CHAPTER {idx}: {titulo_capitulo}")
+        st.subheader(f"{titulo_capitulo}")
         st.write(capitulo)
