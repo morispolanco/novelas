@@ -4,6 +4,7 @@ from docx import Document
 from io import BytesIO
 import backoff
 import re
+from difflib import SequenceMatcher
 
 # Definir la cantidad máxima de capítulos
 MAX_CAPITULOS = 24
@@ -26,7 +27,7 @@ Cada capítulo comienza con la palabra "CHAPTER".
 if 'capitulos' not in st.session_state:
     st.session_state.capitulos = []
 if 'titulo_obra' not in st.session_state:
-    st.session_state.titulo_obra = "Cuentos de Aventuras"
+    st.session_state.titulo_obra = "Adventure Tales"
 if 'proceso_generado' not in st.session_state:
     st.session_state.proceso_generado = False
 if 'num_capitulos' not in st.session_state:
@@ -34,7 +35,11 @@ if 'num_capitulos' not in st.session_state:
 if 'temas_utilizados' not in st.session_state:
     st.session_state.temas_utilizados = []
 
-# Prompt personalizado proporcionado por el usuario
+# Función para medir la similitud entre dos textos
+def similar(a, b):
+    return SequenceMatcher(None, a.lower(), b.lower()).ratio()
+
+# Prompt personalizado refinado
 PROMPT_BASE = """
 Write an adventure story intended for boys and girls aged between 9 and 12 years. The story should be exciting and age-appropriate, including elements such as challenges, brave characters, and imaginative settings. Ensure the content is entertaining, but also safe and suitable for children. Include an interesting conflict and a resolution that leaves a positive message.
 
@@ -61,7 +66,7 @@ The output should be a story written in well-formed paragraphs, with a continuou
 Begin the story with "CHAPTER {n}: {Title}", where {n} is the chapter number and {Title} is the story's title.
 
 # Unique Theme Instruction
-Each chapter must have a unique theme that has not been used in previous chapters. Refer to the list of used themes below and choose a new, distinct theme for this story.
+Each chapter must have a unique theme that has not been used in previous chapters. Refer to the list of used themes below and choose a new, distinct theme for this story. Avoid using similar phrases or titles such as "The Quest for...", "The Mystery of...", or "The Adventure of...".
 """
 
 # Función para extraer el título usando expresiones regulares
@@ -71,22 +76,21 @@ def extraer_titulo(respuesta, capitulo_num):
     match = re.search(patron, respuesta, re.IGNORECASE)
     if match:
         return match.group(1).strip()
-    return "Título No Encontrado"
+    return "Title Not Found"
 
 # Función para extraer el tema principal del cuento
 def extraer_tema(respuesta):
-    # Suponiendo que el tema se menciona explícitamente, buscar una línea que lo describa
-    # Esto puede requerir que el prompt incluya una línea que indique el tema
-    # Por simplicidad, podemos intentar extraer una frase que indique el mensaje
+    # Suponiendo que el modelo incluye una oración final con el mensaje o tema
     # Ejemplo: "The true treasure was the knowledge and friendship they gained."
-    # Podemos usar una heurística para capturar la última oración como tema
+    # Intentamos capturar la última oración que no sea "**Fin**"
     lines = respuesta.strip().split('\n')
-    if lines:
-        # Tomar la última línea antes de "**Fin**" como posible tema
-        for line in reversed(lines):
-            if line.strip().lower() != "**fin**":
-                return line.strip().rstrip('.')
-    return "Tema No Encontrado"
+    for line in reversed(lines):
+        if line.strip().lower() != "**fin**":
+            # Dividir en oraciones y tomar la última
+            oraciones = re.split(r'[.!?]', line)
+            if oraciones:
+                return oraciones[-1].strip()
+    return "Unique Theme Not Found"
 
 # Función con reintentos para generar un capítulo
 @backoff.on_exception(backoff.expo, requests.exceptions.RequestException, max_tries=3)
@@ -137,7 +141,7 @@ def generar_capitulo(capitulo_num):
         tema_capitulo = extraer_tema(contenido_completo)
         return titulo_capitulo, contenido, tema_capitulo
     else:
-        st.error(f"Respuesta inesperada de la API al generar el Capítulo {capitulo_num}.")
+        st.error(f"Unexpected API response when generating Chapter {capitulo_num}.")
         return None, None, None
 
 # Función para crear el documento Word con títulos
@@ -153,38 +157,38 @@ def crear_documento(capitulos_list, titulo):
     return buffer
 
 # Interfaz de usuario para seleccionar opción
-st.sidebar.title("Opciones")
+st.sidebar.title("Options")
 
 # Determinar las opciones disponibles en la barra lateral
 opciones_disponibles = []
 if len(st.session_state.capitulos) < MAX_CAPITULOS and st.session_state.capitulos:
-    opciones_disponibles = ["Continuar Generando", "Iniciar Nueva Generación"]
+    opciones_disponibles = ["Continue Generating", "Start New Generation"]
 else:
-    opciones_disponibles = ["Iniciar Nueva Generación"]
+    opciones_disponibles = ["Start New Generation"]
 
 # Radio buttons sin necesidad de botón de envío
-opcion = st.sidebar.radio("¿Qué deseas hacer?", opciones_disponibles)
+opcion = st.sidebar.radio("What would you like to do?", opciones_disponibles)
 
 mostrar_formulario = False
-if opcion == "Iniciar Nueva Generación":
+if opcion == "Start New Generation":
     # Limpiar el estado de la sesión
     st.session_state.capitulos = []
-    st.session_state.titulo_obra = "Cuentos de Aventuras"
+    st.session_state.titulo_obra = "Adventure Tales"
     st.session_state.proceso_generado = False
     st.session_state.num_capitulos = 1
     st.session_state.temas_utilizados = []
     mostrar_formulario = True
-elif opcion == "Continuar Generando":
+elif opcion == "Continue Generating":
     if len(st.session_state.capitulos) >= MAX_CAPITULOS:
-        st.sidebar.info(f"Has alcanzado el límite máximo de {MAX_CAPITULOS} capítulos.")
+        st.sidebar.info(f"You have reached the maximum limit of {MAX_CAPITULOS} chapters.")
     else:
         mostrar_formulario = True
 
 if mostrar_formulario:
     with st.form(key='form_cuento_infantil'):
-        if opcion == "Iniciar Nueva Generación":
+        if opcion == "Start New Generation":
             st.session_state.num_capitulos = st.number_input(
-                "Número de capítulos a generar:",
+                "Number of chapters to generate:",
                 min_value=1,
                 max_value=MAX_CAPITULOS,
                 value=3
@@ -193,16 +197,16 @@ if mostrar_formulario:
             historias_generadas = len(st.session_state.capitulos)
             historias_restantes = MAX_CAPITULOS - historias_generadas
             st.session_state.num_capitulos = st.number_input(
-                "Número de capítulos a generar:",
+                "Number of chapters to generate:",
                 min_value=1,
                 max_value=historias_restantes,
                 value=min(3, historias_restantes)
             )
         
-        submit_button = st.form_submit_button(label='Generar Cuentos de Aventuras')
+        submit_button = st.form_submit_button(label='Generate Adventure Tales')
 
     if submit_button:
-        st.success("Iniciando la generación de los cuentos de aventuras...")
+        st.success("Starting the generation of adventure tales...")
         st.session_state.proceso_generado = True
         progreso = st.progress(0)
         
@@ -213,46 +217,46 @@ if mostrar_formulario:
         capitulos_generados_ejecucion = 0
         
         for i in range(inicio, fin + 1):
-            st.write(f"Generando **CHAPTER {i}**...")
+            st.write(f"Generating **CHAPTER {i}**...")
             titulo_capitulo, capitulo, tema_capitulo = generar_capitulo(i)
             if capitulo and tema_capitulo and tema_capitulo not in st.session_state.temas_utilizados:
                 st.session_state.capitulos.append((titulo_capitulo, capitulo))
                 st.session_state.temas_utilizados.append(tema_capitulo)
                 capitulos_generados_ejecucion += 1
             else:
-                st.error("La generación de los cuentos se ha detenido debido a un error o se ha repetido un tema.")
+                st.error("Generation of tales has been stopped due to an error or a repeated theme.")
                 break
             progreso.progress(capitulos_generados_ejecucion / st.session_state.num_capitulos)
-            # time.sleep(1)  # Eliminado para mejorar la velocidad
+            # time.sleep(1)  # Removed to improve speed
         
         progreso.empty()
         
         if capitulos_generados_ejecucion == st.session_state.num_capitulos:
-            st.success(f"Se han generado {capitulos_generados_ejecucion} capítulos exitosamente.")
-            st.session_state.titulo_obra = st.text_input("Título de los cuentos de aventuras:", value=st.session_state.titulo_obra)
+            st.success(f"Successfully generated {capitulos_generados_ejecucion} chapters.")
+            st.session_state.titulo_obra = st.text_input("Title of the adventure tales:", value=st.session_state.titulo_obra)
             if st.session_state.titulo_obra:
                 documento = crear_documento(st.session_state.capitulos, st.session_state.titulo_obra)
                 st.download_button(
-                    label="Descargar Cuentos en Word",
+                    label="Download Tales in Word",
                     data=documento,
-                    file_name="cuentos_de_aventuras.docx",
+                    file_name="adventure_tales.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
-                # Opcional: Añadir descarga en PDF
+                # Optional: Add PDF download
                 # documento_pdf = crear_pdf(st.session_state.capitulos, st.session_state.titulo_obra)
                 # st.download_button(
-                #     label="Descargar Cuentos en PDF",
+                #     label="Download Tales in PDF",
                 #     data=documento_pdf,
-                #     file_name="cuentos_de_aventuras.pdf",
+                #     file_name="adventure_tales.pdf",
                 #     mime="application/pdf"
                 # )
         else:
-            st.info(f"Generación interrumpida. Has generado {capitulos_generados_ejecucion} de {st.session_state.num_capitulos} capítulos.")
+            st.info(f"Generation interrupted. You have generated {capitulos_generados_ejecucion} out of {st.session_state.num_capitulos} chapters.")
 
 # Mostrar los capítulos generados
 if st.session_state.capitulos and st.session_state.proceso_generado:
     st.markdown("---")
-    st.header("📖 Cuentos de Aventuras Generados")
+    st.header("📖 Generated Adventure Tales")
     for idx, (titulo_capitulo, capitulo) in enumerate(st.session_state.capitulos, 1):
         st.subheader(f"CHAPTER {idx}: {titulo_capitulo}")
         st.write(capitulo)
