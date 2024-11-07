@@ -117,11 +117,15 @@ def generar_capitulo(capitulo_num, titulo, resumen):
     temas_utilizados = st.session_state.temas_utilizados
     if temas_utilizados:
         temas_formateados = "; ".join(temas_utilizados)
-        prompt = PROMPT_BASE.replace("Refer to the list of used themes below and choose a new, distinct theme for this story.",
-                                    f"Refer to the list of used themes below and choose a new, distinct theme for this story.\n\nUsed Themes: {temas_formateados}")
+        prompt = PROMPT_BASE.replace(
+            "Refer to the list of used themes below and choose a new, distinct theme for this story.",
+            f"Refer to the list of used themes below and choose a new, distinct theme for this story.\n\nUsed Themes: {temas_formateados}"
+        )
     else:
-        prompt = PROMPT_BASE.replace("Refer to the list of used themes below and choose a new, distinct theme for this story.",
-                                    "Refer to the list of used themes below and choose a new, distinct theme for this story.\n\nUsed Themes: None")
+        prompt = PROMPT_BASE.replace(
+            "Refer to the list of used themes below and choose a new, distinct theme for this story.",
+            "Refer to the list of used themes below and choose a new, distinct theme for this story.\n\nUsed Themes: None"
+        )
 
     mensaje = (
         f"{prompt}\n\n"
@@ -131,7 +135,7 @@ def generar_capitulo(capitulo_num, titulo, resumen):
     )
 
     data = {
-        "model": "openai/gpt-4",  # Cambiar al modelo correcto si es necesario
+        "model": "openai/gpt-4o-mini",  # Mantener el modelo especificado
         "messages": [
             {
                 "role": "user",
