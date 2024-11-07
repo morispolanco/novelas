@@ -1,6 +1,5 @@
 import streamlit as st
 import requests
-import time
 from docx import Document
 from io import BytesIO
 import backoff
@@ -19,8 +18,8 @@ st.set_page_config(
 st.title("📝 Generador de Cuentos de Aventuras para Niños (9-12 años)")
 st.write("""
 Esta aplicación genera hasta 24 capítulos de cuentos de aventuras para niños de 9 a 12 años en inglés.
-Mantiene los mismos personajes pero varía las circunstancias y la trama en cada capítulo.
-Cada capítulo se identifica como una aventura independiente y comienza con la palabra "CHAPTER".
+Cada capítulo presenta una aventura independiente con personajes únicos y escenarios imaginativos.
+Cada capítulo comienza con la palabra "CHAPTER".
 """)
 
 # Inicializar estado de la sesión
@@ -30,40 +29,31 @@ if 'titulo_obra' not in st.session_state:
     st.session_state.titulo_obra = "Cuentos de Aventuras"
 if 'proceso_generado' not in st.session_state:
     st.session_state.proceso_generado = False
-if 'personajes' not in st.session_state:
-    st.session_state.personajes = ""
 if 'num_capitulos' not in st.session_state:
     st.session_state.num_capitulos = 1
 
-# Características de un buen cuento de aventuras para niños de 9 a 12 años
-caracteristicas_cuento = """
-**Características de un buen cuento de aventuras para niños de 9 a 12 años:**
+# Prompt personalizado proporcionado por el usuario
+PROMPT_BASE = """
+Escribe un cuento de aventuras destinado a niños y niñas de entre 9 a 12 años. La historia debe ser emocionante y apropiada para la edad, incluyendo elementos como desafíos, personajes valientes y escenarios imaginativos. Asegúrate de que el contenido sea entretenido, pero también seguro y adecuado para los niños. Incluye un conflicto interesante y una resolución que deje un mensaje positivo. Ponle título precedido de la palabra CHAPTER.
 
-1. **Extensión**
-   - **Adecuada para la edad**: Aproximadamente 1000 palabras por capítulo, apropiado para su nivel de lectura y atención.
+# Requisitos y Sugerencias
+- El cuento debe tener entre 500 y 700 palabras, con un lenguaje accesible y comprensible para lectores de este grupo de edad.
+- Introduce personajes entrañables con los que los lectores puedan empatizar, como niños con un fuerte sentido de curiosidad, animales mágicos o seres fantásticos.
+- Debe haber al menos un obstáculo o desafío que los personajes deban superar, con un mensaje positivo sobre trabajo en equipo, valentía, o creatividad al final.
+- Usa descripciones visuales para crear escenas vibrantes, pero evita el uso de términos o situaciones demasiado complejas.
 
-2. **Estilo**
-   - **Lenguaje claro y enriquecido**: Vocabulario adecuado que desafíe pero no frustre al lector.
-   - **Narración en tercera persona**: Facilita la comprensión y conexión con los personajes.
-   - **Diálogos naturales**: Reflejan la comunicación típica de niños de esta edad.
+# Estructura sugerida
+1. **Introducción**: Presenta al protagonista y el escenario inicial donde se vive una situación tranquila antes de comenzar la aventura.
+2. **Conflicto**: Un evento que cambia la rutina del protagonista y lo lleva a una misión inesperada.
+3. **Desarrollo**: Los momentos de acción en los que el protagonista debe enfrentar desafíos y obstáculos. Puede haber algún compañero que ayude al protagonista.
+4. **Resolución**: Desenlace de la aventura con una solución creativa y un final feliz que ofrezca una reflexión o un mensaje positivo.
 
-3. **Tema**
-   - **Valores positivos**: Amistad, valentía, honestidad, empatía, etc.
-   - **Lecciones de vida**: Enseñanzas que fomenten el desarrollo moral y emocional.
-   - **Elementos de aventura y fantasía**: Para estimular la imaginación y el interés.
+# Tono y Estilo
+- **Tono**: Aventurero, motivador, divertido.
+- **Estilo Narrativo**: Tercera persona o primera persona.
 
-4. **Protagonistas Atractivos**
-   - Personajes con los que los niños puedan identificarse, generalmente niños o animales antropomórficos, con personalidades bien definidas.
-
-5. **Estructura Clara**
-   - **Inicio, desarrollo y desenlace**: Facilita la comprensión de la trama.
-   - **Conflicto sencillo y resoluciones positivas**: Inspira al lector y refuerza los valores enseñados.
-
-6. **Ritmo Agradable**
-   - Narrativa ágil que mantenga el interés sin ser apresurada, con un balance adecuado entre acción y descripción.
-
-7. **Consistencia de Personajes**
-   - Mantener las mismas características y personalidades de los personajes a lo largo de todos los capítulos, incluso cuando las circunstancias y tramas varían.
+# Output Format
+La salida debe ser un cuento escrito en párrafos bien formados, con un flujo narrativo constante y diálogo claro cuando sea necesario. Cada vez que cambie un personaje que hable, usa un salto de línea para mayor claridad.
 """
 
 # Función para extraer el título usando expresiones regulares
@@ -77,41 +67,18 @@ def extraer_titulo(respuesta, capitulo_num):
 
 # Función con reintentos para generar un capítulo
 @backoff.on_exception(backoff.expo, requests.exceptions.RequestException, max_tries=3)
-def generar_capitulo(personajes, capitulo_num, es_primer_capitulo):
+def generar_capitulo(capitulo_num):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
     }
-    instrucciones = (
-        "Asegúrate de que el contenido generado cumpla con las características de un cuento de aventuras para niños de 9 a 12 años. "
-        "Mantén los mismos personajes proporcionados por el usuario, pero varía las circunstancias y la trama en cada capítulo. "
-        "Incluye valores positivos y una lección de vida. Mantén una narrativa ágil con diálogos naturales. "
-        "Cada capítulo debe comenzar con la palabra 'CHAPTER' seguida del número del capítulo y un título apropiado."
+    mensaje = (
+        f"{PROMPT_BASE}\n\n"
+        f"CHAPTER {capitulo_num}:"
     )
-    
-    # Construir el prompt dependiendo si es el primer capítulo o no
-    if es_primer_capitulo:
-        # Incluir la presentación de los personajes solo en el primer capítulo
-        mensaje = (
-            f"**Características del cuento:** {caracteristicas_cuento}\n\n"
-            f"Escribe el capítulo {capitulo_num} de una serie de cuentos de aventuras para niños de 9 a 12 años en inglés, "
-            f"manteniendo los siguientes personajes: {personajes}. "
-            f"El capítulo debe comenzar con la palabra 'CHAPTER {capitulo_num}: [Título]', seguido de la historia. "
-            f"La historia debe tener aproximadamente 1000 palabras y ser una aventura independiente. {instrucciones} "
-            f"Asegúrate de que el tono sea emocionante y adecuado para niños de esta edad, con un nivel de detalle que permita a los lectores imaginar claramente las escenas y los personajes."
-        )
-    else:
-        # No incluir la presentación de los personajes en capítulos posteriores
-        mensaje = (
-            f"**Características del cuento:** {caracteristicas_cuento}\n\n"
-            f"Escribe el capítulo {capitulo_num} de una serie de cuentos de aventuras para niños de 9 a 12 años en inglés. "
-            f"El capítulo debe comenzar con la palabra 'CHAPTER {capitulo_num}: [Título]', seguido de la historia. "
-            f"La historia debe tener aproximadamente 1000 palabras y ser una aventura independiente. {instrucciones} "
-            f"Referente a los personajes ya introducidos en el primer capítulo, desarrolla nuevas circunstancias y tramas sin reintroducirlos."
-        )
     data = {
-        "model": "openai/gpt-4o-mini",  # Asegúrate de que el nombre del modelo sea correcto
+        "model": "openai/gpt-4o-mini",  # Mantener el modelo sin cambios
         "messages": [
             {
                 "role": "user",
@@ -163,7 +130,6 @@ if opcion == "Iniciar Nueva Generación":
     st.session_state.capitulos = []
     st.session_state.titulo_obra = "Cuentos de Aventuras"
     st.session_state.proceso_generado = False
-    st.session_state.personajes = ""
     st.session_state.num_capitulos = 1
     mostrar_formulario = True
 elif opcion == "Continuar Generando":
@@ -175,19 +141,6 @@ elif opcion == "Continuar Generando":
 if mostrar_formulario:
     with st.form(key='form_cuento_infantil'):
         if opcion == "Iniciar Nueva Generación":
-            st.session_state.personajes = st.text_area(
-                "Ingresa los detalles de los personajes (uno por línea) en el siguiente formato:\n\n"
-                "Nombre: Alex\n"
-                "Edad: 10\n"
-                "Personalidad: Valiente y curioso\n"
-                "Habilidad Especial: Resolver acertijos\n\n"
-                "Nombre: Mia\n"
-                "Edad: 11\n"
-                "Personalidad: Inteligente y amable\n"
-                "Habilidad Especial: Comunicación con animales",
-                height=300,
-                value=""
-            )
             st.session_state.num_capitulos = st.number_input(
                 "Número de capítulos a generar:",
                 min_value=1,
@@ -195,12 +148,6 @@ if mostrar_formulario:
                 value=3
             )
         else:
-            st.text_area(
-                "Detalles de los personajes para los cuentos:",
-                height=300,
-                value=st.session_state.personajes,
-                disabled=True
-            )
             historias_generadas = len(st.session_state.capitulos)
             historias_restantes = MAX_CAPITULOS - historias_generadas
             st.session_state.num_capitulos = st.number_input(
@@ -213,38 +160,6 @@ if mostrar_formulario:
         submit_button = st.form_submit_button(label='Generar Cuentos de Aventuras')
 
     if submit_button:
-        if opcion == "Iniciar Nueva Generación":
-            if not st.session_state.personajes.strip():
-                st.error("Por favor, ingresa los detalles de los personajes para los cuentos.")
-                st.stop()
-            elif len(st.session_state.personajes.strip()) < 10:
-                st.error("La descripción de los personajes debe tener al menos 10 caracteres.")
-                st.stop()
-        else:
-            pass  # No hay validaciones adicionales al continuar
-
-        # Procesar las descripciones de los personajes
-        personajes_input = st.session_state.personajes.strip().split('\n')
-        personajes = []
-        personaje_actual = {}
-        for linea in personajes_input:
-            if linea.strip() == "":
-                if personaje_actual:
-                    personajes.append(personaje_actual)
-                    personaje_actual = {}
-                continue
-            if ':' in linea:
-                clave, valor = linea.split(':', 1)
-                personaje_actual[clave.strip().lower()] = valor.strip()
-        if personaje_actual:
-            personajes.append(personaje_actual)
-        
-        # Convertir la lista de personajes a un formato legible para la IA
-        personajes_formateados = "; ".join([
-            f"Name: {p.get('nombre', '')}, Age: {p.get('edad', '')}, Personality: {p.get('personalidad', '')}, Special Ability: {p.get('habilidad especial', '')}"
-            for p in personajes
-        ])
-        
         st.success("Iniciando la generación de los cuentos de aventuras...")
         st.session_state.proceso_generado = True
         progreso = st.progress(0)
@@ -257,12 +172,7 @@ if mostrar_formulario:
         
         for i in range(inicio, fin + 1):
             st.write(f"Generando **CHAPTER {i}**...")
-            es_primer_capitulo = (i == 1)
-            titulo_capitulo, capitulo = generar_capitulo(
-                personajes_formateados, 
-                i,
-                es_primer_capitulo
-            )
+            titulo_capitulo, capitulo = generar_capitulo(i)
             if capitulo:
                 st.session_state.capitulos.append((titulo_capitulo, capitulo))
                 capitulos_generados_ejecucion += 1
