@@ -11,3 +11,4 @@ nltk
 pillow
 pypdf2
 backoff
+pandas
