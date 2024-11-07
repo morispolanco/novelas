@@ -5,21 +5,22 @@ from io import BytesIO
 import backoff
 import re
 from difflib import SequenceMatcher
+import pandas as pd
 
 # Definir la cantidad máxima de capítulos
 MAX_CAPITULOS = 24
 
 # Configuración de la página
 st.set_page_config(
-    page_title="📝 Generador de Cuentos de Aventuras para Niños (9-12 años)",
+    page_title="📝 Adventure Tales Generator for Kids (9-12 years)",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-st.title("📝 Generador de Cuentos de Aventuras para Niños (9-12 años)")
+st.title("📝 Adventure Tales Generator for Kids (9-12 years)")
 st.write("""
 Esta aplicación genera hasta 24 capítulos de cuentos de aventuras para niños de 9 a 12 años en inglés.
-Cada capítulo presenta una aventura independiente con personajes únicos y escenarios imaginativos.
+El usuario proporciona una Tabla de Contenidos con resúmenes, y la aplicación generará cada cuento entre 500 y 700 palabras.
 Cada capítulo comienza con la palabra "CHAPTER".
 """)
 
@@ -30,8 +31,6 @@ if 'titulo_obra' not in st.session_state:
     st.session_state.titulo_obra = "Adventure Tales"
 if 'proceso_generado' not in st.session_state:
     st.session_state.proceso_generado = False
-if 'num_capitulos' not in st.session_state:
-    st.session_state.num_capitulos = 1
 if 'temas_utilizados' not in st.session_state:
     st.session_state.temas_utilizados = []
 
@@ -60,7 +59,12 @@ Write an adventure story intended for boys and girls aged between 9 and 12 years
 - **Narrative Style**: Third person or first person.
 
 # Output Format
-The output should be a story written in well-formed paragraphs, with a continuous narrative flow and clear dialogue when necessary. Each time a speaking character changes, use a line break for clarity.
+The output should include:
+1. **CHAPTER {n}: {Title}**
+2. **Summary:** A brief summary of the chapter.
+3. **Story Content:** The full story, between 500-700 words.
+
+Each time a speaking character changes, use a line break for clarity.
 
 # Chapter Title Format
 Begin the story with "CHAPTER {n}: {Title}", where {n} is the chapter number and {Title} is the story's title.
@@ -78,31 +82,36 @@ def extraer_titulo(respuesta, capitulo_num):
         return match.group(1).strip()
     return "Title Not Found"
 
+# Función para extraer el resumen del cuento
+def extraer_resumen(respuesta):
+    # Buscar la línea que comienza con "Summary:"
+    patron = r'Summary:\s*(.*)'
+    match = re.search(patron, respuesta, re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    return "Summary Not Found"
+
 # Función para extraer el tema principal del cuento
 def extraer_tema(respuesta):
-    # Suponiendo que el modelo incluye una oración final con el mensaje o tema
-    # Ejemplo: "The true treasure was the knowledge and friendship they gained."
-    # Intentamos capturar la última oración que no sea "**Fin**"
-    lines = respuesta.strip().split('\n')
-    for line in reversed(lines):
-        if line.strip().lower() != "**fin**":
-            # Dividir en oraciones y tomar la última
-            oraciones = re.split(r'[.!?]', line)
-            if oraciones:
-                return oraciones[-1].strip()
+    # Buscar la línea que comienza con "Summary:" y extraer la última oración como tema
+    patron = r'Summary:\s*(.*)'
+    match = re.search(patron, respuesta, re.IGNORECASE)
+    if match:
+        resumen = match.group(1).strip()
+        # Dividir en oraciones y tomar la última
+        oraciones = re.split(r'[.!?]', resumen)
+        if len(oraciones) >= 1:
+            return oraciones[-1].strip()
     return "Unique Theme Not Found"
 
 # Función con reintentos para generar un capítulo
 @backoff.on_exception(backoff.expo, requests.exceptions.RequestException, max_tries=3)
-def generar_capitulo(capitulo_num):
+def generar_capitulo(capitulo_num, titulo, resumen):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
     }
-
-    # Seleccionar el modelo según la solicitud del usuario
-    modelo = "openai/gpt-4o-mini"  # Modelo solicitado por el usuario
 
     # Construir el prompt incluyendo la lista de temas utilizados
     temas_utilizados = st.session_state.temas_utilizados
@@ -116,11 +125,13 @@ def generar_capitulo(capitulo_num):
 
     mensaje = (
         f"{prompt}\n\n"
-        f"CHAPTER {capitulo_num}:"
+        f"CHAPTER {capitulo_num}: {titulo}\n"
+        f"Summary: {resumen}\n"
+        f"Story Content:"
     )
 
     data = {
-        "model": modelo,
+        "model": "openai/gpt-4",  # Cambiar al modelo correcto si es necesario
         "messages": [
             {
                 "role": "user",
@@ -134,104 +145,149 @@ def generar_capitulo(capitulo_num):
     respuesta = response.json()
     if 'choices' in respuesta and len(respuesta['choices']) > 0:
         contenido_completo = respuesta['choices'][0]['message']['content']
-        titulo_capitulo = extraer_titulo(contenido_completo, capitulo_num)
-        # Extraer el contenido sin el título
-        contenido = contenido_completo.replace(f"CHAPTER {capitulo_num}: {titulo_capitulo}", "").strip()
-        # Extraer el tema del cuento
-        tema_capitulo = extraer_tema(contenido_completo)
-        return titulo_capitulo, contenido, tema_capitulo
+        titulo_generado = extraer_titulo(contenido_completo, capitulo_num)
+        resumen_generado = extraer_resumen(contenido_completo)
+        tema_generado = extraer_tema(contenido_completo)
+        # Extraer el contenido sin el título y el resumen
+        contenido = contenido_completo.replace(f"CHAPTER {capitulo_num}: {titulo_generado}", "", 1)
+        contenido = contenido.replace(f"Summary: {resumen_generado}", "", 1).strip()
+        return titulo_generado, resumen_generado, contenido, tema_generado
     else:
         st.error(f"Unexpected API response when generating Chapter {capitulo_num}.")
-        return None, None, None
+        return None, None, None, None
 
-# Función para crear el documento Word con títulos
+# Función para crear el documento Word con tabla de contenidos y capítulos
 def crear_documento(capitulos_list, titulo):
     doc = Document()
     doc.add_heading(titulo, 0)
-    for idx, (titulo_capitulo, capitulo) in enumerate(capitulos_list, 1):
+    
+    # Crear Tabla de Contenidos
+    doc.add_heading("Table of Contents", level=1)
+    for idx, (titulo_capitulo, resumen_capitulo, _, _) in enumerate(capitulos_list, 1):
+        toc_entry = f"CHAPTER {idx}: {titulo_capitulo}"
+        toc_summary = f"Summary: {resumen_capitulo}"
+        doc.add_paragraph(toc_entry, style='List Number')
+        doc.add_paragraph(toc_summary, style='List Bullet')
+    
+    doc.add_page_break()
+    
+    # Agregar cada capítulo
+    for idx, (titulo_capitulo, _, capitulo, _) in enumerate(capitulos_list, 1):
         doc.add_heading(f"CHAPTER {idx}: {titulo_capitulo}", level=1)
         doc.add_paragraph(capitulo)
+        doc.add_page_break()
+    
     buffer = BytesIO()
     doc.save(buffer)
     buffer.seek(0)
     return buffer
 
-# Interfaz de usuario para seleccionar opción
+# Función para crear un DataFrame de la Tabla de Contenidos con Resúmenes
+def crear_tabla_contenidos(capitulos_list):
+    data = {
+        "Chapter": [f"CHAPTER {idx}" for idx in range(1, len(capitulos_list)+1)],
+        "Title": [capitulo[0] for capitulo in capitulos_list],
+        "Summary": [capitulo[1] for capitulo in capitulos_list]
+    }
+    df = pd.DataFrame(data)
+    return df
+
+# Interfaz de usuario para subir un archivo CSV o ingresar manualmente
 st.sidebar.title("Options")
 
-# Determinar las opciones disponibles en la barra lateral
-opciones_disponibles = []
-if len(st.session_state.capitulos) < MAX_CAPITULOS and st.session_state.capitulos:
-    opciones_disponibles = ["Continue Generating", "Start New Generation"]
-else:
-    opciones_disponibles = ["Start New Generation"]
-
-# Radio buttons sin necesidad de botón de envío
-opcion = st.sidebar.radio("What would you like to do?", opciones_disponibles)
+opciones_disponibles = ["Upload CSV File", "Manual Input"]
+opcion = st.sidebar.radio("How would you like to provide the Table of Contents?", opciones_disponibles)
 
 mostrar_formulario = False
-if opcion == "Start New Generation":
-    # Limpiar el estado de la sesión
-    st.session_state.capitulos = []
-    st.session_state.titulo_obra = "Adventure Tales"
-    st.session_state.proceso_generado = False
-    st.session_state.num_capitulos = 1
-    st.session_state.temas_utilizados = []
+if opcion == "Upload CSV File":
+    archivo = st.sidebar.file_uploader("Upload a CSV file with columns: Chapter, Title, Summary", type=["csv"])
+    if archivo:
+        try:
+            df = pd.read_csv(archivo)
+            if not all(col in df.columns for col in ["Chapter", "Title", "Summary"]):
+                st.error("El archivo CSV debe contener las columnas: Chapter, Title, Summary")
+            else:
+                st.session_state.capitulos_input = df
+                mostrar_formulario = True
+        except Exception as e:
+            st.error(f"Error reading the CSV file: {e}")
+else:
     mostrar_formulario = True
-elif opcion == "Continue Generating":
-    if len(st.session_state.capitulos) >= MAX_CAPITULOS:
-        st.sidebar.info(f"You have reached the maximum limit of {MAX_CAPITULOS} chapters.")
-    else:
-        mostrar_formulario = True
 
-if mostrar_formulario:
+if opcion == "Manual Input" or (opcion == "Upload CSV File" and 'capitulos_input' in st.session_state):
     with st.form(key='form_cuento_infantil'):
-        if opcion == "Start New Generation":
-            st.session_state.num_capitulos = st.number_input(
-                "Number of chapters to generate:",
+        if opcion == "Manual Input":
+            num_capitulos_input = st.number_input(
+                "Número de capítulos a generar:",
                 min_value=1,
                 max_value=MAX_CAPITULOS,
                 value=3
             )
+            capitulos_manual = []
+            for i in range(1, num_capitulos_input + 1):
+                st.markdown(f"### Chapter {i}")
+                titulo = st.text_input(f"Title for Chapter {i}", key=f"title_{i}")
+                resumen = st.text_area(f"Summary for Chapter {i}", key=f"summary_{i}", height=100)
+                capitulos_manual.append({"Chapter": f"CHAPTER {i}", "Title": titulo, "Summary": resumen})
         else:
-            historias_generadas = len(st.session_state.capitulos)
-            historias_restantes = MAX_CAPITULOS - historias_generadas
-            st.session_state.num_capitulos = st.number_input(
-                "Number of chapters to generate:",
-                min_value=1,
-                max_value=historias_restantes,
-                value=min(3, historias_restantes)
-            )
+            df = st.session_state.capitulos_input
+            capitulos_manual = df.to_dict('records')
         
         submit_button = st.form_submit_button(label='Generate Adventure Tales')
 
     if submit_button:
+        if opcion == "Manual Input":
+            capitulos = capitulos_manual
+            if any(not cap['Title'] or not cap['Summary'] for cap in capitulos):
+                st.error("Por favor, asegúrate de que todos los capítulos tengan un título y un resumen.")
+            else:
+                st.session_state.capitulos_input = pd.DataFrame(capitulos)
+        else:
+            capitulos = capitulos_manual
+        
         st.success("Starting the generation of adventure tales...")
         st.session_state.proceso_generado = True
         progreso = st.progress(0)
         
-        inicio = len(st.session_state.capitulos) + 1
-        fin = inicio + st.session_state.num_capitulos - 1
-        if fin > MAX_CAPITULOS:
-            fin = MAX_CAPITULOS
         capitulos_generados_ejecucion = 0
+        total_capitulos = len(capitulos)
         
-        for i in range(inicio, fin + 1):
-            st.write(f"Generating **CHAPTER {i}**...")
-            titulo_capitulo, capitulo, tema_capitulo = generar_capitulo(i)
-            if capitulo and tema_capitulo and tema_capitulo not in st.session_state.temas_utilizados:
-                st.session_state.capitulos.append((titulo_capitulo, capitulo))
-                st.session_state.temas_utilizados.append(tema_capitulo)
-                capitulos_generados_ejecucion += 1
+        for idx, capitulo in enumerate(capitulos, 1):
+            titulo_input = capitulo["Title"]
+            resumen_input = capitulo["Summary"]
+            st.write(f"Generating **CHAPTER {idx}: {titulo_input}**...")
+            titulo_generado, resumen_generado, contenido, tema_generado = generar_capitulo(idx, titulo_input, resumen_input)
+            if contenido and tema_generado:
+                # Verificar similitud con temas existentes
+                repetido = False
+                for tema in st.session_state.temas_utilizados:
+                    if similar(tema_generado, tema) > 0.7:  # Umbral de similitud
+                        repetido = True
+                        break
+                if not repetido:
+                    st.session_state.capitulos.append((titulo_generado, resumen_generado, contenido, tema_generado))
+                    st.session_state.temas_utilizados.append(tema_generado)
+                    capitulos_generados_ejecucion += 1
+                else:
+                    st.warning(f"The theme '{tema_generado}' is too similar to an existing theme. Attempting to generate a new chapter...")
+                    # Intentar re-generar el capítulo
+                    titulo_generado_new, resumen_generado_new, contenido_new, tema_generado_new = generar_capitulo(idx, titulo_input, resumen_input)
+                    if contenido_new and tema_generado_new and similar(tema_generado_new, tema_generado) < 0.7:
+                        st.session_state.capitulos.append((titulo_generado_new, resumen_generado_new, contenido_new, tema_generado_new))
+                        st.session_state.temas_utilizados.append(tema_generado_new)
+                        capitulos_generados_ejecucion += 1
+                    else:
+                        st.error("Could not generate a chapter with a unique theme after multiple attempts.")
+                        break
             else:
-                st.error("Generation of tales has been stopped due to an error or a repeated theme.")
+                st.error("Generation of tales has been stopped due to an error.")
                 break
-            progreso.progress(capitulos_generados_ejecucion / st.session_state.num_capitulos)
+            progreso.progress(capitulos_generados_ejecucion / total_capitulos)
             # time.sleep(1)  # Removed to improve speed
         
         progreso.empty()
         
-        if capitulos_generados_ejecucion == st.session_state.num_capitulos:
+        if capitulos_generados_ejecucion == total_capitulos:
             st.success(f"Successfully generated {capitulos_generados_ejecucion} chapters.")
             st.session_state.titulo_obra = st.text_input("Title of the adventure tales:", value=st.session_state.titulo_obra)
             if st.session_state.titulo_obra:
@@ -251,12 +307,22 @@ if mostrar_formulario:
                 #     mime="application/pdf"
                 # )
         else:
-            st.info(f"Generation interrupted. You have generated {capitulos_generados_ejecucion} out of {st.session_state.num_capitulos} chapters.")
+            st.info(f"Generation interrupted. You have generated {capitulos_generados_ejecucion} out of {total_capitulos} chapters.")
 
 # Mostrar los capítulos generados
 if st.session_state.capitulos and st.session_state.proceso_generado:
     st.markdown("---")
     st.header("📖 Generated Adventure Tales")
-    for idx, (titulo_capitulo, capitulo) in enumerate(st.session_state.capitulos, 1):
-        st.subheader(f"CHAPTER {idx}: {titulo_capitulo}")
+    
+    # Mostrar Tabla de Contenidos
+    st.subheader("Table of Contents")
+    for idx, (titulo_capitulo, resumen_capitulo, _, _) in enumerate(st.session_state.capitulos, 1):
+        st.markdown(f"**CHAPTER {idx}: {titulo_capitulo}**")
+        st.markdown(f"*Summary:* {resumen_capitulo}")
+        st.markdown("---")
+    
+    # Mostrar cada capítulo
+    for idx, (titulo_capitulo, _, capitulo, _) in enumerate(st.session_state.capitulos, 1):
+        st.markdown(f"### CHAPTER {idx}: {titulo_capitulo}")
         st.write(capitulo)
+        st.markdown("---")
