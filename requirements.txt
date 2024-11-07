@@ -10,3 +10,4 @@ together
 nltk
 pillow
 pypdf2
+backoff
