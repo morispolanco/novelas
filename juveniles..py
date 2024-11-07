@@ -31,6 +31,8 @@ if 'proceso_generado' not in st.session_state:
     st.session_state.proceso_generado = False
 if 'num_capitulos' not in st.session_state:
     st.session_state.num_capitulos = 1
+if 'temas_utilizados' not in st.session_state:
+    st.session_state.temas_utilizados = []
 
 # Prompt personalizado proporcionado por el usuario
 PROMPT_BASE = """
@@ -57,6 +59,9 @@ The output should be a story written in well-formed paragraphs, with a continuou
 
 # Chapter Title Format
 Begin the story with "CHAPTER {n}: {Title}", where {n} is the chapter number and {Title} is the story's title.
+
+# Unique Theme Instruction
+Each chapter must have a unique theme that has not been used in previous chapters. Refer to the list of used themes below and choose a new, distinct theme for this story.
 """
 
 # Función para extraer el título usando expresiones regulares
@@ -67,6 +72,21 @@ def extraer_titulo(respuesta, capitulo_num):
     if match:
         return match.group(1).strip()
     return "Título No Encontrado"
+
+# Función para extraer el tema principal del cuento
+def extraer_tema(respuesta):
+    # Suponiendo que el tema se menciona explícitamente, buscar una línea que lo describa
+    # Esto puede requerir que el prompt incluya una línea que indique el tema
+    # Por simplicidad, podemos intentar extraer una frase que indique el mensaje
+    # Ejemplo: "The true treasure was the knowledge and friendship they gained."
+    # Podemos usar una heurística para capturar la última oración como tema
+    lines = respuesta.strip().split('\n')
+    if lines:
+        # Tomar la última línea antes de "**Fin**" como posible tema
+        for line in reversed(lines):
+            if line.strip().lower() != "**fin**":
+                return line.strip().rstrip('.')
+    return "Tema No Encontrado"
 
 # Función con reintentos para generar un capítulo
 @backoff.on_exception(backoff.expo, requests.exceptions.RequestException, max_tries=3)
@@ -80,9 +100,18 @@ def generar_capitulo(capitulo_num):
     # Seleccionar el modelo según la solicitud del usuario
     modelo = "openai/gpt-4o-mini"  # Modelo solicitado por el usuario
 
-    # Construir el prompt
+    # Construir el prompt incluyendo la lista de temas utilizados
+    temas_utilizados = st.session_state.temas_utilizados
+    if temas_utilizados:
+        temas_formateados = "; ".join(temas_utilizados)
+        prompt = PROMPT_BASE.replace("Refer to the list of used themes below and choose a new, distinct theme for this story.",
+                                    f"Refer to the list of used themes below and choose a new, distinct theme for this story.\n\nUsed Themes: {temas_formateados}")
+    else:
+        prompt = PROMPT_BASE.replace("Refer to the list of used themes below and choose a new, distinct theme for this story.",
+                                    "Refer to the list of used themes below and choose a new, distinct theme for this story.\n\nUsed Themes: None")
+
     mensaje = (
-        f"{PROMPT_BASE}\n\n"
+        f"{prompt}\n\n"
         f"CHAPTER {capitulo_num}:"
     )
 
@@ -104,10 +133,12 @@ def generar_capitulo(capitulo_num):
         titulo_capitulo = extraer_titulo(contenido_completo, capitulo_num)
         # Extraer el contenido sin el título
         contenido = contenido_completo.replace(f"CHAPTER {capitulo_num}: {titulo_capitulo}", "").strip()
-        return titulo_capitulo, contenido
+        # Extraer el tema del cuento
+        tema_capitulo = extraer_tema(contenido_completo)
+        return titulo_capitulo, contenido, tema_capitulo
     else:
         st.error(f"Respuesta inesperada de la API al generar el Capítulo {capitulo_num}.")
-        return None, None
+        return None, None, None
 
 # Función para crear el documento Word con títulos
 def crear_documento(capitulos_list, titulo):
@@ -141,6 +172,7 @@ if opcion == "Iniciar Nueva Generación":
     st.session_state.titulo_obra = "Cuentos de Aventuras"
     st.session_state.proceso_generado = False
     st.session_state.num_capitulos = 1
+    st.session_state.temas_utilizados = []
     mostrar_formulario = True
 elif opcion == "Continuar Generando":
     if len(st.session_state.capitulos) >= MAX_CAPITULOS:
@@ -182,12 +214,13 @@ if mostrar_formulario:
         
         for i in range(inicio, fin + 1):
             st.write(f"Generando **CHAPTER {i}**...")
-            titulo_capitulo, capitulo = generar_capitulo(i)
-            if capitulo:
+            titulo_capitulo, capitulo, tema_capitulo = generar_capitulo(i)
+            if capitulo and tema_capitulo and tema_capitulo not in st.session_state.temas_utilizados:
                 st.session_state.capitulos.append((titulo_capitulo, capitulo))
+                st.session_state.temas_utilizados.append(tema_capitulo)
                 capitulos_generados_ejecucion += 1
             else:
-                st.error("La generación de los cuentos se ha detenido debido a un error.")
+                st.error("La generación de los cuentos se ha detenido debido a un error o se ha repetido un tema.")
                 break
             progreso.progress(capitulos_generados_ejecucion / st.session_state.num_capitulos)
             # time.sleep(1)  # Eliminado para mejorar la velocidad
