@@ -111,7 +111,7 @@ def generar_capitulo(personajes, capitulo_num, es_primer_capitulo):
             f"Referente a los personajes ya introducidos en el primer capítulo, desarrolla nuevas circunstancias y tramas sin reintroducirlos."
         )
     data = {
-        "model": "openai/gpt-4",  # Asegúrate de que el nombre del modelo sea correcto
+        "model": "openai/gpt-4o-mini",  # Asegúrate de que el nombre del modelo sea correcto
         "messages": [
             {
                 "role": "user",
