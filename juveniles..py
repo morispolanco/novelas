@@ -9,6 +9,7 @@ import pandas as pd
 
 # Definir la cantidad máxima de capítulos
 MAX_CAPITULOS = 24
+MAX_INTENTOS = 3  # Número máximo de intentos para generar un capítulo único
 
 # Configuración de la página
 st.set_page_config(
@@ -80,7 +81,7 @@ def extraer_titulo(respuesta, capitulo_num):
     match = re.search(patron, respuesta, re.IGNORECASE)
     if match:
         return match.group(1).strip()
-    return "Title Not Found"
+    return None  # Retornar None si no se encuentra el título
 
 # Función para extraer el resumen del cuento
 def extraer_resumen(respuesta):
@@ -89,7 +90,7 @@ def extraer_resumen(respuesta):
     match = re.search(patron, respuesta, re.IGNORECASE)
     if match:
         return match.group(1).strip()
-    return "Summary Not Found"
+    return None  # Retornar None si no se encuentra el resumen
 
 # Función para extraer el tema principal del cuento
 def extraer_tema(respuesta):
@@ -102,7 +103,7 @@ def extraer_tema(respuesta):
         oraciones = re.split(r'[.!?]', resumen)
         if len(oraciones) >= 1:
             return oraciones[-1].strip()
-    return "Unique Theme Not Found"
+    return None  # Retornar None si no se encuentra el tema
 
 # Función con reintentos para generar un capítulo
 @backoff.on_exception(backoff.expo, requests.exceptions.RequestException, max_tries=3)
@@ -153,8 +154,12 @@ def generar_capitulo(capitulo_num, titulo, resumen):
         resumen_generado = extraer_resumen(contenido_completo)
         tema_generado = extraer_tema(contenido_completo)
         # Extraer el contenido sin el título y el resumen
-        contenido = contenido_completo.replace(f"CHAPTER {capitulo_num}: {titulo_generado}", "", 1)
-        contenido = contenido.replace(f"Summary: {resumen_generado}", "", 1).strip()
+        contenido = contenido_completo
+        if titulo_generado:
+            contenido = contenido.replace(f"CHAPTER {capitulo_num}: {titulo_generado}", "", 1)
+        if resumen_generado:
+            contenido = contenido.replace(f"Summary: {resumen_generado}", "", 1)
+        contenido = contenido.strip()
         return titulo_generado, resumen_generado, contenido, tema_generado
     else:
         st.error(f"Unexpected API response when generating Chapter {capitulo_num}.")
@@ -274,13 +279,28 @@ if opcion == "Manual Input" or (opcion == "Upload CSV File" and 'capitulos_input
                     capitulos_generados_ejecucion += 1
                 else:
                     st.warning(f"The theme '{tema_generado}' is too similar to an existing theme. Attempting to generate a new chapter...")
-                    # Intentar re-generar el capítulo
-                    titulo_generado_new, resumen_generado_new, contenido_new, tema_generado_new = generar_capitulo(idx, titulo_input, resumen_input)
-                    if contenido_new and tema_generado_new and similar(tema_generado_new, tema_generado) < 0.7:
-                        st.session_state.capitulos.append((titulo_generado_new, resumen_generado_new, contenido_new, tema_generado_new))
-                        st.session_state.temas_utilizados.append(tema_generado_new)
-                        capitulos_generados_ejecucion += 1
-                    else:
+                    # Intentar re-generar el capítulo hasta MAX_INTENTOS
+                    intentos = 1
+                    while intentos < MAX_INTENTOS:
+                        titulo_generado_new, resumen_generado_new, contenido_new, tema_generado_new = generar_capitulo(idx, titulo_input, resumen_input)
+                        if contenido_new and tema_generado_new:
+                            similaridad = False
+                            for tema in st.session_state.temas_utilizados:
+                                if similar(tema_generado_new, tema) > 0.7:
+                                    similaridad = True
+                                    break
+                            if not similaridad:
+                                st.session_state.capitulos.append((titulo_generado_new, resumen_generado_new, contenido_new, tema_generado_new))
+                                st.session_state.temas_utilizados.append(tema_generado_new)
+                                capitulos_generados_ejecucion += 1
+                                break
+                            else:
+                                intentos += 1
+                                st.warning(f"Attempt {intentos}: The new theme '{tema_generado_new}' is still too similar to existing themes.")
+                        else:
+                            intentos += 1
+                            st.warning(f"Attempt {intentos}: Could not generate a valid chapter.")
+                    if intentos == MAX_INTENTOS:
                         st.error("Could not generate a chapter with a unique theme after multiple attempts.")
                         break
             else:
