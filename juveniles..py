@@ -17,8 +17,9 @@ st.set_page_config(
 
 st.title("📝 Generador de Cuentos de Aventuras para Niños (9-12 años)")
 st.write("""
-Esta aplicación genera hasta 24 capítulos de cuentos de aventuras para niños de 9 a 12 años en el idioma seleccionado.
+Esta aplicación genera hasta 24 capítulos de cuentos de aventuras para niños de 9 a 12 años en inglés.
 Cada capítulo presenta una aventura independiente con personajes únicos y escenarios imaginativos.
+Cada capítulo comienza con la palabra "CHAPTER".
 """)
 
 # Inicializar estado de la sesión
@@ -30,44 +31,46 @@ if 'proceso_generado' not in st.session_state:
     st.session_state.proceso_generado = False
 if 'num_capitulos' not in st.session_state:
     st.session_state.num_capitulos = 1
-if 'idioma' not in st.session_state:
-    st.session_state.idioma = "Inglés"
 
 # Prompt personalizado proporcionado por el usuario
 PROMPT_BASE = """
-Escribe un cuento de aventuras destinado a niños y niñas de entre 9 a 12 años. La historia debe ser emocionante y apropiada para la edad, incluyendo elementos como desafíos, personajes valientes y escenarios imaginativos. Asegúrate de que el contenido sea entretenido, pero también seguro y adecuado para los niños. Incluye un conflicto interesante y una resolución que deje un mensaje positivo. Ponle título al cuento.
+Write an adventure story intended for boys and girls aged between 9 and 12 years. The story should be exciting and age-appropriate, including elements such as challenges, brave characters, and imaginative settings. Ensure the content is entertaining, but also safe and suitable for children. Include an interesting conflict and a resolution that leaves a positive message.
 
-# Requisitos y Sugerencias
-- El cuento debe tener entre 500 y 700 palabras, con un lenguaje accesible y comprensible para lectores de este grupo de edad.
-- Introduce personajes entrañables con los que los lectores puedan empatizar, como niños con un fuerte sentido de curiosidad, animales mágicos o seres fantásticos.
-- Debe haber al menos un obstáculo o desafío que los personajes deban superar, con un mensaje positivo sobre trabajo en equipo, valentía, o creatividad al final.
-- Usa descripciones visuales para crear escenas vibrantes, pero evita el uso de términos o situaciones demasiado complejas.
+# Requirements and Suggestions
+- The story should be between 500 and 700 words, using accessible and understandable language for readers in this age group.
+- Introduce lovable characters that readers can empathize with, such as curious children, magical animals, or fantastical beings.
+- There should be at least one obstacle or challenge that the characters must overcome, with a positive message about teamwork, bravery, or creativity at the end.
+- Use visual descriptions to create vibrant scenes, but avoid using overly complex terms or situations.
 
-# Estructura sugerida
-1. **Introducción**: Presenta al protagonista y el escenario inicial donde se vive una situación tranquila antes de comenzar la aventura.
-2. **Conflicto**: Un evento que cambia la rutina del protagonista y lo lleva a una misión inesperada.
-3. **Desarrollo**: Los momentos de acción en los que el protagonista debe enfrentar desafíos y obstáculos. Puede haber algún compañero que ayude al protagonista.
-4. **Resolución**: Desenlace de la aventura con una solución creativa y un final feliz que ofrezca una reflexión o un mensaje positivo.
+# Suggested Structure
+1. **Introduction**: Present the protagonist and the initial setting where a calm situation is experienced before the adventure begins.
+2. **Conflict**: An event that changes the protagonist's routine and leads them to an unexpected mission.
+3. **Development**: Moments of action where the protagonist faces challenges and obstacles. There can be a companion who helps the protagonist.
+4. **Resolution**: The conclusion of the adventure with a creative solution and a happy ending that offers reflection or a positive message.
 
-# Tono y Estilo
-- **Tono**: Aventurero, motivador, divertido.
-- **Estilo Narrativo**: Tercera persona o primera persona.
+# Tone and Style
+- **Tone**: Adventurous, motivating, fun.
+- **Narrative Style**: Third person or first person.
 
 # Output Format
-La salida debe ser un cuento escrito en párrafos bien formados, con un flujo narrativo constante y diálogo claro cuando sea necesario. Cada vez que cambie un personaje que hable, usa un salto de línea para mayor claridad.
+The output should be a story written in well-formed paragraphs, with a continuous narrative flow and clear dialogue when necessary. Each time a speaking character changes, use a line break for clarity.
+
+# Chapter Title Format
+Begin the story with "CHAPTER {n}: {Title}", where {n} is the chapter number and {Title} is the story's title.
 """
 
-# Función para extraer el título
-def extraer_titulo(respuesta):
-    # Suponiendo que el título es la primera línea
-    lines = respuesta.strip().split('\n')
-    if lines:
-        return lines[0].strip()
+# Función para extraer el título usando expresiones regulares
+def extraer_titulo(respuesta, capitulo_num):
+    # Buscamos "CHAPTER {n}: Título"
+    patron = rf'CHAPTER\s*{capitulo_num}:\s*(.*)'
+    match = re.search(patron, respuesta, re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
     return "Título No Encontrado"
 
 # Función con reintentos para generar un capítulo
 @backoff.on_exception(backoff.expo, requests.exceptions.RequestException, max_tries=3)
-def generar_capitulo(capitulo_num, idioma):
+def generar_capitulo(capitulo_num):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",
@@ -77,25 +80,10 @@ def generar_capitulo(capitulo_num, idioma):
     # Seleccionar el modelo según la solicitud del usuario
     modelo = "openai/gpt-4o-mini"  # Modelo solicitado por el usuario
 
-    # Construir el prompt dependiendo del idioma
-    if idioma.lower() == "inglés":
-        prompt = PROMPT_BASE
-    elif idioma.lower() == "español":
-        prompt = PROMPT_BASE.replace(
-            "Escribe un cuento de aventuras destinado a niños y niñas de entre 9 a 12 años.",
-            "Escribe un cuento de aventuras destinado a niños y niñas de entre 9 a 12 años en español."
-        )
-    elif idioma.lower() == "latín":
-        prompt = PROMPT_BASE.replace(
-            "Escribe un cuento de aventuras destinado a niños y niñas de entre 9 a 12 años.",
-            "Escribe un cuento de aventuras destinado a niños y niñas de entre 9 a 12 años en latín."
-        )
-    else:
-        prompt = PROMPT_BASE  # Por defecto en inglés
-
+    # Construir el prompt
     mensaje = (
-        f"{prompt}\n\n"
-        f"Titulo: "
+        f"{PROMPT_BASE}\n\n"
+        f"CHAPTER {capitulo_num}:"
     )
 
     data = {
@@ -113,9 +101,9 @@ def generar_capitulo(capitulo_num, idioma):
     respuesta = response.json()
     if 'choices' in respuesta and len(respuesta['choices']) > 0:
         contenido_completo = respuesta['choices'][0]['message']['content']
-        titulo_capitulo = extraer_titulo(contenido_completo)
+        titulo_capitulo = extraer_titulo(contenido_completo, capitulo_num)
         # Extraer el contenido sin el título
-        contenido = contenido_completo.replace(titulo_capitulo, "", 1).strip()
+        contenido = contenido_completo.replace(f"CHAPTER {capitulo_num}: {titulo_capitulo}", "").strip()
         return titulo_capitulo, contenido
     else:
         st.error(f"Respuesta inesperada de la API al generar el Capítulo {capitulo_num}.")
@@ -126,7 +114,7 @@ def crear_documento(capitulos_list, titulo):
     doc = Document()
     doc.add_heading(titulo, 0)
     for idx, (titulo_capitulo, capitulo) in enumerate(capitulos_list, 1):
-        doc.add_heading(f"{titulo_capitulo}", level=1)
+        doc.add_heading(f"CHAPTER {idx}: {titulo_capitulo}", level=1)
         doc.add_paragraph(capitulo)
     buffer = BytesIO()
     doc.save(buffer)
@@ -135,10 +123,6 @@ def crear_documento(capitulos_list, titulo):
 
 # Interfaz de usuario para seleccionar opción
 st.sidebar.title("Opciones")
-
-# Selección de idioma
-idiomas = ["Inglés", "Español", "Latín"]
-idioma_seleccionado = st.sidebar.selectbox("Selecciona el idioma del cuento:", idiomas)
 
 # Determinar las opciones disponibles en la barra lateral
 opciones_disponibles = []
@@ -157,13 +141,11 @@ if opcion == "Iniciar Nueva Generación":
     st.session_state.titulo_obra = "Cuentos de Aventuras"
     st.session_state.proceso_generado = False
     st.session_state.num_capitulos = 1
-    st.session_state.idioma = idioma_seleccionado
     mostrar_formulario = True
 elif opcion == "Continuar Generando":
     if len(st.session_state.capitulos) >= MAX_CAPITULOS:
         st.sidebar.info(f"Has alcanzado el límite máximo de {MAX_CAPITULOS} capítulos.")
     else:
-        st.session_state.idioma = idioma_seleccionado
         mostrar_formulario = True
 
 if mostrar_formulario:
@@ -199,8 +181,8 @@ if mostrar_formulario:
         capitulos_generados_ejecucion = 0
         
         for i in range(inicio, fin + 1):
-            st.write(f"Generando **Cuento {i}**...")
-            titulo_capitulo, capitulo = generar_capitulo(i, st.session_state.idioma)
+            st.write(f"Generando **CHAPTER {i}**...")
+            titulo_capitulo, capitulo = generar_capitulo(i)
             if capitulo:
                 st.session_state.capitulos.append((titulo_capitulo, capitulo))
                 capitulos_generados_ejecucion += 1
@@ -239,5 +221,5 @@ if st.session_state.capitulos and st.session_state.proceso_generado:
     st.markdown("---")
     st.header("📖 Cuentos de Aventuras Generados")
     for idx, (titulo_capitulo, capitulo) in enumerate(st.session_state.capitulos, 1):
-        st.subheader(f"{titulo_capitulo}")
+        st.subheader(f"CHAPTER {idx}: {titulo_capitulo}")
         st.write(capitulo)
