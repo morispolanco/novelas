@@ -77,7 +77,7 @@ def extraer_titulo(respuesta, capitulo_num):
 
 # Función con reintentos para generar un capítulo
 @backoff.on_exception(backoff.expo, requests.exceptions.RequestException, max_tries=3)
-def generar_capitulo(personajes, capitulo_num):
+def generar_capitulo(personajes, capitulo_num, es_primer_capitulo):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",
@@ -90,14 +90,26 @@ def generar_capitulo(personajes, capitulo_num):
         "Cada capítulo debe comenzar con la palabra 'CHAPTER' seguida del número del capítulo y un título apropiado."
     )
     
-    mensaje = (
-        f"**Características del cuento:** {caracteristicas_cuento}\n\n"
-        f"Escribe el capítulo {capitulo_num} de una serie de cuentos de aventuras para niños de 9 a 12 años en inglés, "
-        f"manteniendo los siguientes personajes: {personajes}. "
-        f"El capítulo debe comenzar con la palabra 'CHAPTER {capitulo_num}: [Título]', seguido de la historia. "
-        f"La historia debe tener aproximadamente 1000 palabras y ser una aventura independiente. {instrucciones} "
-        f"Asegúrate de que el tono sea emocionante y adecuado para niños de esta edad, con un nivel de detalle que permita a los lectores imaginar claramente las escenas y los personajes."
-    )
+    # Construir el prompt dependiendo si es el primer capítulo o no
+    if es_primer_capitulo:
+        # Incluir la presentación de los personajes solo en el primer capítulo
+        mensaje = (
+            f"**Características del cuento:** {caracteristicas_cuento}\n\n"
+            f"Escribe el capítulo {capitulo_num} de una serie de cuentos de aventuras para niños de 9 a 12 años en inglés, "
+            f"manteniendo los siguientes personajes: {personajes}. "
+            f"El capítulo debe comenzar con la palabra 'CHAPTER {capitulo_num}: [Título]', seguido de la historia. "
+            f"La historia debe tener aproximadamente 1000 palabras y ser una aventura independiente. {instrucciones} "
+            f"Asegúrate de que el tono sea emocionante y adecuado para niños de esta edad, con un nivel de detalle que permita a los lectores imaginar claramente las escenas y los personajes."
+        )
+    else:
+        # No incluir la presentación de los personajes en capítulos posteriores
+        mensaje = (
+            f"**Características del cuento:** {caracteristicas_cuento}\n\n"
+            f"Escribe el capítulo {capitulo_num} de una serie de cuentos de aventuras para niños de 9 a 12 años en inglés. "
+            f"El capítulo debe comenzar con la palabra 'CHAPTER {capitulo_num}: [Título]', seguido de la historia. "
+            f"La historia debe tener aproximadamente 1000 palabras y ser una aventura independiente. {instrucciones} "
+            f"Referente a los personajes ya introducidos en el primer capítulo, desarrolla nuevas circunstancias y tramas sin reintroducirlos."
+        )
     data = {
         "model": "openai/gpt-4",  # Asegúrate de que el nombre del modelo sea correcto
         "messages": [
@@ -245,9 +257,11 @@ if mostrar_formulario:
         
         for i in range(inicio, fin + 1):
             st.write(f"Generando **CHAPTER {i}**...")
+            es_primer_capitulo = (i == 1)
             titulo_capitulo, capitulo = generar_capitulo(
                 personajes_formateados, 
-                i
+                i,
+                es_primer_capitulo
             )
             if capitulo:
                 st.session_state.capitulos.append((titulo_capitulo, capitulo))
