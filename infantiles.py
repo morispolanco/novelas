@@ -57,7 +57,7 @@ Write an adventure story intended for {rango_edad} years old. The story should b
 
 # Output Format
 The output should include:
-1. **CHAPTER {n}: {{Title}}**
+1. **CHAPTER {numero_capitulo}: {{Title}}**
 2. **Summary:** A brief summary of the chapter.
 3. **Theme:** The main theme of the chapter.
 4. **Story Content:** The full story, between 500-700 words.
@@ -120,24 +120,26 @@ def generar_historia(rango_edad, numero_capitulo):
     }
 
     temas_utilizados = st.session_state.temas_utilizados
-    # Reemplazar la sección de temas utilizados
     if temas_utilizados:
         temas_formateados = "; ".join(temas_utilizados)
-        prompt = PROMPT_BASE.replace(
+        prompt = PROMPT_BASE.format(
+            rango_edad=rango_edad,
+            numero_capitulo=numero_capitulo
+        ).replace(
             "Refer to the list of used themes below and choose a new, distinct theme for this story.",
             f"Refer to the list of used themes below and choose a new, distinct theme for this story.\n\nUsed Themes: {temas_formateados}"
         )
     else:
-        prompt = PROMPT_BASE.replace(
+        prompt = PROMPT_BASE.format(
+            rango_edad=rango_edad,
+            numero_capitulo=numero_capitulo
+        ).replace(
             "Refer to the list of used themes below and choose a new, distinct theme for this story.",
             "Refer to the list of used themes below and choose a new, distinct theme for this story.\n\nUsed Themes: None"
         )
 
-    # Ahora, formatear el prompt con ambos marcadores de posición
-    prompt = prompt.format(rango_edad=rango_edad, n=numero_capitulo)
-
     data = {
-        "model": "openai/gpt-4o-mini",  # Especificar el modelo requerido
+        "model": "gpt-4-0314",  # Especifica el modelo requerido
         "messages": [
             {
                 "role": "user",
