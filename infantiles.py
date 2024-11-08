@@ -141,7 +141,7 @@ def generate_story(age_range, chapter_number):
         )
 
     data = {
-        "model": "openai/gpt-4o-mini",  # Specify the required model
+        "model": "gpt-4o-mini",  # Update this based on OpenRouter's model naming convention
         "messages": [
             {
                 "role": "user",
@@ -155,7 +155,7 @@ def generate_story(age_range, chapter_number):
         response.raise_for_status()
         response_json = response.json()
 
-        # Parse the response without displaying JSON
+        # Check if 'choices' exists and has content
         if 'choices' in response_json and len(response_json['choices']) > 0:
             complete_content = response_json['choices'][0]['message']['content']
 
@@ -164,12 +164,17 @@ def generate_story(age_range, chapter_number):
             theme_generated = extract_theme(complete_content)
             content_generated = extract_content(complete_content)
 
-            return {
-                "title": title_generated,
-                "summary": summary_generated,
-                "theme": theme_generated,
-                "content": content_generated
-            }
+            # Ensure all parts are extracted correctly
+            if all([title_generated, summary_generated, theme_generated, content_generated]):
+                return {
+                    "title": title_generated,
+                    "summary": summary_generated,
+                    "theme": theme_generated,
+                    "content": content_generated
+                }
+            else:
+                st.error(f"**Error:** Incomplete story components for CHAPTER {chapter_number}.")
+                return None
         else:
             st.error(f"**Error:** OpenRouter API did not return expected choices for CHAPTER {chapter_number}.")
             return None
@@ -199,7 +204,7 @@ def create_document(work_title, stories):
         toc_summary = f"Summary: {story['summary']}"
         doc.add_paragraph(toc_entry, style='List Number')
         doc.add_paragraph(toc_summary, style='List Bullet')
-    
+
     doc.add_page_break()
 
     # Add each story
@@ -250,6 +255,8 @@ if not st.session_state.process_completed:
 
         if st.session_state.stories:
             st.success(f"Successfully generated {len(st.session_state.stories)} stories!")
+        else:
+            st.error("No stories were generated. Please try again.")
 
 else:
     if st.session_state.stories:
@@ -273,3 +280,5 @@ else:
             st.markdown(f"**Theme:** {story['theme']}")
             st.write(story['content'])
             st.markdown("---")
+    else:
+        st.error("No stories were generated. Please go back and generate stories.")
