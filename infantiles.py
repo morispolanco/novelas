@@ -122,14 +122,22 @@ def generar_historia(rango_edad, numero_capitulo):
     temas_utilizados = st.session_state.temas_utilizados
     if temas_utilizados:
         temas_formateados = "; ".join(temas_utilizados)
-        prompt = PROMPT_BASE.format(rango_edad=rango_edad).replace(
-            "Refer to the list of used themes below and choose a new, distinct theme for this story.",
-            f"Refer to the list of used themes below and choose a new, distinct theme for this story.\n\nUsed Themes: {temas_formateados}"
+        prompt = (
+            PROMPT_BASE.format(rango_edad=rango_edad)
+            .replace(
+                "Refer to the list of used themes below and choose a new, distinct theme for this story.",
+                f"Refer to the list of used themes below and choose a new, distinct theme for this story.\n\nUsed Themes: {temas_formateados}"
+            )
+            .format(n=numero_capitulo)
         )
     else:
-        prompt = PROMPT_BASE.format(rango_edad=rango_edad).replace(
-            "Refer to the list of used themes below and choose a new, distinct theme for this story.",
-            "Refer to the list of used themes below and choose a new, distinct theme for this story.\n\nUsed Themes: None"
+        prompt = (
+            PROMPT_BASE.format(rango_edad=rango_edad)
+            .replace(
+                "Refer to the list of used themes below and choose a new, distinct theme for this story.",
+                "Refer to the list of used themes below and choose a new, distinct theme for this story.\n\nUsed Themes: None"
+            )
+            .format(n=numero_capitulo)
         )
 
     data = {
@@ -137,7 +145,7 @@ def generar_historia(rango_edad, numero_capitulo):
         "messages": [
             {
                 "role": "user",
-                "content": prompt.format(n=numero_capitulo)
+                "content": prompt
             }
         ]
     }
