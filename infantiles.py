@@ -8,6 +8,8 @@ from difflib import SequenceMatcher
 
 # Definir constantes
 MAX_INTENTOS = 3  # Número máximo de intentos para generar historias
+MAX_HISTORIAS = 30  # Número máximo de historias que se pueden generar para evitar sobrecarga
+MIN_HISTORIAS = 1   # Número mínimo de historias
 
 # Configuración de la página
 st.set_page_config(
@@ -18,7 +20,7 @@ st.set_page_config(
 
 st.title("📝 Generador de Historias para Niños (9-12 años)")
 st.write("""
-Esta aplicación genera automáticamente **15 historias** de **diversos géneros** para niños de 9 a 12 años en inglés. Cada historia está precedida por "CHAPTER {número}: {Título}" y puedes descargar todas las historias en un documento Word.
+Esta aplicación genera automáticamente historias de diversos géneros para niños de 9 a 12 años en inglés. Puedes especificar cuántas historias deseas generar y luego descargar todas en un documento Word.
 """)
 
 # Inicializar estado de la sesión
@@ -55,7 +57,7 @@ Write an adventure story intended for {rango_edad} years old. The story should b
 
 # Output Format
 The output should include:
-1. **CHAPTER {n}: {Title}**
+1. **CHAPTER {n}: {{Title}}**
 2. **Summary:** A brief summary of the chapter.
 3. **Theme:** The main theme of the chapter.
 4. **Story Content:** The full story, between 500-700 words.
@@ -111,7 +113,7 @@ def generar_historia(rango_edad, numero_capitulo):
     Returns:
         dict: Diccionario con 'titulo', 'resumen', 'tema', 'contenido'.
     """
-    url = "https://openai-api-endpoint.com/v1/chat/completions"  # Reemplaza con el endpoint real de OpenAI si es necesario
+    url = "https://api.openai.com/v1/chat/completions"  # Asegúrate de que este es el endpoint correcto
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
@@ -213,14 +215,24 @@ if not st.session_state.proceso_generado:
     st.sidebar.title("Opciones")
     rangos_edades = ["9-12 años"]  # Puedes ampliar los rangos si lo deseas
     rango_edad = st.sidebar.selectbox("Selecciona el rango de edad para las historias:", rangos_edades)
+    
+    # Input para el número de historias
+    numero_historias = st.sidebar.number_input(
+        "¿Cuántas historias deseas generar?",
+        min_value=MIN_HISTORIAS,
+        max_value=MAX_HISTORIAS,
+        value=5,
+        step=1,
+        help=f"Selecciona un número entre {MIN_HISTORIAS} y {MAX_HISTORIAS}."
+    )
 
-    if st.button("Generar 15 Historias"):
+    if st.sidebar.button("Generar Historias"):
         st.session_state.proceso_generado = True
         st.session_state.historias = []
         st.session_state.temas_utilizados = []
 
-        with st.spinner("Generando las historias..."):
-            for i in range(1, 16):
+        with st.spinner(f"Generando {int(numero_historias)} historias..."):
+            for i in range(1, int(numero_historias) + 1):
                 st.write(f"**Generando CHAPTER {i}...**")
                 historia = generar_historia(rango_edad, i)
                 if historia:
@@ -228,9 +240,9 @@ if not st.session_state.proceso_generado:
                     st.session_state.temas_utilizados.append(historia['tema'])
                 else:
                     st.error(f"No se pudo generar CHAPTER {i}.")
-        
+
         if st.session_state.historias:
-            st.success("¡15 historias generadas exitosamente!")
+            st.success(f"¡{int(numero_historias)} historias generadas exitosamente!")
 
 else:
     if st.session_state.historias:
