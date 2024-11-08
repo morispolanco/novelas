@@ -5,29 +5,25 @@ from io import BytesIO
 import backoff
 import re
 from difflib import SequenceMatcher
-from PIL import Image
-from docx.shared import Inches
 
 # Definir constantes
-MAX_INTENTOS = 3  # Número máximo de intentos para generar ilustraciones
+MAX_INTENTOS = 3  # Número máximo de intentos para generar historias
 
 # Configuración de la página
 st.set_page_config(
-    page_title="📝 Adventure Tales Generator for Kids",
+    page_title="📝 Generador de Historias para Niños",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-st.title("📝 Adventure Tales Generator for Kids (9-12 años)")
+st.title("📝 Generador de Historias para Niños (9-12 años)")
 st.write("""
-Esta aplicación genera automáticamente una historia de aventuras para niños de 9 a 12 años en inglés, incluyendo tres ilustraciones por historia. Simplemente selecciona el rango de edad y haz clic en el botón para generar tu cuento.
+Esta aplicación genera automáticamente **15 historias** de **diversos géneros** para niños de 9 a 12 años en inglés. Cada historia está precedida por "CHAPTER {número}: {Título}" y puedes descargar todas las historias en un documento Word.
 """)
 
 # Inicializar estado de la sesión
-if 'capitulos' not in st.session_state:
-    st.session_state.capitulos = []
-if 'titulo_obra' not in st.session_state:
-    st.session_state.titulo_obra = "Adventure Tales"
+if 'historias' not in st.session_state:
+    st.session_state.historias = []
 if 'proceso_generado' not in st.session_state:
     st.session_state.proceso_generado = False
 if 'temas_utilizados' not in st.session_state:
@@ -37,7 +33,7 @@ if 'temas_utilizados' not in st.session_state:
 def similar(a, b):
     return SequenceMatcher(None, a.lower(), b.lower()).ratio()
 
-# Prompt personalizado refinado sin marcadores de posición innecesarios
+# Prompt personalizado refinado sin ilustraciones y adaptado para múltiples capítulos
 PROMPT_BASE = """
 Write an adventure story intended for {rango_edad} years old. The story should be exciting and age-appropriate, including elements such as challenges, brave characters, and imaginative settings. Ensure the content is entertaining, but also safe and suitable for children. Include an interesting conflict and a resolution that leaves a positive message.
 
@@ -59,11 +55,10 @@ Write an adventure story intended for {rango_edad} years old. The story should b
 
 # Output Format
 The output should include:
-1. **CHAPTER 1: The Title**
+1. **CHAPTER {n}: {Title}**
 2. **Summary:** A brief summary of the chapter.
 3. **Theme:** The main theme of the chapter.
-4. **Illustrations:** Three descriptions for illustrations relevant to the story.
-5. **Story Content:** The full story, between 500-700 words.
+4. **Story Content:** The full story, between 500-700 words.
 
 Each time a speaking character changes, use a line break for clarity.
 
@@ -72,12 +67,12 @@ Each story must have a unique theme that has not been used in previous stories. 
 """
 
 # Función para extraer el título usando expresiones regulares
-def extraer_titulo(respuesta):
-    patron = r'CHAPTER\s*1:\s*(.*)'
+def extraer_titulo(respuesta, numero_capitulo):
+    patron = fr'CHAPTER\s*{numero_capitulo}:\s*(.*)'
     match = re.search(patron, respuesta, re.IGNORECASE)
     if match:
         return match.group(1).strip()
-    return "Untitled Chapter"
+    return f"Untitled Chapter {numero_capitulo}"
 
 # Función para extraer el resumen del cuento
 def extraer_resumen(respuesta):
@@ -95,29 +90,28 @@ def extraer_tema(respuesta):
         return match.group(1).strip()
     return "No theme identified."
 
-# Función para extraer las ilustraciones
-def extraer_ilustraciones(respuesta):
-    patron = r'Illustrations:\s*((?:.|\n)*?)\n{2,}'
+# Función para extraer el contenido de la historia
+def extraer_contenido(respuesta):
+    patron = r'Story Content:\s*((?:.|\n)*)'
     match = re.search(patron, respuesta, re.IGNORECASE)
     if match:
-        ilustraciones_texto = match.group(1).strip()
-        ilustraciones = re.findall(r'\d+\.\s*(.*)', ilustraciones_texto)
-        return ilustraciones if len(ilustraciones) == 3 else []
-    return []
+        return match.group(1).strip()
+    return "No content available."
 
-# Función con reintentos para generar la historia
+# Función con reintentos para generar una historia
 @backoff.on_exception(backoff.expo, requests.exceptions.RequestException, max_tries=MAX_INTENTOS)
-def generar_historia(rango_edad):
+def generar_historia(rango_edad, numero_capitulo):
     """
-    Genera una historia completa incluyendo título, resumen, tema e ilustraciones.
-    
+    Genera una historia completa incluyendo título, resumen, tema y contenido.
+
     Args:
         rango_edad (str): Rango de edad seleccionado.
-    
+        numero_capitulo (int): Número del capítulo/historia.
+
     Returns:
-        tuple: (titulo_generado, resumen_generado, tema_generado, ilustraciones_generadas, contenido)
+        dict: Diccionario con 'titulo', 'resumen', 'tema', 'contenido'.
     """
-    url = "https://openrouter.ai/api/v1/chat/completions"
+    url = "https://openai-api-endpoint.com/v1/chat/completions"  # Reemplaza con el endpoint real de OpenAI si es necesario
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
@@ -137,11 +131,11 @@ def generar_historia(rango_edad):
         )
 
     data = {
-        "model": "openai/gpt-4",
+        "model": "openai/gpt-4o-mini",  # Especificar el modelo requerido
         "messages": [
             {
                 "role": "user",
-                "content": prompt
+                "content": prompt.format(n=numero_capitulo)
             }
         ]
     }
@@ -152,84 +146,41 @@ def generar_historia(rango_edad):
         respuesta = response.json()
         
         # Depuración: Mostrar la respuesta completa de la API
-        st.write("**Respuesta de la API de OpenRouter:**")
+        st.write(f"**Respuesta de la API de OpenAI para CHAPTER {numero_capitulo}:**")
         st.json(respuesta)
         
         if 'choices' in respuesta and len(respuesta['choices']) > 0:
             contenido_completo = respuesta['choices'][0]['message']['content']
-            st.write("**Contenido Generado por la API:**")
+            st.write(f"**Contenido Generado para CHAPTER {numero_capitulo}:**")
             st.text(contenido_completo)
             
-            titulo_generado = extraer_titulo(contenido_completo)
+            titulo_generado = extraer_titulo(contenido_completo, numero_capitulo)
             resumen_generado = extraer_resumen(contenido_completo)
             tema_generado = extraer_tema(contenido_completo)
-            ilustraciones_generadas = extraer_ilustraciones(contenido_completo)
-            contenido = contenido_completo.split("Story Content:")[1].strip() if "Story Content:" in contenido_completo else "No content available."
-            return titulo_generado, resumen_generado, tema_generado, ilustraciones_generadas, contenido
+            contenido = extraer_contenido(contenido_completo)
+            
+            return {
+                "titulo": titulo_generado,
+                "resumen": resumen_generado,
+                "tema": tema_generado,
+                "contenido": contenido
+            }
         else:
-            st.error("**Error:** La API de OpenRouter no devolvió las opciones esperadas.")
-            return "Untitled Chapter", "No summary available.", "No theme identified.", [], "No content available."
-    except requests.exceptions.RequestException as e:
-        st.error(f"**Error al generar la historia:** {e}")
-        return "Untitled Chapter", "No summary available.", "No theme identified.", [], "No content available."
-
-# Función para generar una ilustración usando la API de Together
-def generar_ilustracion(descripcion):
-    """
-    Genera una ilustración basada en la descripción proporcionada utilizando la API de Together.
-    
-    Args:
-        descripcion (str): Descripción de la ilustración.
-    
-    Returns:
-        Image: Objeto PIL Image de la ilustración generada o None si falla.
-    """
-    url = "https://api.together.com/v1/images/generate"  # Reemplaza con el endpoint real de Together
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {st.secrets['TOGETHER_API_KEY']}"
-    }
-    data = {
-        "prompt": descripcion,
-        "num_images": 1,
-        "size": "1024x1024"  # Ajusta según las opciones disponibles en Together
-    }
-
-    try:
-        response = requests.post(url, headers=headers, json=data, timeout=60)
-        response.raise_for_status()
-        respuesta = response.json()
-
-        # Depuración: Mostrar la respuesta completa de la API de Together
-        st.write("**Respuesta de la API de Together para la ilustración:**")
-        st.json(respuesta)
-
-        # Suponiendo que la API devuelve una URL de la imagen generada
-        imagen_url = respuesta.get("data")[0].get("url")
-        if imagen_url:
-            imagen_response = requests.get(imagen_url)
-            imagen = Image.open(BytesIO(imagen_response.content))
-            return imagen
-        else:
-            st.warning(f"No se pudo generar la ilustración para: {descripcion}")
+            st.error(f"**Error:** La API de OpenAI no devolvió las opciones esperadas para CHAPTER {numero_capitulo}.")
             return None
     except requests.exceptions.RequestException as e:
-        st.error(f"**Error al generar la ilustración:** {e}")
+        st.error(f"**Error al generar CHAPTER {numero_capitulo}:** {e}")
         return None
 
-# Función para crear el documento Word con tabla de contenidos e ilustraciones
-def crear_documento(titulo_obra, titulo, resumen, tema, ilustraciones, contenido):
+# Función para crear el documento Word con todas las historias
+def crear_documento(titulo_obra, historias):
     """
-    Crea un documento Word que incluye la tabla de contenidos y el capítulo con sus ilustraciones.
-    
+    Crea un documento Word que incluye todas las historias generadas.
+
     Args:
         titulo_obra (str): Título de la obra.
-        titulo (str): Título del capítulo.
-        resumen (str): Resumen del capítulo.
-        tema (str): Tema del capítulo.
-        ilustraciones (list): Lista de descripciones de ilustraciones.
-        contenido (str): Contenido completo de la historia.
-    
+        historias (list): Lista de diccionarios con 'titulo', 'resumen', 'tema', 'contenido'.
+
     Returns:
         BytesIO: Buffer del documento Word generado.
     """
@@ -238,102 +189,68 @@ def crear_documento(titulo_obra, titulo, resumen, tema, ilustraciones, contenido
 
     # Crear Tabla de Contenidos
     doc.add_heading("Table of Contents", level=1)
-    toc_entry = f"CHAPTER 1: {titulo}"
-    toc_summary = f"Summary: {resumen}"
-    doc.add_paragraph(toc_entry, style='List Number')
-    doc.add_paragraph(toc_summary, style='List Bullet')
-
+    for idx, historia in enumerate(historias, 1):
+        toc_entry = f"CHAPTER {idx}: {historia['titulo']}"
+        toc_summary = f"Summary: {historia['resumen']}"
+        doc.add_paragraph(toc_entry, style='List Number')
+        doc.add_paragraph(toc_summary, style='List Bullet')
+    
     doc.add_page_break()
 
-    # Agregar el capítulo
-    doc.add_heading(f"CHAPTER 1: {titulo}", level=1)
-    doc.add_paragraph(contenido)
-
-    # Agregar ilustraciones
-    if ilustraciones:
-        doc.add_heading("Illustrations", level=2)
-        for idx, descripcion in enumerate(ilustraciones, 1):
-            imagen = generar_ilustracion(descripcion)
-            if imagen:
-                # Convertir PIL Image a BytesIO
-                imagen_buffer = BytesIO()
-                imagen.save(imagen_buffer, format='PNG')
-                imagen_buffer.seek(0)
-
-                doc.add_paragraph(f"Illustration {idx}: {descripcion}")
-                doc.add_picture(imagen_buffer, width=Inches(6))
-            else:
-                doc.add_paragraph(f"Illustration {idx}: {descripcion} (Image not available)")
+    # Agregar cada historia
+    for idx, historia in enumerate(historias, 1):
+        doc.add_heading(f"CHAPTER {idx}: {historia['titulo']}", level=1)
+        doc.add_paragraph(historia['contenido'])
+        doc.add_page_break()
 
     buffer = BytesIO()
     doc.save(buffer)
     buffer.seek(0)
     return buffer
 
-# Interfaz de usuario para generar la historia
+# Interfaz de usuario para generar las historias
 if not st.session_state.proceso_generado:
     st.sidebar.title("Opciones")
     rangos_edades = ["9-12 años"]  # Puedes ampliar los rangos si lo deseas
-    rango_edad = st.sidebar.selectbox("Selecciona el rango de edad para la historia:", rangos_edades)
+    rango_edad = st.sidebar.selectbox("Selecciona el rango de edad para las historias:", rangos_edades)
 
-    if st.button("Generar Historia"):
+    if st.button("Generar 15 Historias"):
         st.session_state.proceso_generado = True
-        st.session_state.capitulos = []
+        st.session_state.historias = []
         st.session_state.temas_utilizados = []
 
-        with st.spinner("Generando la historia..."):
-            titulo_generado, resumen_generado, tema_generado, ilustraciones_generadas, contenido = generar_historia(rango_edad)
-            st.write("**Título Generado:**", titulo_generado)
-            st.write("**Resumen Generado:**", resumen_generado)
-            st.write("**Tema Generado:**", tema_generado)
-            st.write("**Ilustraciones Generadas:**", ilustraciones_generadas)
-            st.write("**Contenido Generado:**", contenido)
-
-            if tema_generado and tema_generado not in st.session_state.temas_utilizados:
-                st.session_state.capitulos.append((titulo_generado, resumen_generado, tema_generado, ilustraciones_generadas, contenido))
-                st.session_state.temas_utilizados.append(tema_generado)
-                st.success("¡Historia generada exitosamente!")
-            else:
-                st.error("No se pudo generar una historia con un tema único. Intenta nuevamente.")
-                st.session_state.proceso_generado = False
+        with st.spinner("Generando las historias..."):
+            for i in range(1, 16):
+                st.write(f"**Generando CHAPTER {i}...**")
+                historia = generar_historia(rango_edad, i)
+                if historia:
+                    st.session_state.historias.append(historia)
+                    st.session_state.temas_utilizados.append(historia['tema'])
+                else:
+                    st.error(f"No se pudo generar CHAPTER {i}.")
+        
+        if st.session_state.historias:
+            st.success("¡15 historias generadas exitosamente!")
 
 else:
-    if st.session_state.capitulos:
-        titulo_obra = st.text_input("Título de la obra:", value=st.session_state.titulo_obra)
-        if st.button("Descargar Historia en Word"):
-            capitulos = st.session_state.capitulos[0]
-            documento = crear_documento(
-                titulo_obra,
-                capitulos[0],  # Título del capítulo
-                capitulos[1],  # Resumen
-                capitulos[2],  # Tema
-                capitulos[3],  # Ilustraciones
-                capitulos[4]   # Contenido
-            )
+    if st.session_state.historias:
+        titulo_obra = st.text_input("Título de la obra:", value="Adventure Tales Collection")
+        if st.button("Descargar Historias en Word"):
+            documento = crear_documento(titulo_obra, st.session_state.historias)
             st.download_button(
                 label="Descargar en Word",
                 data=documento,
-                file_name="Adventure_Tales.docx",
+                file_name="Adventure_Tales_Collection.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
-
-        # Mostrar la historia y las ilustraciones en la interfaz
+        
+        # Mostrar todas las historias generadas
         st.markdown("---")
-        st.header("📖 Generated Adventure Tale")
-
-        capitulos = st.session_state.capitulos[0]
-        st.markdown(f"**CHAPTER 1: {capitulos[0]}**")
-        st.markdown(f"*Summary:* {capitulos[1]}")
-        st.markdown(f"*Theme:* {capitulos[2]}")
-
-        st.markdown("---")
-        st.write(capitulos[4])  # Contenido de la historia
-
-        if capitulos[3]:
-            st.subheader("📷 Illustrations")
-            for idx, descripcion in enumerate(capitulos[3], 1):
-                imagen = generar_ilustracion(descripcion)
-                if imagen:
-                    st.image(imagen, caption=f"Illustration {idx}: {descripcion}", use_column_width=True)
-                else:
-                    st.write(f"**Illustration {idx}:** {descripcion} (Image not available)")
+        st.header("📖 Generated Adventure Tales Collection")
+        
+        for idx, historia in enumerate(st.session_state.historias, 1):
+            st.subheader(f"CHAPTER {idx}: {historia['titulo']}")
+            st.markdown(f"**Summary:** {historia['resumen']}")
+            st.markdown(f"**Theme:** {historia['tema']}")
+            st.write(historia['contenido'])
+            st.markdown("---")
