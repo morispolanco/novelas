@@ -2,61 +2,130 @@ import streamlit as st
 import requests
 import json
 from docx import Document
-from docx.shared import Pt
+import io
+import random
 
-# Función para generar un cuento utilizando la API de OpenRouter
-def generate_story(api_key, age, topic):
-    url = "https://openrouter.ai/api/v1/chat/completions"
+# Configuración de la página
+st.set_page_config(page_title="Children's Story Generator", page_icon="📚")
+
+# Obtener la API key de los secretos de Streamlit
+api_key = st.secrets["OPENROUTER_API_KEY"]
+
+# Temas posibles para los cuentos
+story_themes = [
+    "magical forest", "space adventure", "friendly dragon", 
+    "underwater kingdom", "talking animals", "fairy garden",
+    "time travel", "magical school", "circus adventure",
+    "lost treasure", "flying carpet", "enchanted toy",
+    "rainbow unicorn", "giant's castle", "magical library"
+]
+
+def generate_story(age, theme):
+    """Genera un cuento basado en la edad y el tema"""
+    
+    # Ajustar la longitud según la edad
+    if age < 6:
+        length = "very short (about 100 words)"
+    elif age < 9:
+        length = "short (about 200 words)"
+    else:
+        length = "medium length (about 300 words)"
+    
+    prompt = f"""Write a {length} children's story in English for a {age}-year-old child. 
+    Theme: {theme}
+    Make it engaging, age-appropriate, and include a moral lesson.
+    Use simple language for younger children and more complex vocabulary for older ones."""
+
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"
     }
+
     data = {
-        "model": "openai/gpt-4o-mini",
+        "model": "openai/gpt-4-mini",
         "messages": [
             {
                 "role": "user",
-                "content": f"Write a short story for a {age}-year-old child about {topic}. Keep it simple and suitable for their age."
+                "content": prompt
             }
         ]
     }
-    response = requests.post(url, headers=headers, data=json.dumps(data))
-    response.raise_for_status()
-    return response.json().get("choices", [])[0].get("message", {}).get("content", "")
 
-# Configuración de la aplicación de Streamlit
-st.title("Story Generator for Kids")
+    response = requests.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers=headers,
+        json=data
+    )
 
-# Obtener la API Key de los secretos de Streamlit
-api_key = st.secrets["OPENROUTER_API_KEY"]
+    if response.status_code == 200:
+        return response.json()['choices'][0]['message']['content']
+    else:
+        return f"Error generating story: {response.status_code}"
 
-# Entrada del usuario
-num_stories = st.number_input("Number of stories to generate (max 15)", min_value=1, max_value=15, value=1, step=1)
+def create_word_document(stories):
+    """Crea un documento Word con los cuentos generados"""
+    doc = Document()
+    doc.add_heading('Children\'s Stories Collection', 0)
+
+    for i, (age, theme, story) in enumerate(stories, 1):
+        doc.add_heading(f'Story {i}: {theme.title()}', level=1)
+        doc.add_paragraph(f'For age: {age} years')
+        doc.add_paragraph(story)
+        doc.add_paragraph('\n')
+
+    return doc
+
+# Interfaz de usuario
+st.title("📚 Children's Story Generator")
+
+# Input para el número de cuentos
+num_stories = st.number_input(
+    "How many stories would you like to generate? (max 15)",
+    min_value=1,
+    max_value=15,
+    value=1
+)
+
+# Input para la edad
+age = st.slider("Select child's age", 4, 12, 8)
 
 if st.button("Generate Stories"):
-    stories = []
-    
-    for i in range(num_stories):
-        age = st.number_input(f"Age of the child for story {i+1}", min_value=3, max_value=12, value=5, step=1)
-        topic = st.text_input(f"Topic or theme for story {i+1}", value="friendship")
+    with st.spinner("Generating your stories... Please wait"):
+        stories = []
+        # Seleccionar temas aleatorios sin repetición
+        selected_themes = random.sample(story_themes, num_stories)
         
-        with st.spinner(f"Generating story {i+1}..."):
-            story = generate_story(api_key, age, topic)
-            stories.append(story)
-    
-    # Crear un documento Word con los cuentos
-    doc = Document()
-    for idx, story in enumerate(stories):
-        doc.add_heading(f"Story {idx+1}", level=1)
-        story_paragraph = doc.add_paragraph(story)
-        story_paragraph.style = doc.styles['Normal']
-        story_paragraph.paragraph_format.space_after = Pt(12)
-    
-    # Guardar el documento Word
-    doc_name = "kids_stories.docx"
-    doc.save(doc_name)
-    
-    # Permitir la descarga del archivo Word
-    with open(doc_name, "rb") as file:
-        st.download_button(label="Download Stories", data=file, file_name=doc_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        for theme in selected_themes:
+            story = generate_story(age, theme)
+            stories.append((age, theme, story))
+            
+            # Mostrar cada cuento en la interfaz
+            st.subheader(f"Story: {theme.title()}")
+            st.write(story)
+            st.markdown("---")
 
+        # Crear documento Word
+        doc = create_word_document(stories)
+        
+        # Guardar el documento en memoria
+        bio = io.BytesIO()
+        doc.save(bio)
+        
+        # Botón de descarga
+        st.download_button(
+            label="Download Stories as Word Document",
+            data=bio.getvalue(),
+            file_name="children_stories.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+
+st.markdown("""
+---
+### About this app
+This app generates age-appropriate children's stories using AI. 
+Each story is uniquely crafted considering the child's age and includes:
+- Age-appropriate vocabulary
+- Engaging storylines
+- Positive messages
+- Educational value
+""")
