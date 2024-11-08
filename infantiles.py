@@ -1,90 +1,62 @@
-import os
-import json
-import requests
-from dotenv import load_dotenv
-import nltk
-from nltk.corpus import wordnet
-from wordcloud import WordCloud
 import streamlit as st
-from openai.api import Completion
+import requests
+import json
+from docx import Document
+from docx.shared import Pt
 
-# Load API key from environment variable
-load_dotenv()
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-
-# Set up OpenRouter API client
-headers = {
-    "Content-Type": "application/json",
-    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-}
-
-model = "openai/gpt-4o-mini"
-
-def generate_story(prompt, max_tokens=150):
+# Función para generar un cuento utilizando la API de OpenRouter
+def generate_story(api_key, age, topic):
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
     data = {
-        "model": model,
+        "model": "openai/gpt-4o-mini",
         "messages": [
-            {"role": "user", "content": prompt},
-        ],
-        "max_tokens": max_tokens,
+            {
+                "role": "user",
+                "content": f"Write a short story for a {age}-year-old child about {topic}. Keep it simple and suitable for their age."
+            }
+        ]
     }
-    response = requests.post(
-        "https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data
-    )
+    response = requests.post(url, headers=headers, data=json.dumps(data))
     response.raise_for_status()
-    return response.json()["choices"][0]["message"]["content"]
+    return response.json().get("choices", [])[0].get("message", {}).get("content", "")
 
-def generate_stories(num_stories, age_range):
+# Configuración de la aplicación de Streamlit
+st.title("Story Generator for Kids")
+
+# Obtener la API Key de los secretos de Streamlit
+api_key = st.secrets["OPENROUTER_API_KEY"]
+
+# Entrada del usuario
+num_stories = st.number_input("Number of stories to generate (max 15)", min_value=1, max_value=15, value=1, step=1)
+
+if st.button("Generate Stories"):
     stories = []
-    for _ in range(num_stories):
-        theme = get_theme_for_age(age_range)
-        prompt = f"Generate a children's story about {theme} suitable for {age_range} year olds."
-        story = generate_story(prompt)
-        stories.append(story)
-    return stories
+    
+    for i in range(num_stories):
+        age = st.number_input(f"Age of the child for story {i+1}", min_value=3, max_value=12, value=5, step=1)
+        topic = st.text_input(f"Topic or theme for story {i+1}", value="friendship")
+        
+        with st.spinner(f"Generating story {i+1}..."):
+            story = generate_story(api_key, age, topic)
+            stories.append(story)
+    
+    # Crear un documento Word con los cuentos
+    doc = Document()
+    for idx, story in enumerate(stories):
+        doc.add_heading(f"Story {idx+1}", level=1)
+        story_paragraph = doc.add_paragraph(story)
+        story_paragraph.style = doc.styles['Normal']
+        story_paragraph.paragraph_format.space_after = Pt(12)
+    
+    # Guardar el documento Word
+    doc_name = "kids_stories.docx"
+    doc.save(doc_name)
+    
+    # Permitir la descarga del archivo Word
+    with open(doc_name, "rb") as file:
+        st.download_button(label="Download Stories", data=file, file_name=doc_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
-def get_theme_for_age(age_range):
-    themes = {
-        "2-4": ["animals", "colors", "numbers", "shapes"],
-        "5-7": ["family", "friends", "adventure", "magic"],
-        "8-10": ["mythical creatures", "discovery", "bravery", "friendship"],
-        "11+": ["time travel", "space exploration", "inventions", "mystery"],
-    }
-    return random.choice(themes[age_range])
-
-def save_stories_as_docx(stories, filename="children_stories.docx"):
-    # This functionality requires additional libraries such as python-docx.
-    # For the sake of simplicity, I won't include it here, but you can find it in the python-docx documentation:
-    # https://python-docx.readthedocs.io/en/latest/user/documents.html
-    pass
-
-def main():
-    st.set_page_config(page_title="Children's Stories Generator")
-    st.header("Children's Stories Generator")
-
-    age_range = st.selectbox(
-        "Select age range",
-        [
-            "2-4",
-            "5-7",
-            "8-10",
-            "11+",
-        ],
-    )
-    num_stories = st.slider("Number of stories", min_value=1, max_value=15, value=3)
-
-    if st.button("Generate Stories"):
-        stories = generate_stories(num_stories, age_range)
-        for i, story in enumerate(stories, start=1):
-            st.markdown(f"### Story {i}\n\n{story}")
-
-        # Save stories as DOCX
-        st.download_button(
-            label="Download as DOCX",
-            data=None,  # Fill this with the data to be saved as DOCX
-            file_name="children_stories.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        )
-
-if __name__ == "__main__":
-    main()
