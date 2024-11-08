@@ -146,19 +146,31 @@ def generar_historia(rango_edad):
         ]
     }
 
-    response = requests.post(url, headers=headers, json=data, timeout=60)
-    response.raise_for_status()
-    respuesta = response.json()
-    if 'choices' in respuesta and len(respuesta['choices']) > 0:
-        contenido_completo = respuesta['choices'][0]['message']['content']
-        titulo_generado = extraer_titulo(contenido_completo)
-        resumen_generado = extraer_resumen(contenido_completo)
-        tema_generado = extraer_tema(contenido_completo)
-        ilustraciones_generadas = extraer_ilustraciones(contenido_completo)
-        contenido = contenido_completo.split("Story Content:")[1].strip() if "Story Content:" in contenido_completo else "No content available."
-        return titulo_generado, resumen_generado, tema_generado, ilustraciones_generadas, contenido
-    else:
-        st.error("Unexpected API response when generating the story.")
+    try:
+        response = requests.post(url, headers=headers, json=data, timeout=60)
+        response.raise_for_status()
+        respuesta = response.json()
+        
+        # Depuración: Mostrar la respuesta completa de la API
+        st.write("**Respuesta de la API de OpenRouter:**")
+        st.json(respuesta)
+        
+        if 'choices' in respuesta and len(respuesta['choices']) > 0:
+            contenido_completo = respuesta['choices'][0]['message']['content']
+            st.write("**Contenido Generado por la API:**")
+            st.text(contenido_completo)
+            
+            titulo_generado = extraer_titulo(contenido_completo)
+            resumen_generado = extraer_resumen(contenido_completo)
+            tema_generado = extraer_tema(contenido_completo)
+            ilustraciones_generadas = extraer_ilustraciones(contenido_completo)
+            contenido = contenido_completo.split("Story Content:")[1].strip() if "Story Content:" in contenido_completo else "No content available."
+            return titulo_generado, resumen_generado, tema_generado, ilustraciones_generadas, contenido
+        else:
+            st.error("**Error:** La API de OpenRouter no devolvió las opciones esperadas.")
+            return "Untitled Chapter", "No summary available.", "No theme identified.", [], "No content available."
+    except requests.exceptions.RequestException as e:
+        st.error(f"**Error al generar la historia:** {e}")
         return "Untitled Chapter", "No summary available.", "No theme identified.", [], "No content available."
 
 # Función para generar una ilustración usando la API de Together
@@ -188,6 +200,10 @@ def generar_ilustracion(descripcion):
         response.raise_for_status()
         respuesta = response.json()
 
+        # Depuración: Mostrar la respuesta completa de la API de Together
+        st.write("**Respuesta de la API de Together para la ilustración:**")
+        st.json(respuesta)
+
         # Suponiendo que la API devuelve una URL de la imagen generada
         imagen_url = respuesta.get("data")[0].get("url")
         if imagen_url:
@@ -198,7 +214,7 @@ def generar_ilustracion(descripcion):
             st.warning(f"No se pudo generar la ilustración para: {descripcion}")
             return None
     except requests.exceptions.RequestException as e:
-        st.error(f"Error al generar la ilustración: {e}")
+        st.error(f"**Error al generar la ilustración:** {e}")
         return None
 
 # Función para crear el documento Word con tabla de contenidos e ilustraciones
@@ -267,15 +283,19 @@ if not st.session_state.proceso_generado:
 
         with st.spinner("Generando la historia..."):
             titulo_generado, resumen_generado, tema_generado, ilustraciones_generadas, contenido = generar_historia(rango_edad)
+            st.write("**Título Generado:**", titulo_generado)
+            st.write("**Resumen Generado:**", resumen_generado)
+            st.write("**Tema Generado:**", tema_generado)
+            st.write("**Ilustraciones Generadas:**", ilustraciones_generadas)
+            st.write("**Contenido Generado:**", contenido)
+
             if tema_generado and tema_generado not in st.session_state.temas_utilizados:
                 st.session_state.capitulos.append((titulo_generado, resumen_generado, tema_generado, ilustraciones_generadas, contenido))
                 st.session_state.temas_utilizados.append(tema_generado)
+                st.success("¡Historia generada exitosamente!")
             else:
                 st.error("No se pudo generar una historia con un tema único. Intenta nuevamente.")
                 st.session_state.proceso_generado = False
-
-        if st.session_state.capitulos:
-            st.success("¡Historia generada exitosamente!")
 
 else:
     if st.session_state.capitulos:
@@ -316,4 +336,4 @@ else:
                 if imagen:
                     st.image(imagen, caption=f"Illustration {idx}: {descripcion}", use_column_width=True)
                 else:
-                    st.write(f"**Illustration {idx}:** {descripcion} (Image not available)")
+                    st.write(f"**Illustration {idx
