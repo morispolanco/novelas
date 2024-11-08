@@ -6,38 +6,39 @@ import backoff
 import re
 from difflib import SequenceMatcher
 
-# Definir constantes
-MAX_INTENTOS = 3  # Número máximo de intentos para generar historias
-MAX_HISTORIAS = 30  # Número máximo de historias que se pueden generar para evitar sobrecarga
-MIN_HISTORIAS = 1   # Número mínimo de historias
+# Define constants
+MAX_RETRIES = 3  # Maximum number of retry attempts for API calls
+MAX_STORIES = 30  # Maximum number of stories to prevent API overload
+MIN_STORIES = 1   # Minimum number of stories
 
-# Configuración de la página
+# Configure the Streamlit page
 st.set_page_config(
-    page_title="📝 Generador de Historias para Niños",
+    page_title="📝 Kids' Adventure Story Generator",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-st.title("📝 Generador de Historias para Niños (9-12 años)")
+st.title("📝 Kids' Adventure Story Generator (Ages 9-12)")
 st.write("""
-Esta aplicación genera automáticamente historias de diversos géneros para niños de 9 a 12 años en inglés. Puedes especificar cuántas historias deseas generar y luego descargar todas en un documento Word.
+    This application automatically generates adventure stories for children aged 9 to 12 in English. 
+    You can specify the number of stories you want to generate and download them all in a Word document.
 """)
 
-# Inicializar estado de la sesión
-if 'historias' not in st.session_state:
-    st.session_state.historias = []
-if 'proceso_generado' not in st.session_state:
-    st.session_state.proceso_generado = False
-if 'temas_utilizados' not in st.session_state:
-    st.session_state.temas_utilizados = []
+# Initialize session state
+if 'stories' not in st.session_state:
+    st.session_state.stories = []
+if 'process_completed' not in st.session_state:
+    st.session_state.process_completed = False
+if 'used_themes' not in st.session_state:
+    st.session_state.used_themes = []
 
-# Función para medir la similitud entre dos textos
+# Function to measure similarity between two texts
 def similar(a, b):
     return SequenceMatcher(None, a.lower(), b.lower()).ratio()
 
-# Prompt personalizado refinado sin ilustraciones y adaptado para múltiples capítulos
+# Customized prompt refined without illustrations and adapted for multiple chapters
 PROMPT_BASE = """
-Write an adventure story intended for {rango_edad} years old. The story should be exciting and age-appropriate, including elements such as challenges, brave characters, and imaginative settings. Ensure the content is entertaining, but also safe and suitable for children. Include an interesting conflict and a resolution that leaves a positive message.
+Write an adventure story intended for {age_range} years old. The story should be exciting and age-appropriate, including elements such as challenges, brave characters, and imaginative settings. Ensure the content is entertaining, but also safe and suitable for children. Include an interesting conflict and a resolution that leaves a positive message.
 
 # Requirements and Suggestions
 - The story should be between 500 and 700 words, using accessible and understandable language for readers in this age group.
@@ -57,7 +58,7 @@ Write an adventure story intended for {rango_edad} years old. The story should b
 
 # Output Format
 The output should include:
-1. **CHAPTER {numero_capitulo}: {{Title}}**
+1. **CHAPTER {chapter_number}: {{Title}}**
 2. **Summary:** A brief summary of the chapter.
 3. **Theme:** The main theme of the chapter.
 4. **Story Content:** The full story, between 500-700 words.
@@ -68,82 +69,83 @@ Each time a speaking character changes, use a line break for clarity.
 Each story must have a unique theme that has not been used in previous stories. Refer to the list of used themes below and choose a new, distinct theme for this story. Avoid using similar phrases or titles such as "The Quest for...", "The Mystery of...", or "The Adventure of...".
 """
 
-# Función para extraer el título usando expresiones regulares
-def extraer_titulo(respuesta, numero_capitulo):
-    patron = fr'CHAPTER\s*{numero_capitulo}:\s*(.*)'
-    match = re.search(patron, respuesta, re.IGNORECASE)
+# Function to extract the title using regular expressions
+def extract_title(response, chapter_number):
+    pattern = fr'CHAPTER\s*{chapter_number}:\s*(.*)'
+    match = re.search(pattern, response, re.IGNORECASE)
     if match:
         return match.group(1).strip()
-    return f"Untitled Chapter {numero_capitulo}"
+    return f"Untitled Chapter {chapter_number}"
 
-# Función para extraer el resumen del cuento
-def extraer_resumen(respuesta):
-    patron = r'Summary:\s*(.*)'
-    match = re.search(patron, respuesta, re.IGNORECASE)
+# Function to extract the summary of the story
+def extract_summary(response):
+    pattern = r'Summary:\s*(.*)'
+    match = re.search(pattern, response, re.IGNORECASE)
     if match:
         return match.group(1).strip()
     return "No summary available."
 
-# Función para extraer el tema principal del cuento
-def extraer_tema(respuesta):
-    patron = r'Theme:\s*(.*)'
-    match = re.search(patron, respuesta, re.IGNORECASE)
+# Function to extract the main theme of the story
+def extract_theme(response):
+    pattern = r'Theme:\s*(.*)'
+    match = re.search(pattern, response, re.IGNORECASE)
     if match:
         return match.group(1).strip()
     return "No theme identified."
 
-# Función para extraer el contenido de la historia
-def extraer_contenido(respuesta):
-    patron = r'Story Content:\s*((?:.|\n)*)'
-    match = re.search(patron, respuesta, re.IGNORECASE)
+# Function to extract the content of the story
+def extract_content(response):
+    pattern = r'Story Content:\s*((?:.|\n)*)'
+    match = re.search(pattern, response, re.IGNORECASE)
     if match:
         return match.group(1).strip()
     return "No content available."
 
-# Función con reintentos para generar una historia
-@backoff.on_exception(backoff.expo, requests.exceptions.RequestException, max_tries=MAX_INTENTOS)
-def generar_historia(rango_edad, numero_capitulo):
+# Backoff decorator for retrying API calls on exceptions
+@backoff.on_exception(backoff.expo, requests.exceptions.RequestException, max_tries=MAX_RETRIES)
+def generate_story(age_range, chapter_number):
     """
-    Genera una historia completa incluyendo título, resumen, tema y contenido.
+    Generates a complete story including title, summary, theme, and content.
 
     Args:
-        rango_edad (str): Rango de edad seleccionado.
-        numero_capitulo (int): Número del capítulo/historia.
+        age_range (str): Selected age range.
+        chapter_number (int): Chapter number.
 
     Returns:
-        dict: Diccionario con 'titulo', 'resumen', 'tema', 'contenido'.
+        dict: Dictionary with 'title', 'summary', 'theme', 'content'.
     """
-    url = "https://api.openai.com/v1/chat/completions"  # Asegúrate de que este es el endpoint correcto
+    # OpenAI API endpoint
+    url = "https://api.openai.com/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {st.secrets['OPENAI_API_KEY']}"
     }
 
-    temas_utilizados = st.session_state.temas_utilizados
-    if temas_utilizados:
-        temas_formateados = "; ".join(temas_utilizados)
-        prompt = PROMPT_BASE.format(
-            rango_edad=rango_edad,
-            numero_capitulo=numero_capitulo
-        ).replace(
+    # Format the prompt with the age range and chapter number
+    formatted_prompt = PROMPT_BASE.format(
+        age_range=age_range,
+        chapter_number=chapter_number
+    )
+
+    # Replace the unique theme instruction with used themes
+    if st.session_state.used_themes:
+        used_themes_formatted = "; ".join(st.session_state.used_themes)
+        formatted_prompt = formatted_prompt.replace(
             "Refer to the list of used themes below and choose a new, distinct theme for this story.",
-            f"Refer to the list of used themes below and choose a new, distinct theme for this story.\n\nUsed Themes: {temas_formateados}"
+            f"Refer to the list of used themes below and choose a new, distinct theme for this story.\n\nUsed Themes: {used_themes_formatted}"
         )
     else:
-        prompt = PROMPT_BASE.format(
-            rango_edad=rango_edad,
-            numero_capitulo=numero_capitulo
-        ).replace(
+        formatted_prompt = formatted_prompt.replace(
             "Refer to the list of used themes below and choose a new, distinct theme for this story.",
             "Refer to the list of used themes below and choose a new, distinct theme for this story.\n\nUsed Themes: None"
         )
 
     data = {
-        "model": "gpt-4-0314",  # Especifica el modelo requerido
+        "model": "openai/gpt-4o-mini",  # Specify the required model
         "messages": [
             {
                 "role": "user",
-                "content": prompt
+                "content": formatted_prompt
             }
         ]
     }
@@ -151,64 +153,64 @@ def generar_historia(rango_edad, numero_capitulo):
     try:
         response = requests.post(url, headers=headers, json=data, timeout=60)
         response.raise_for_status()
-        respuesta = response.json()
+        response_json = response.json()
         
-        # Depuración: Mostrar la respuesta completa de la API
-        st.write(f"**Respuesta de la API de OpenAI para CHAPTER {numero_capitulo}:**")
-        st.json(respuesta)
+        # Debugging: Show the complete API response
+        st.write(f"**API Response for CHAPTER {chapter_number}:**")
+        st.json(response_json)
         
-        if 'choices' in respuesta and len(respuesta['choices']) > 0:
-            contenido_completo = respuesta['choices'][0]['message']['content']
-            st.write(f"**Contenido Generado para CHAPTER {numero_capitulo}:**")
-            st.text(contenido_completo)
+        if 'choices' in response_json and len(response_json['choices']) > 0:
+            complete_content = response_json['choices'][0]['message']['content']
+            st.write(f"**Generated Content for CHAPTER {chapter_number}:**")
+            st.text(complete_content)
             
-            titulo_generado = extraer_titulo(contenido_completo, numero_capitulo)
-            resumen_generado = extraer_resumen(contenido_completo)
-            tema_generado = extraer_tema(contenido_completo)
-            contenido = extraer_contenido(contenido_completo)
+            title_generated = extract_title(complete_content, chapter_number)
+            summary_generated = extract_summary(complete_content)
+            theme_generated = extract_theme(complete_content)
+            content_generated = extract_content(complete_content)
             
             return {
-                "titulo": titulo_generado,
-                "resumen": resumen_generado,
-                "tema": tema_generado,
-                "contenido": contenido
+                "title": title_generated,
+                "summary": summary_generated,
+                "theme": theme_generated,
+                "content": content_generated
             }
         else:
-            st.error(f"**Error:** La API de OpenAI no devolvió las opciones esperadas para CHAPTER {numero_capitulo}.")
+            st.error(f"**Error:** OpenAI API did not return expected choices for CHAPTER {chapter_number}.")
             return None
     except requests.exceptions.RequestException as e:
-        st.error(f"**Error al generar CHAPTER {numero_capitulo}:** {e}")
+        st.error(f"**Error generating CHAPTER {chapter_number}:** {e}")
         return None
 
-# Función para crear el documento Word con todas las historias
-def crear_documento(titulo_obra, historias):
+# Function to create a Word document with all generated stories
+def create_document(work_title, stories):
     """
-    Crea un documento Word que incluye todas las historias generadas.
+    Creates a Word document that includes all generated stories.
 
     Args:
-        titulo_obra (str): Título de la obra.
-        historias (list): Lista de diccionarios con 'titulo', 'resumen', 'tema', 'contenido'.
+        work_title (str): Title of the work.
+        stories (list): List of dictionaries with 'title', 'summary', 'theme', 'content'.
 
     Returns:
-        BytesIO: Buffer del documento Word generado.
+        BytesIO: Buffer of the generated Word document.
     """
     doc = Document()
-    doc.add_heading(titulo_obra, 0)
+    doc.add_heading(work_title, 0)
 
-    # Crear Tabla de Contenidos
+    # Create Table of Contents
     doc.add_heading("Table of Contents", level=1)
-    for idx, historia in enumerate(historias, 1):
-        toc_entry = f"CHAPTER {idx}: {historia['titulo']}"
-        toc_summary = f"Summary: {historia['resumen']}"
+    for idx, story in enumerate(stories, 1):
+        toc_entry = f"CHAPTER {idx}: {story['title']}"
+        toc_summary = f"Summary: {story['summary']}"
         doc.add_paragraph(toc_entry, style='List Number')
         doc.add_paragraph(toc_summary, style='List Bullet')
     
     doc.add_page_break()
 
-    # Agregar cada historia
-    for idx, historia in enumerate(historias, 1):
-        doc.add_heading(f"CHAPTER {idx}: {historia['titulo']}", level=1)
-        doc.add_paragraph(historia['contenido'])
+    # Add each story
+    for idx, story in enumerate(stories, 1):
+        doc.add_heading(f"CHAPTER {idx}: {story['title']}", level=1)
+        doc.add_paragraph(story['content'])
         doc.add_page_break()
 
     buffer = BytesIO()
@@ -216,59 +218,64 @@ def crear_documento(titulo_obra, historias):
     buffer.seek(0)
     return buffer
 
-# Interfaz de usuario para generar las historias
-if not st.session_state.proceso_generado:
-    st.sidebar.title("Opciones")
-    rangos_edades = ["9-12 años"]  # Puedes ampliar los rangos si lo deseas
-    rango_edad = st.sidebar.selectbox("Selecciona el rango de edad para las historias:", rangos_edades)
+# User interface for generating stories
+if not st.session_state.process_completed:
+    st.sidebar.title("Options")
+    age_ranges = ["9-12 years"]  # You can expand the age ranges if desired
+    age_range = st.sidebar.selectbox("Select the age range for the stories:", age_ranges)
     
-    # Input para el número de historias
-    numero_historias = st.sidebar.number_input(
-        "¿Cuántas historias deseas generar?",
-        min_value=MIN_HISTORIAS,
-        max_value=MAX_HISTORIAS,
+    # Input for the number of stories
+    number_of_stories = st.sidebar.number_input(
+        "How many stories would you like to generate?",
+        min_value=MIN_STORIES,
+        max_value=MAX_STORIES,
         value=5,
         step=1,
-        help=f"Selecciona un número entre {MIN_HISTORIAS} y {MAX_HISTORIAS}."
+        help=f"Select a number between {MIN_STORIES} and {MAX_STORIES}."
     )
 
-    if st.sidebar.button("Generar Historias"):
-        st.session_state.proceso_generado = True
-        st.session_state.historias = []
-        st.session_state.temas_utilizados = []
+    if st.sidebar.button("Generate Stories"):
+        st.session_state.process_completed = True
+        st.session_state.stories = []
+        st.session_state.used_themes = []
 
-        with st.spinner(f"Generando {int(numero_historias)} historias..."):
-            for i in range(1, int(numero_historias) + 1):
-                st.write(f"**Generando CHAPTER {i}...**")
-                historia = generar_historia(rango_edad, i)
-                if historia:
-                    st.session_state.historias.append(historia)
-                    st.session_state.temas_utilizados.append(historia['tema'])
+        with st.spinner(f"Generating {int(number_of_stories)} stories..."):
+            for i in range(1, int(number_of_stories) + 1):
+                st.write(f"**Generating CHAPTER {i}...**")
+                story = generate_story(age_range, i)
+                if story:
+                    # Ensure the theme is unique
+                    if story['theme'] not in st.session_state.used_themes:
+                        st.session_state.stories.append(story)
+                        st.session_state.used_themes.append(story['theme'])
+                    else:
+                        st.warning(f"CHAPTER {i}: Duplicate theme detected. Regenerating...")
+                        # Optionally, implement logic to regenerate the story
                 else:
-                    st.error(f"No se pudo generar CHAPTER {i}.")
+                    st.error(f"Could not generate CHAPTER {i}.")
 
-        if st.session_state.historias:
-            st.success(f"¡{int(numero_historias)} historias generadas exitosamente!")
+        if st.session_state.stories:
+            st.success(f"Successfully generated {len(st.session_state.stories)} stories!")
 
 else:
-    if st.session_state.historias:
-        titulo_obra = st.text_input("Título de la obra:", value="Adventure Tales Collection")
-        if st.button("Descargar Historias en Word"):
-            documento = crear_documento(titulo_obra, st.session_state.historias)
+    if st.session_state.stories:
+        work_title = st.text_input("Title of the Collection:", value="Adventure Tales Collection")
+        if st.button("Download Stories as Word Document"):
+            document = create_document(work_title, st.session_state.stories)
             st.download_button(
-                label="Descargar en Word",
-                data=documento,
+                label="Download as Word",
+                data=document,
                 file_name="Adventure_Tales_Collection.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
         
-        # Mostrar todas las historias generadas
+        # Display all generated stories
         st.markdown("---")
         st.header("📖 Generated Adventure Tales Collection")
         
-        for idx, historia in enumerate(st.session_state.historias, 1):
-            st.subheader(f"CHAPTER {idx}: {historia['titulo']}")
-            st.markdown(f"**Summary:** {historia['resumen']}")
-            st.markdown(f"**Theme:** {historia['tema']}")
-            st.write(historia['contenido'])
+        for idx, story in enumerate(st.session_state.stories, 1):
+            st.subheader(f"CHAPTER {idx}: {story['title']}")
+            st.markdown(f"**Summary:** {story['summary']}")
+            st.markdown(f"**Theme:** {story['theme']}")
+            st.write(story['content'])
             st.markdown("---")
