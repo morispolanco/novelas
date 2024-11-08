@@ -336,4 +336,4 @@ else:
                 if imagen:
                     st.image(imagen, caption=f"Illustration {idx}: {descripcion}", use_column_width=True)
                 else:
-                    st.write(f"**Illustration {idx
+                    st.write(f"**Illustration {idx}:** {descripcion} (Image not available)")
