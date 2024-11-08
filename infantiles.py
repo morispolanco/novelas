@@ -37,7 +37,7 @@ if 'temas_utilizados' not in st.session_state:
 def similar(a, b):
     return SequenceMatcher(None, a.lower(), b.lower()).ratio()
 
-# Prompt personalizado refinado
+# Prompt personalizado refinado sin marcadores de posición innecesarios
 PROMPT_BASE = """
 Write an adventure story intended for {rango_edad} years old. The story should be exciting and age-appropriate, including elements such as challenges, brave characters, and imaginative settings. Ensure the content is entertaining, but also safe and suitable for children. Include an interesting conflict and a resolution that leaves a positive message.
 
@@ -59,16 +59,13 @@ Write an adventure story intended for {rango_edad} years old. The story should b
 
 # Output Format
 The output should include:
-1. **CHAPTER 1: {Title}**
+1. **CHAPTER 1: The Title**
 2. **Summary:** A brief summary of the chapter.
 3. **Theme:** The main theme of the chapter.
 4. **Illustrations:** Three descriptions for illustrations relevant to the story.
 5. **Story Content:** The full story, between 500-700 words.
 
 Each time a speaking character changes, use a line break for clarity.
-
-# Chapter Title Format
-Begin the story with "CHAPTER 1: {Title}", where {Title} is the story's title.
 
 # Unique Theme Instruction
 Each story must have a unique theme that has not been used in previous stories. Refer to the list of used themes below and choose a new, distinct theme for this story. Avoid using similar phrases or titles such as "The Quest for...", "The Mystery of...", or "The Adventure of...".
@@ -269,53 +266,4 @@ if not st.session_state.proceso_generado:
         st.session_state.temas_utilizados = []
 
         with st.spinner("Generando la historia..."):
-            titulo_generado, resumen_generado, tema_generado, ilustraciones_generadas, contenido = generar_historia(rango_edad)
-            if tema_generado and tema_generado not in st.session_state.temas_utilizados:
-                st.session_state.capitulos.append((titulo_generado, resumen_generado, tema_generado, ilustraciones_generadas, contenido))
-                st.session_state.temas_utilizados.append(tema_generado)
-            else:
-                st.error("No se pudo generar una historia con un tema único. Intenta nuevamente.")
-                st.session_state.proceso_generado = False
-
-        if st.session_state.capitulos:
-            st.success("¡Historia generada exitosamente!")
-else:
-    if st.session_state.capitulos:
-        titulo_obra = st.text_input("Título de la obra:", value=st.session_state.titulo_obra)
-        if st.button("Descargar Historia en Word"):
-            capitulos = st.session_state.capitulos[0]
-            documento = crear_documento(
-                titulo_obra,
-                capitulos[0],  # Título del capítulo
-                capitulos[1],  # Resumen
-                capitulos[2],  # Tema
-                capitulos[3],  # Ilustraciones
-                capitulos[4]   # Contenido
-            )
-            st.download_button(
-                label="Descargar en Word",
-                data=documento,
-                file_name="Adventure_Tales.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            )
-
-        # Mostrar la historia y las ilustraciones en la interfaz
-        st.markdown("---")
-        st.header("📖 Generated Adventure Tale")
-
-        capitulos = st.session_state.capitulos[0]
-        st.markdown(f"**CHAPTER 1: {capitulos[0]}**")
-        st.markdown(f"*Summary:* {capitulos[1]}")
-        st.markdown(f"*Theme:* {capitulos[2]}")
-
-        st.markdown("---")
-        st.write(capitulos[4])  # Contenido de la historia
-
-        if capitulos[3]:
-            st.subheader("📷 Illustrations")
-            for idx, descripcion in enumerate(capitulos[3], 1):
-                imagen = generar_ilustracion(descripcion)
-                if imagen:
-                    st.image(imagen, caption=f"Illustration {idx}: {descripcion}", use_column_width=True)
-                else:
-                    st.write(f"**Illustration {idx}:** {descripcion} (Image not available)")
+            ti
