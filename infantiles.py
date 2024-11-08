@@ -7,9 +7,9 @@ import re
 from difflib import SequenceMatcher
 
 # Define constants
-MAX_RETRIES = 3  # Maximum number of retry attempts for API calls
-MAX_STORIES = 30  # Maximum number of stories to prevent API overload
-MIN_STORIES = 1   # Minimum number of stories
+MAX_RETRIES = 3      # Maximum number of retry attempts for API calls
+MAX_STORIES = 30     # Maximum number of stories to prevent API overload
+MIN_STORIES = 1      # Minimum number of stories
 
 # Configure the Streamlit page
 st.set_page_config(
@@ -114,11 +114,11 @@ def generate_story(age_range, chapter_number):
     Returns:
         dict: Dictionary with 'title', 'summary', 'theme', 'content'.
     """
-    # OpenAI API endpoint
-    url = "https://api.openai.com/v1/chat/completions"
+    # OpenRouter API endpoint
+    url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {st.secrets['OPENAI_API_KEY']}"
+        "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
     }
 
     # Format the prompt with the age range and chapter number
@@ -176,7 +176,7 @@ def generate_story(age_range, chapter_number):
                 "content": content_generated
             }
         else:
-            st.error(f"**Error:** OpenAI API did not return expected choices for CHAPTER {chapter_number}.")
+            st.error(f"**Error:** OpenRouter API did not return expected choices for CHAPTER {chapter_number}.")
             return None
     except requests.exceptions.RequestException as e:
         st.error(f"**Error generating CHAPTER {chapter_number}:** {e}")
