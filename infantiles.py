@@ -7,9 +7,9 @@ import re
 from difflib import SequenceMatcher
 
 # Define constants
-MAX_RETRIES = 3      # Maximum number of retry attempts for API calls
-MAX_STORIES = 30     # Maximum number of stories to prevent API overload
-MIN_STORIES = 1      # Minimum number of stories
+MAX_RETRIES = 3       # Maximum number of retry attempts for API calls
+MAX_STORIES = 30      # Maximum number of stories to prevent API overload
+MIN_STORIES = 1       # Minimum number of stories
 
 # Configure the Streamlit page
 st.set_page_config(
@@ -154,21 +154,16 @@ def generate_story(age_range, chapter_number):
         response = requests.post(url, headers=headers, json=data, timeout=60)
         response.raise_for_status()
         response_json = response.json()
-        
-        # Debugging: Show the complete API response
-        st.write(f"**API Response for CHAPTER {chapter_number}:**")
-        st.json(response_json)
-        
+
+        # Parse the response without displaying JSON
         if 'choices' in response_json and len(response_json['choices']) > 0:
             complete_content = response_json['choices'][0]['message']['content']
-            st.write(f"**Generated Content for CHAPTER {chapter_number}:**")
-            st.text(complete_content)
-            
+
             title_generated = extract_title(complete_content, chapter_number)
             summary_generated = extract_summary(complete_content)
             theme_generated = extract_theme(complete_content)
             content_generated = extract_content(complete_content)
-            
+
             return {
                 "title": title_generated,
                 "summary": summary_generated,
@@ -249,8 +244,7 @@ if not st.session_state.process_completed:
                         st.session_state.stories.append(story)
                         st.session_state.used_themes.append(story['theme'])
                     else:
-                        st.warning(f"CHAPTER {i}: Duplicate theme detected. Regenerating...")
-                        # Optionally, implement logic to regenerate the story
+                        st.warning(f"CHAPTER {i}: Duplicate theme detected. Skipping this chapter.")
                 else:
                     st.error(f"Could not generate CHAPTER {i}.")
 
