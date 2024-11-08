@@ -116,29 +116,25 @@ def generar_historia(rango_edad, numero_capitulo):
     url = "https://api.openai.com/v1/chat/completions"  # Asegúrate de que este es el endpoint correcto
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
+        "Authorization": f"Bearer {st.secrets['OPENAI_API_KEY']}"
     }
 
     temas_utilizados = st.session_state.temas_utilizados
+    # Reemplazar la sección de temas utilizados
     if temas_utilizados:
         temas_formateados = "; ".join(temas_utilizados)
-        prompt = (
-            PROMPT_BASE.format(rango_edad=rango_edad)
-            .replace(
-                "Refer to the list of used themes below and choose a new, distinct theme for this story.",
-                f"Refer to the list of used themes below and choose a new, distinct theme for this story.\n\nUsed Themes: {temas_formateados}"
-            )
-            .format(n=numero_capitulo)
+        prompt = PROMPT_BASE.replace(
+            "Refer to the list of used themes below and choose a new, distinct theme for this story.",
+            f"Refer to the list of used themes below and choose a new, distinct theme for this story.\n\nUsed Themes: {temas_formateados}"
         )
     else:
-        prompt = (
-            PROMPT_BASE.format(rango_edad=rango_edad)
-            .replace(
-                "Refer to the list of used themes below and choose a new, distinct theme for this story.",
-                "Refer to the list of used themes below and choose a new, distinct theme for this story.\n\nUsed Themes: None"
-            )
-            .format(n=numero_capitulo)
+        prompt = PROMPT_BASE.replace(
+            "Refer to the list of used themes below and choose a new, distinct theme for this story.",
+            "Refer to the list of used themes below and choose a new, distinct theme for this story.\n\nUsed Themes: None"
         )
+
+    # Ahora, formatear el prompt con ambos marcadores de posición
+    prompt = prompt.format(rango_edad=rango_edad, n=numero_capitulo)
 
     data = {
         "model": "openai/gpt-4o-mini",  # Especificar el modelo requerido
