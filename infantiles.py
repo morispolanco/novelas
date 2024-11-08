@@ -9,7 +9,7 @@ import base64
 from PIL import Image
 
 # Configuración de la página
-st.set_page_config(page_title="Children's Story Generator", page_icon="📚")
+st.set_page_config(page_title="Children's Story Generator", page_icon="📚") 
 
 # Obtener las API keys de los secretos de Streamlit
 openrouter_api_key = st.secrets["OPENROUTER_API_KEY"]
