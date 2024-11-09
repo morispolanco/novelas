@@ -7,6 +7,7 @@ from io import BytesIO
 import random
 from PIL import Image
 import base64
+import language_tool_python
 
 # Configuración de la página
 st.set_page_config(
@@ -21,7 +22,7 @@ st.title("📚 Generador de Cuentos Infantiles con Ilustraciones")
 # Descripción
 st.markdown("""
 Genera cuentos personalizados en español para niños, adaptados a diferentes grupos de edad. 
-Especifica el número de cuentos (hasta 15), y deja que la aplicación cree historias atractivas con temas variados, longitudes apropiadas y hermosas ilustraciones.
+Especifica el número de cuentos (hasta 15), y deja que la aplicación cree historias atractivas con temas variados, longitudes apropiadas, hermosas ilustraciones y revisiones de ortografía y gramática.
 """)
 
 # Lista predefinida de 50 temas
@@ -82,7 +83,7 @@ character_names = [
     "Luna", "Mateo", "Sofía", "Emilio", "Valentina", "Lucas", "Isabella", "Alejandro",
     "Camila", "Gabriel", "Emma", "Benjamín", "Victoria", "Daniel", "Lucía", "Diego",
     "Martina", "Samuel", "Natalia", "Sebastián", "Valeria", "Emiliano", "Catalina",
-    "Diego", "Amelia", "Jorge", "Renata", "Andrés", "Sara", "Antonio", "Claudia",
+    "Amelia", "Jorge", "Renata", "Andrés", "Sara", "Antonio", "Claudia",
     "Pablo", "Mía", "Ricardo", "Alicia", "Javier", "Paula", "Santiago", "Gabriela",
     "Hugo", "María", "Fernando", "Julia", "Adrián", "Lorena", "Tomás", "Andrea",
     "Óscar", "Fernanda"
@@ -118,6 +119,9 @@ selected_age_group = st.sidebar.selectbox(
 # Botón para generar cuentos
 if st.sidebar.button("Generar Cuentos"):
     with st.spinner("Generando cuentos e ilustraciones..."):
+        # Inicializar LanguageTool para español
+        tool = language_tool_python.LanguageTool('es')
+
         # Función para generar un solo cuento
         def generate_story(theme, age_group, character_name):
             api_url = "https://openrouter.ai/api/v1/chat/completions"
@@ -216,7 +220,12 @@ if st.sidebar.button("Generar Cuentos"):
                 response.raise_for_status()
                 result = response.json()
                 story = result['choices'][0]['message']['content'].strip()
-                return story
+
+                # Revisar ortografía y gramática
+                matches = tool.check(story)
+                corrected_story = language_tool_python.utils.correct(story, matches)
+
+                return corrected_story
             except requests.exceptions.HTTPError as http_err:
                 st.error(f"Ocurrió un error HTTP: {http_err}")
             except Exception as err:
