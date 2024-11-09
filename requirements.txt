@@ -1,5 +1,5 @@
-streamlit==1.25.0
-requests==2.31.0
-python-docx==0.8.11
-Pillow==10.0.0
-language-tool-python==2.11.2
+streamlit
+requests
+python-docx
+Pillow
+language-tool-python
