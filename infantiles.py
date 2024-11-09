@@ -207,7 +207,7 @@ def generate_unique_story(age, theme_info, previous_stories=[]):
     }
 
     data = {
-        "model": "google/gemini-flash-1.5-8b",
+        "model": "openai/gpt-4-mini",
         "messages": [
             {
                 "role": "user",
