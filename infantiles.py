@@ -21,7 +21,7 @@ st.title("📚 Generador de Cuentos Infantiles con Ilustraciones")
 # Descripción
 st.markdown("""
 Genera cuentos personalizados en español para niños, adaptados a diferentes grupos de edad. 
-Especifica el número de cuentos (hasta 15), y deja que la aplicación cree historias atractivas con temas variados, longitudes apropiadas, hermosas ilustraciones y corrección de ortografía y gramática.
+Especifica el número de cuentos (hasta 15), y deja que la aplicación cree historias atractivas con temas variados, longitudes apropiadas y dos hermosas ilustraciones por cuento.
 """)
 
 # Lista predefinida de 50 temas
@@ -234,52 +234,6 @@ Crea una historia que cumpla con las siguientes características:
                 st.error(f"Ocurrió un error: {err}")
             return "Lo siento, ocurrió un error al generar el cuento."
 
-        # Función para corregir ortografía y gramática usando OpenRouter
-        def correct_text(text):
-            api_url = "https://openrouter.ai/api/v1/chat/completions"
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
-            }
-
-            prompt = f"""
-Corrige la ortografía y gramática del siguiente texto en español sin cambiar el contenido:
-
-"{text}"
-"""
-
-            data = {
-                "model": "gpt-4",  # Asegúrate de que este modelo esté disponible en OpenRouter
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                "temperature": 0,  # Temperatura baja para correcciones precisas
-                "max_tokens": 1000
-            }
-
-            try:
-                response = requests.post(api_url, headers=headers, data=json.dumps(data))
-                response.raise_for_status()
-                result = response.json()
-                
-                if 'choices' in result and len(result['choices']) > 0:
-                    corrected_text = result['choices'][0]['message']['content'].strip()
-                else:
-                    st.error("Respuesta inesperada de la API de OpenRouter durante la corrección.")
-                    return text  # Retornar el texto original si hay un error
-
-                return corrected_text
-            except requests.exceptions.HTTPError as http_err:
-                st.error(f"Ocurrió un error HTTP durante la corrección: {http_err}")
-                if 'response' in locals():
-                    st.write(response.text)  # Mostrar la respuesta completa para depuración
-            except Exception as err:
-                st.error(f"Ocurrió un error durante la corrección: {err}")
-            return text  # Retornar el texto original si hay un error
-
         # Función para generar una ilustración usando Together.xyz
         def generate_image(prompt_description):
             together_api_key = st.secrets.get('TOGETHER_API_KEY')
@@ -333,15 +287,18 @@ Corrige la ortografía y gramática del siguiente texto en español sin cambiar 
             used_names.append(character_name)
             story = generate_corrected_story(theme, selected_age_group, character_name)
             if story.startswith("Lo siento"):
-                image = None
+                images = [None, None]
             else:
-                # Crear una descripción para la ilustración basada en el tema
-                image_prompt = f"Una ilustración colorida y atractiva para un cuento infantil sobre {theme}."
-                image = generate_image(image_prompt)
+                # Crear descripciones para las ilustraciones basadas en el tema y el contenido del cuento
+                image_prompt1 = f"Una ilustración colorida y atractiva para un cuento infantil sobre {theme}."
+                image_prompt2 = f"Una segunda ilustración que represente un momento clave en la historia de {character_name} en el tema de {theme}."
+                image1 = generate_image(image_prompt1)
+                image2 = generate_image(image_prompt2)
+                images = [image1, image2]
             stories.append({
                 "title": f"Capítulo {i+1}: {theme.title()}",
                 "content": story,
-                "image": image
+                "images": images  # Almacenar una lista de imágenes
             })
             progress_bar.progress((i + 1) / num_stories)
 
@@ -352,15 +309,21 @@ Corrige la ortografía y gramática del siguiente texto en español sin cambiar 
         for story in stories:
             doc.add_heading(story["title"], level=1)
             doc.add_paragraph(story["content"])
-            if story["image"]:
-                # Guardar la imagen en un flujo de bytes
-                img_byte_arr = BytesIO()
-                story["image"].save(img_byte_arr, format='PNG')
-                img_byte_arr = img_byte_arr.getvalue()
-                
-                # Agregar la imagen al documento
-                doc.add_picture(BytesIO(img_byte_arr), width=Inches(4))  # Ajuste del ancho a 4 pulgadas para mejor adaptación
-                doc.add_paragraph("")  # Espacio adicional después de la imagen
+            if story["images"]:
+                for idx, image in enumerate(story["images"]):
+                    if image:
+                        # Guardar la imagen en un flujo de bytes
+                        img_byte_arr = BytesIO()
+                        image.save(img_byte_arr, format='PNG')
+                        img_byte_arr = img_byte_arr.getvalue()
+                        
+                        # Agregar la imagen al documento
+                        doc.add_picture(BytesIO(img_byte_arr), width=Inches(4))
+                        doc.add_paragraph("")  # Espacio adicional después de la imagen
+                    else:
+                        doc.add_paragraph(f"No se pudo generar la ilustración {idx + 1}.")
+            else:
+                doc.add_paragraph("No se pudieron generar las ilustraciones para este cuento.")
 
         # Guardar el documento en un flujo de BytesIO
         doc_io = BytesIO()
@@ -381,10 +344,14 @@ Corrige la ortografía y gramática del siguiente texto en español sin cambiar 
             for story in stories:
                 st.markdown(f"### {story['title']}")
                 st.write(story["content"])
-                if story["image"]:
-                    st.image(story["image"], caption="Ilustración del cuento", use_column_width=True)
+                if story["images"]:
+                    for idx, image in enumerate(story["images"]):
+                        if image:
+                            st.image(image, caption=f"Ilustración {idx + 1} del cuento", use_column_width=True)
+                        else:
+                            st.write(f"No se pudo generar la ilustración {idx + 1}.")
                 else:
-                    st.write("No se pudo generar una ilustración para este cuento.")
+                    st.write("No se pudieron generar las ilustraciones para este cuento.")
 
 # Pie de página
 st.markdown("---")
