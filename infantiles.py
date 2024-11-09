@@ -318,9 +318,9 @@ with st.sidebar:
     num_stories = st.number_input(
         "Number of stories to generate",
         min_value=1,
-        max_value=min(len(story_themes), 15),  # Limitar al número de temas disponibles
+        max_value=15,
         value=1,
-        help=f"Choose how many stories you want to create (maximum {min(len(story_themes), 15)})"
+        help="Choose how many stories you want to create (maximum 15)"
     )
     
     age = st.slider(
@@ -340,62 +340,77 @@ with st.sidebar:
 
 # Generación de historias
 if st.button("✨ Generate Magical Stories", type="primary"):
-    # Verificación adicional por seguridad
-    if num_stories > len(story_themes):
-        st.error(f"Cannot generate more stories than available themes. Maximum available: {len(story_themes)}")
-    else:
-        with st.spinner("Creating your magical stories... 🌟"):
-            stories_with_images = []
-            previous_stories = []
-            selected_themes = random.sample(story_themes, num_stories)
+    with st.spinner("Creating your magical stories... 🌟"):
+        stories_with_images = []
+        previous_stories = []
+        selected_themes = random.sample(story_themes, num_stories)
+        
+        progress_bar = st.progress(0)
+        
+        for idx, theme_info in enumerate(selected_themes):
+            # Actualizar progreso
+            progress = (idx + 1) / (num_stories * 2)  # Dividido por 2 para contar historia e ilustración
+            progress_bar.progress(progress)
             
-            progress_bar = st.progress(0)
+            # Generar historia
+            story = generate_unique_story(age, theme_info, previous_stories)
+            previous_stories.append(theme_info['theme'])
             
-            for idx, theme_info in enumerate(selected_themes):
-                # Actualizar progreso
-                progress = (idx + 1) / (num_stories * 2)
-                progress_bar.progress(progress)
+            # Actualizar progreso para ilustración
+            progress = (idx + 1.5) / (num_stories * 2)
+            progress_bar.progress(progress)
+            
+            # Generar ilustración
+            illustration = generate_illustration(theme_info)
+            
+            if story:
+                stories_with_images.append((age, theme_info, story, illustration))
                 
-                # Generar historia
-                story = generate_unique_story(age, theme_info, previous_stories)
-                previous_stories.append(theme_info['theme'])
-                
-                # Actualizar progreso para ilustración
-                progress = (idx + 1.5) / (num_stories * 2)
-                progress_bar.progress(progress)
-                
-                # Generar ilustración
-                illustration = generate_illustration(theme_info)
-                
-                if story:
-                    stories_with_images.append((age, theme_info, story, illustration))
+                # Mostrar en la interfaz
+                with st.container():
+                    st.markdown(f"### 📖 {theme_info['theme'].title()}")
                     
-                    # Mostrar en la interfaz
-                    with st.container():
-                        st.markdown(f"### 📖 {theme_info['theme'].title()}")
-                        
-                        col1, col2 = st.columns([1, 2])
-                        
-                        with col1:
-                            if illustration:
-                                image = Image.open(io.BytesIO(illustration))
-                                st.image(image, caption=f"Illustration for '{theme_info['theme']}'")
-                        
-                        with col2:
-                            st.markdown(f"**Theme**: {theme_info['description']}")
-                            st.write(story)
-                        
-                        st.markdown("---")
+                    col1, col2 = st.columns([1, 2])
+                    
+                    with col1:
+                        if illustration:
+                            image = Image.open(io.BytesIO(illustration))
+                            st.image(image, caption=f"Illustration for '{theme_info['theme']}'")
+                    
+                    with col2:
+                        st.markdown(f"**Theme**: {theme_info['description']}")
+                        st.write(story)
+                    
+                    st.markdown("---")
 
-            if stories_with_images:
-                # Crear documento Word
-                doc = create_word_document(stories_with_images)
-                bio = io.BytesIO()
-                doc.save(bio)
-                
-                st.download_button(
-                    label="📥 Download Your Magical Stories Collection",
-                    data=bio.getvalue(),
-                    file_name="magical_stories_collection.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                )
+        if stories_with_images:
+            # Crear documento Word
+            doc = create_word_document(stories_with_images)
+            bio = io.BytesIO()
+            doc.save(bio)
+            
+            st.download_button(
+                label="📥 Download Your Magical Stories Collection",
+                data=bio.getvalue(),
+                file_name="magical_stories_collection.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
+
+# Información adicional
+st.markdown("""
+---
+### About the Magical Stories Generator
+This AI-powered tool creates:
+- Age-appropriate stories with meaningful messages
+- Custom illustrations for each story
+- Educational and engaging narratives
+- Safe and positive content for children
+
+Each story is unique and crafted to:
+- Develop imagination and creativity
+- Encourage reading and learning
+- Promote positive values
+- Create magical moments for young readers
+
+Made with ❤️ for young minds
+""")
