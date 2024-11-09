@@ -66,41 +66,7 @@ def generate_story(age, theme):
     prompt = f"""Write a {length} children's story in English for a {age}-year-old child. 
     Theme: {theme}
     Make it engaging, age-appropriate, and include a moral lesson.
-    Use simple language for younger children and more complex vocabulary for older ones.
-    prompt = f"""Write a {length} childrens story in English for a {age}-year-old child. 
-Theme: {theme}
-Make it engaging, age-appropriate, and include a moral lesson.
-
-Strengthen Background Themes:
-Ensure each story has a clear central theme (like bravery, friendship, or empathy) and explore it in depth. Consistency in themes, even if they vary across stories, can give the collection a cohesive identity.
-
-Develop Memorable Characters:
-Main characters should have distinctive qualities (like bravery, wit, or humility) reflected in their actions and decisions. Add small physical or emotional details to make them more relatable and memorable for readers.
-
-Add Sensory Details:
-Use sensory descriptions (smell, touch, sound) to immerse readers in the story's environment. These details enrich the narrative and help readers feel as if they're exploring these worlds alongside the characters.
-
-Incorporate Clear Conflicts or Challenges:
-Each story should have a central conflict or challenge the protagonist must overcome. This creates tension and keeps readers engaged. Additionally, when characters resolve problems or face dilemmas, the stories become more dynamic.
-
-Show Growth and Learning:
-Ensure that characters grow or learn something meaningful in each story. The lessons or inner changes should be natural and reflected in the narrative without feeling forced, making the learning something the reader can feel and understand.
-
-Create a Connection with the Reader:
-Use situations or emotions children can relate to, like curiosity, fear of the unknown, or the search for acceptance. This helps them feel part of the story and better understand the message.
-
-Add Humor and Light Touches:
-While the stories should contain a lesson, add humor in the dialogues or character interactions. This not only makes the reading more entertaining but also balances the story, especially if the message is deep.
-
-Use Rhythm and Variety in Narrative:
-Play with rhythm, alternating calm moments with peaks of excitement or tension. Additionally, vary language and narrative style in each story to give a fresh feel, even though they share a general tone.
-
-Create Memorable Introductions and Conclusions:
-The opening lines should capture the readers attention, and the conclusions should leave a sense of satisfaction or reflection. This makes the story more impactful and memorable.
-
-Convey Positive Values Without Being Didactic:
-Instead of making the moral explicit, allow positive values to emerge naturally from the characters decisions and actions. This avoids making the stories feel preachy and gives the message a more powerful and subtle resonance."""
-"""
+    Use simple language for younger children and more complex vocabulary for older ones."""
 
     headers = {
         "Content-Type": "application/json",
