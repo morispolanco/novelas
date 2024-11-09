@@ -54,13 +54,78 @@ if st.sidebar.button("Generar Cuentos"):
                 "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
             }
 
-            # Definir el prompt basado en el grupo de edad
-            if age_group == "3-5 años":
-                prompt = f"Escribe un cuento corto y sencillo en español para niños de {age_group}. El tema es {theme}. Mantén la historia atractiva y fácil de entender."
-            elif age_group == "6-8 años":
-                prompt = f"Escribe un cuento infantil adecuado en español para niños de {age_group}. El tema es {theme}. Asegúrate de que la historia tenga una trama clara y sea apropiada para este grupo de edad."
-            else:  # 9-12 años
-                prompt = f"Escribe un cuento infantil atractivo en español para niños de {age_group}. El tema es {theme}. La historia debe tener una trama más compleja y un vocabulario apropiado para este grupo de edad."
+            # Definir el prompt basado en el grupo de edad y las directrices
+            guidelines = """
+1. **Desarrollo de Personajes:**
+   - Profundiza en los conflictos internos de los personajes. Muestra sus miedos, dudas y pequeñas victorias para hacerlos más humanos y relacionables. A medida que cada personaje enfrenta un desafío, incluye momentos donde reflexionen sobre sus inseguridades o limitaciones para enriquecer su crecimiento.
+
+2. **Consistencia en el Tono y Edad:**
+   - Las historias están dirigidas a lectores de 12 años, pero algunos temas y emociones pueden ser ligeramente avanzados para esta edad. Simplifica ciertas decisiones morales y emocionales, o haz que los personajes actúen y piensen de manera apropiada para su edad para mantener la autenticidad.
+
+3. **Detalles Sensoriales:**
+   - Utiliza descripciones sensoriales para hacer que los entornos y experiencias sean más inmersivos. Incorpora olores, sonidos y texturas para crear una atmósfera más rica y ayudar a los lectores a sentirse más conectados con el mundo de la historia.
+
+4. **Morales Sutiles:**
+   - Presenta las lecciones de cada historia de manera más implícita en lugar de explícita. Permite que los personajes y los lectores descubran la moral a través de acciones y consecuencias, haciendo que el mensaje sea más efectivo y menos moralizante.
+
+5. **Profundización de Relaciones entre Personajes:**
+   - Los lazos entre personajes añaden una capa emocional a las historias. Muestra interacciones que revelen más sobre sus relaciones (conflictos, apoyo, amistades) para ayudar a los lectores a sentirse más conectados emocionalmente con la historia.
+
+6. **Conflictos y Desafíos Graduales:**
+   - Asegúrate de que los personajes enfrenten obstáculos en una progresión natural. Esto añade tensión y hace que la resolución sea más satisfactoria, ya que el personaje supera diversos desafíos para lograr su objetivo.
+
+7. **Variedad de Conflictos:**
+   - Varía los tipos de conflictos (internos, externos, naturales, sobrenaturales, emocionales) para dar dinamismo a la colección y evitar un patrón repetitivo. Esto permite la exploración de diferentes tipos de coraje, empatía y creatividad.
+
+8. **Símbolos y Elementos Recurrentes:**
+   - Incluye símbolos o elementos recurrentes (como objetos, frases o lugares) que tengan un significado especial en cada historia. Esto unifica la colección temáticamente, ayudando a los lectores a encontrar conexiones y significados a lo largo de las historias.
+
+9. **Contexto del Mundo y Antecedentes:**
+   - En historias con un mundo mágico o fantástico, ofrece un breve contexto del entorno o las "reglas mágicas" para construir un universo consistente. Esto mejora el atractivo y la inmersión de la historia.
+
+10. **Mostrar, No Contar:**
+    - En lugar de decir directamente al lector lo que un personaje siente o aprende, muéstralo a través de acciones, gestos y decisiones. Esta técnica narrativa permite que los lectores interpreten las emociones del personaje y extraigan la moral por sí mismos.
+
+11. **Fortalecer Temas de Fondo:**
+    - Asegúrate de que cada historia tenga un tema central claro (como valentía, amistad o empatía) y explóralo en profundidad. Los temas consistentes a lo largo de la colección le dan una identidad cohesiva.
+
+12. **Desarrollar Personajes Memorables:**
+    - Los personajes principales deben tener cualidades distintivas (como valentía, ingenio o humildad) que se reflejen en sus acciones y decisiones. Añade pequeños detalles físicos o emocionales para hacerlos más humanos y fáciles de recordar para los lectores.
+
+13. **Agregar Detalles Sensoriales:**
+    - Utiliza descripciones sensoriales (olor, tacto, sonido) para sumergir a los lectores en el entorno de cada historia. Estos detalles enriquecen la narrativa y ayudan a los lectores a sentir que están explorando estos mundos con los personajes.
+
+14. **Incorporar Conflictos o Desafíos Claros:**
+    - Cada historia debe tener un conflicto o desafío central para que el protagonista lo supere. Esto crea tensión y mantiene a los lectores enganchados. Además, resolver problemas o enfrentar dilemas hace que las historias sean más dinámicas.
+
+15. **Mostrar Crecimiento y Aprendizaje:**
+    - Asegúrate de que los personajes crezcan o aprendan algo significativo en cada historia. Las lecciones o cambios internos deben sentirse naturales y reflejarse en la narrativa sin parecer forzados, haciendo que el aprendizaje sea algo que los lectores puedan sentir y comprender.
+
+16. **Crear una Conexión con el Lector:**
+    - Utiliza situaciones o emociones que los niños puedan relacionar, como la curiosidad, el miedo a lo desconocido o la búsqueda de aceptación. Esto les ayuda a sentirse parte de la historia y a comprender mejor el mensaje.
+
+17. **Añadir Humor y Toques Ligeros:**
+    - Aunque las historias deben contener una lección, añade humor en diálogos o interacciones entre personajes. Esto no solo hace que la lectura sea más entretenida, sino que también equilibra la historia, especialmente si el mensaje es profundo.
+
+18. **Usar Ritmo y Variedad en la Narrativa:**
+    - Juega con el ritmo, alternando momentos de calma con picos de emoción o tensión. Además, varía el lenguaje y el estilo de narración en cada historia para mantener la frescura, incluso con un tono general consistente.
+
+19. **Crear Introducciones y Conclusiones Memorables:**
+    - Las líneas de apertura deben captar la atención del lector, y las conclusiones deben dejar una sensación de satisfacción o reflexión. Esto hace que la historia sea más impactante y memorable.
+
+20. **Transmitir Valores Positivos sin Ser Moralista:**
+    - En lugar de hacer la moral explícita, permite que los valores positivos emerjan naturalmente de las decisiones y acciones de los personajes. Esto evita que las historias se sientan moralizantes y da al mensaje una resonancia poderosa y sutil.
+"""
+
+            # Añadir las directrices al prompt
+            prompt = f"""
+{guidelines}
+
+Crea una historia que cumpla con las siguientes características:
+
+- Tema: {theme}
+- Grupo de edad: {age_group}
+"""
 
             data = {
                 "model": "openai/gpt-4o-mini",
