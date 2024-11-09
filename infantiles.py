@@ -78,7 +78,7 @@ Develop Memorable Characters:
 Main characters should have distinctive qualities (like bravery, wit, or humility) reflected in their actions and decisions. Add small physical or emotional details to make them more relatable and memorable for readers.
 
 Add Sensory Details:
-Use sensory descriptions (smell, touch, sound) to immerse readers in the story's environment. These details enrich the narrative and help readers feel as if they’re exploring these worlds alongside the characters.
+Use sensory descriptions (smell, touch, sound) to immerse readers in the story's environment. These details enrich the narrative and help readers feel as if they're exploring these worlds alongside the characters.
 
 Incorporate Clear Conflicts or Challenges:
 Each story should have a central conflict or challenge the protagonist must overcome. This creates tension and keeps readers engaged. Additionally, when characters resolve problems or face dilemmas, the stories become more dynamic.
