@@ -74,41 +74,66 @@ def generate_story(age, theme):
     Theme: {theme}
     Make it engaging, age-appropriate, and include a moral lesson.
 
-    Strengthen Background Themes:
-    Ensure each story has a clear central theme (like bravery, friendship, or empathy) and explore it in depth. Consistency in themes, even if they vary across stories, can give the collection a cohesive identity.
+    1. Character Development:
+       - Dive into the internal conflicts of the characters. Show their fears, doubts, and small victories to make them more human and relatable. As each character faces a challenge, include moments where they reflect on their insecurities or limitations to enrich their growth.
 
-    Develop Memorable Characters:
-    Main characters should have distinctive qualities (like bravery, wit, or humility) reflected in their actions and decisions. Add small physical or emotional details to make them more relatable and memorable for readers.
-    
-    Character Development:
-    Dive into the internal conflicts of the characters. Showing their fears, doubts, and small victories makes them more human and relatable. As each character faces a challenge, include moments where they reflect on their insecurities or limitations to enrich their growth.
-    
-    Consistency in Tone and Age:
-    The stories are aimed at 12-year-old readers, but some themes and emotions may be slightly advanced for this age. Simplify certain moral and emotional decisions, or have the characters act and think in age-appropriate ways to maintain authenticity.
+    2. Consistency in Tone and Age:
+       - The stories are aimed at 12-year-old readers, but some themes and emotions may be slightly advanced for this age. Simplify certain moral and emotional decisions, or have the characters act and think in age-appropriate ways to maintain authenticity.
 
-    Sensory Details:
-    Use sensory descriptions to make the environments and experiences more immersive. Incorporating smells, sounds, and textures creates a richer atmosphere and helps the reader feel more connected to the story world.
+    3. Sensory Details:
+       - Use sensory descriptions to make the environments and experiences more immersive. Incorporate smells, sounds, and textures to create a richer atmosphere and help readers feel more connected to the story world.
 
-    Subtle Morals:
-    Present the lessons of each story more implicitly than explicitly. Allow characters and readers to discover the moral through actions and consequences, making the message more effective and less preachy.
+    4. Subtle Morals:
+       - Present the lessons of each story more implicitly rather than explicitly. Allow characters and readers to discover the moral through actions and consequences, making the message more effective and less preachy.
 
-    Deepening Character Relationships:
-    Character bonds add an emotional layer to the stories. Show interactions that reveal more about their relationships (conflicts, support, friendships) to help the reader feel more emotionally connected to the story.
+    5. Deepening Character Relationships:
+       - Character bonds add an emotional layer to the stories. Show interactions that reveal more about their relationships (conflicts, support, friendships) to help readers feel more emotionally connected to the story.
 
-    Gradual Conflicts and Challenges:
-    Ensure characters face obstacles in a natural progression. This not only adds tension but also makes the resolution more satisfying, as the character has overcome various challenges to reach their goal.
+    6. Gradual Conflicts and Challenges:
+       - Ensure that characters face obstacles in a natural progression. This adds tension and makes the resolution more satisfying, as the character overcomes various challenges to achieve their goal.
 
-    Conflict Variety:
-    Vary the types of conflicts (internal, external, natural, supernatural, emotional) to give the collection dynamism and avoid a repetitive pattern. This allows exploration of different types of courage, empathy, and creativity.
+    7. Conflict Variety:
+       - Vary the types of conflicts (internal, external, natural, supernatural, emotional) to give the collection dynamism and avoid a repetitive pattern. This allows for exploration of different types of courage, empathy, and creativity.
 
-    Symbols and Recurring Elements:
-    Include symbols or recurring elements (like objects, phrases, or places) with special meaning in each story to unify the collection thematically. This can help readers find connections and meanings across stories.
+    8. Symbols and Recurring Elements:
+       - Include symbols or recurring elements (like objects, phrases, or places) that hold special meaning in each story. This unifies the collection thematically, helping readers find connections and meanings across stories.
 
-    World Context and Background:
-    In stories with a magical or fantastic world, offer a brief context of the setting or “magical rules” to build a consistent universe. This makes the stories more compelling and immersive for the reader.
+    9. World Context and Background:
+       - In stories with a magical or fantastic world, offer a brief context of the setting or “magical rules” to build a consistent universe. This enhances the story’s appeal and immersion.
 
-    Show, Don’t Tell:
-    Rather than directly telling the reader what a character is feeling or learning, try to show it through actions, gestures, and decisions. This narrative technique allows the reader to interpret the character’s emotions and understand the moral on their own."""
+    10. Show, Don’t Tell:
+       - Instead of directly telling the reader what a character feels or learns, show it through actions, gestures, and decisions. This narrative technique allows readers to interpret the character’s emotions and extract the moral themselves.
+
+    11. Strengthen Background Themes:
+       - Ensure each story has a clear central theme (like bravery, friendship, or empathy) and explore it in depth. Consistent themes across the collection give it a cohesive identity.
+
+    12. Develop Memorable Characters:
+       - Main characters should have distinctive qualities (like bravery, wit, or humility) that are reflected in their actions and decisions. Add small physical or emotional details to make them more human and easy to remember for readers.
+
+    13. Add Sensory Details:
+       - Use sensory descriptions (smell, touch, sound) to immerse readers in the setting of each story. These details enrich the narrative and help readers feel like they’re exploring these worlds with the characters.
+
+    14. Incorporate Clear Conflicts or Challenges:
+       - Each story should have a central conflict or challenge for the protagonist to overcome. This creates tension and keeps readers engaged. Additionally, resolving problems or facing dilemmas makes the stories more dynamic.
+
+    15. Show Growth and Learning:
+       - Ensure characters grow or learn something meaningful in each story. Lessons or inner changes should feel natural and be reflected in the narrative without feeling forced, making the learning something readers can feel and understand.
+
+    16. Create a Connection with the Reader:
+       - Use situations or emotions children can relate to, like curiosity, fear of the unknown, or the search for acceptance. This helps them feel part of the story and better understand the message.
+
+    17. Add Humor and Light Touches:
+       - While the stories should contain a lesson, add humor in dialogues or character interactions. This not only makes the reading more entertaining but also balances the story, especially if the message is deep.
+
+    18. Use Rhythm and Variety in Narrative:
+       - Play with the rhythm, alternating calm moments with peaks of excitement or tension. Additionally, vary language and narration style in each story for freshness, even with a consistent general tone.
+
+    19. Create Memorable Introductions and Conclusions:
+       - The opening lines should capture the reader's attention, and the conclusions should leave a sense of satisfaction or reflection. This makes the story more impactful and memorable.
+
+    20. Convey Positive Values Without Being Moralizing:
+       - Instead of making the moral explicit, allow positive values to emerge naturally from characters' decisions and actions. This avoids making stories feel preachy and gives the message a powerful, subtle resonance.
+    """
     
     headers = {
         "Content-Type": "application/json",
