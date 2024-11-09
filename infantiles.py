@@ -3,7 +3,7 @@ import requests
 import json
 from docx import Document
 from docx.shared import Inches
-import io 
+import io
 import random
 from PIL import Image
 import base64
