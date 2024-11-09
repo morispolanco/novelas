@@ -96,7 +96,7 @@ Use Rhythm and Variety in Narrative:
 Play with rhythm, alternating calm moments with peaks of excitement or tension. Additionally, vary language and narrative style in each story to give a fresh feel, even though they share a general tone.
 
 Create Memorable Introductions and Conclusions:
-The opening lines should capture the reader's attention, and the conclusions should leave a sense of satisfaction or reflection. This makes the story more impactful and memorable.
+The opening lines should capture the readers attention, and the conclusions should leave a sense of satisfaction or reflection. This makes the story more impactful and memorable.
 
 Convey Positive Values Without Being Didactic:
 Instead of making the moral explicit, allow positive values to emerge naturally from the characters' decisions and actions. This avoids making the stories feel preachy and gives the message a more powerful and subtle resonance."""
