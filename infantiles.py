@@ -67,7 +67,7 @@ def generate_story(age, theme):
     Theme: {theme}
     Make it engaging, age-appropriate, and include a moral lesson.
     Use simple language for younger children and more complex vocabulary for older ones.
-    prompt = f"""Write a {length} children's story in English for a {age}-year-old child. 
+    prompt = f"""Write a {length} childrens story in English for a {age}-year-old child. 
 Theme: {theme}
 Make it engaging, age-appropriate, and include a moral lesson.
 
