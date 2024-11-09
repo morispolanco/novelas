@@ -74,7 +74,7 @@ def generate_story(age, theme):
     }
 
     data = {
-        "model": "openai/gpt-4-mini",
+        "model": "google/gemini-flash-1.5",
         "messages": [
             {
                 "role": "user",
