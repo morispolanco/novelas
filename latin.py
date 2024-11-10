@@ -190,7 +190,7 @@ themes = [
     ]
 
     # Lista predefinida de nombres de personajes únicos
-character_names = [
+    character_names = [
         "Luna", "Mateo", "Sofía", "Emilio", "Valentina", "Lucas", "Isabella", "Alejandro",
         "Camila", "Gabriel", "Emma", "Benjamín", "Victoria", "Daniel", "Lucía", "Diego",
         "Martina", "Samuel", "Natalia", "Sebastián", "Valeria", "Emiliano", "Catalina",
@@ -201,12 +201,12 @@ character_names = [
     ]
 
     # Función para generar un único nombre de personaje
-def get_unique_name(used_names):
-    available_names = list(set(character_names) - set(used_names))
-    if not available_names:
-        # Si se agotan los nombres, generar uno aleatorio
-        return f"Personaje_{random.randint(1000, 9999)}"
-    return random.choice(available_names)
+    def get_unique_name(used_names):
+        available_names = list(set(character_names) - set(used_names))
+        if not available_names:
+            # Si se agotan los nombres, generar uno aleatorio
+            return f"Personaje_{random.randint(1000, 9999)}"
+        return random.choice(available_names)
 
     # Barra lateral para la entrada del usuario
     st.sidebar.header("Parámetros de Entrada")
@@ -466,6 +466,3 @@ def get_unique_name(used_names):
                     else:
                         st.write("No se pudieron generar las ilustraciones para este cuento.")
 
-    # Pie de página
-    st.markdown("---")
-    st.markdown("© 2024 Generador de Cuentos Infantiles. Desarrollado con OpenRouter, Together.xyz y Streamlit.")
