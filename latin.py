@@ -469,24 +469,3 @@ def get_unique_name(used_names):
     # Pie de página
     st.markdown("---")
     st.markdown("© 2024 Generador de Cuentos Infantiles. Desarrollado con OpenRouter, Together.xyz y Streamlit.")
-    ```
-
-## **3. Explicación Detallada de las Modificaciones**
-
-### **a. Actualización de los Prompts para Latín Simplificado**
-
-- **Objetivo:** Instruir al modelo para que genere las historias en **latín simplificado**.
-- **Implementación:** En la función `generate_corrected_story`, el prompt ahora incluye la instrucción explícita para escribir en latín simplificado.
-  
-  ```python
-  prompt = f"""
-  {guidelines}
-
-  Crea una historia que cumpla con las siguientes características:
-
-  - Tema: {theme}
-  - Grupo de edad: {age_group}
-  - Nombre del personaje principal: {character_name}
-  - Texto continuo sin subdivisiones ni subtítulos.
-  - Escribe la historia en **latín simplificado**, utilizando una gramática y vocabulario adecuados para niños que están aprendiendo el idioma.
-  """
