@@ -126,7 +126,7 @@ if st.button("Generar Libro"):
             break
 
         images = []
-        for img_num in range(1, 4):
+        for img_num in range(1, 3):  # Cambiado de 1-4 a 1-3 para generar dos imágenes
             image = generate_image(topic, i+1, img_num)
             if image:
                 images.append(image)
@@ -159,4 +159,3 @@ if st.button("Generar Libro"):
         st.success("¡Generación del libro completada exitosamente!")
     else:
         st.error("No se generaron todos los capítulos requeridos.")
- 
