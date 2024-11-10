@@ -190,7 +190,7 @@ themes = [
     ]
 
     # Lista predefinida de nombres de personajes únicos
-    character_names = [
+character_names = [
         "Luna", "Mateo", "Sofía", "Emilio", "Valentina", "Lucas", "Isabella", "Alejandro",
         "Camila", "Gabriel", "Emma", "Benjamín", "Victoria", "Daniel", "Lucía", "Diego",
         "Martina", "Samuel", "Natalia", "Sebastián", "Valeria", "Emiliano", "Catalina",
