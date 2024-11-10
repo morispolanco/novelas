@@ -201,12 +201,12 @@ character_names = [
     ]
 
     # Función para generar un único nombre de personaje
-    def get_unique_name(used_names):
-        available_names = list(set(character_names) - set(used_names))
-        if not available_names:
-            # Si se agotan los nombres, generar uno aleatorio
-            return f"Personaje_{random.randint(1000, 9999)}"
-        return random.choice(available_names)
+def get_unique_name(used_names):
+    available_names = list(set(character_names) - set(used_names))
+    if not available_names:
+        # Si se agotan los nombres, generar uno aleatorio
+        return f"Personaje_{random.randint(1000, 9999)}"
+    return random.choice(available_names)
 
     # Barra lateral para la entrada del usuario
     st.sidebar.header("Parámetros de Entrada")
