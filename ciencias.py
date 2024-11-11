@@ -9,7 +9,7 @@ import base64
 from io import BytesIO
 import re
 
-# Función para generar el contenido del capítulo usando la API de OpenRouter
+# Function to generate chapter content using OpenRouter API
 def generate_chapter(topic):
     api_url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
@@ -46,10 +46,10 @@ def generate_chapter(topic):
     if response.status_code == 200:
         return response.json()['choices'][0]['message']['content']
     else:
-        st.error(f"Error al generar el capítulo: {response.text}")
+        st.error(f"Error generating chapter: {response.text}")
         return None
 
-# Función para generar una ilustración usando la API de Together
+# Function to generate an illustration using Together API
 def generate_image(topic, chapter_number, img_num):
     api_url = "https://api.together.xyz/v1/images/generations"
     headers = {
@@ -66,7 +66,7 @@ def generate_image(topic, chapter_number, img_num):
         "prompt": prompt,
         "width": 1024,
         "height": 768,
-        "steps": 50,  # Aumentado para mejorar la calidad de la imagen
+        "steps": 50,  # Increased to improve image quality
         "n": 1,
         "response_format": "b64_json"
     }
@@ -77,99 +77,93 @@ def generate_image(topic, chapter_number, img_num):
         image_bytes = base64.b64decode(image_b64)
         return image_bytes
     else:
-        st.error(f"Error al generar la imagen: {response.text}")
+        st.error(f"Error generating image: {response.text}")
         return None
 
-# Función para procesar el contenido con formato Markdown y aplicarlo en el documento Word
+# Function to process Markdown-formatted content and apply it to the Word document
 def add_formatted_content(doc, content):
     lines = content.split('\n')
     for line in lines:
-        # Encabezados de nivel 1 (equivale a #)
+        # Level 1 Headings (equivalent to #)
         if line.startswith('# '):
             doc.add_heading(line[2:].strip(), level=1)
-        # Encabezados de nivel 2 (equivale a ##)
+        # Level 2 Headings (equivalent to ##)
         elif line.startswith('## '):
             doc.add_heading(line[3:].strip(), level=2)
-        # Encabezados de nivel 3 (equivale a ###)
+        # Level 3 Headings (equivalent to ###)
         elif line.startswith('### '):
             doc.add_heading(line[4:].strip(), level=3)
         else:
-            # Procesar texto con negrita **texto**
-            # Utilizar expresiones regulares para encontrar textos entre **
+            # Process bold text **text**
             bold_pattern = re.compile(r'\*\*(.*?)\*\*')
             parts = bold_pattern.split(line)
             paragraph = doc.add_paragraph()
             for idx, part in enumerate(parts):
                 if idx % 2 == 1:
-                    # Texto en negrita
+                    # Bold text
                     run = paragraph.add_run(part)
                     run.bold = True
                 else:
-                    # Texto normal
+                    # Normal text
                     paragraph.add_run(part)
 
-# Función para crear el documento de Word
+# Function to create the Word document
 def create_word_document(book_title, chapters):
     doc = Document()
     doc.add_heading(book_title, 0)
 
     for idx, chapter in enumerate(chapters, 1):
-        # Añadir el título del capítulo como encabezado de nivel 1
-        doc.add_heading(f"Chapter {idx}: {chapter['topic'].capitalize()}", level=1)
-        
-        # Insertar la primera ilustración al inicio del capítulo
+        # Add chapter title as Heading 1
+        chapter_title = f"Chapter {idx}: {chapter['topic'].capitalize()}"
+        doc.add_heading(chapter_title, level=1)
+
+        # Insert the first illustration after the title
         if len(chapter['images']) >= 1:
-            doc.add_paragraph(f"Figure 1: Illustration for Chapter {idx} (Beginning)")
+            doc.add_paragraph(f"Figure 1: Illustration for {chapter['topic']}")
             image_stream = BytesIO(chapter['images'][0])
             doc.add_picture(image_stream, width=Inches(6))
-        
-        # Añadir el contenido del capítulo con formato
-        add_formatted_content(doc, chapter['content'])
 
-        # Insertar la segunda ilustración al final del capítulo
-        if len(chapter['images']) >= 2:
-            doc.add_paragraph(f"Figure 2: Illustration for Chapter {idx} (End)")
-            image_stream = BytesIO(chapter['images'][1])
-            doc.add_picture(image_stream, width=Inches(6))
+        # Add chapter content with formatting
+        add_formatted_content(doc, chapter['content'])
 
     return doc
 
-# Configuración de la interfaz de la aplicación
-st.title("Generador de Libros de Ciencia para Niños")
-st.write("Crea un libro de ciencia personalizado para niños de 9 a 12 años con capítulos e ilustraciones generadas automáticamente.")
+# Streamlit App Layout
+st.title("Children's Science Book Generator")
+st.write("Generate a personalized science book for children aged 9 to 12 with automatically generated chapters and illustrations.")
 
-# Entradas del usuario
-book_title = st.text_input("Título del Libro", "Aventuras Científicas Asombrosas")
-num_chapters = st.number_input("Número de Capítulos", min_value=1, max_value=20, value=5, step=1)
+# User Inputs
+book_title = st.text_input("Book Title", "Amazing Scientific Adventures")
+num_chapters = st.number_input("Number of Chapters", min_value=1, max_value=20, value=5, step=1)
 topics = st.text_area(
-    "Lista de Temas (uno por línea)",
-    "Astronomía\nBiología\nGeología\nBotánica\nFísica\nQuímica\nCiencias Ambientales\nBiología Marina\nTecnología\nExploración Espacial"
+    "List of Topics (one per line)",
+    "Astronomy\nBiology\nGeology\nBotany\nPhysics\nChemistry\nEnvironmental Science\nMarine Biology\nTechnology\nSpace Exploration"
 )
 
-# Botón para iniciar la generación del libro
-if st.button("Generar Libro"):
+# Button to start book generation
+if st.button("Generate Book"):
     topics_list = [topic.strip() for topic in topics.split('\n') if topic.strip()]
     if len(topics_list) < num_chapters:
-        st.warning("No se han proporcionado suficientes temas para el número de capítulos. Algunos temas se reutilizarán.")
-    
+        st.warning("Not enough topics provided for the number of chapters. Some topics will be reused.")
+
     chapters = []
     progress_bar = st.progress(0)
     status_text = st.empty()
 
     for i in range(num_chapters):
         topic = topics_list[i % len(topics_list)]
-        status_text.text(f"Generando Capítulo {i+1} sobre {topic}...")
+        status_text.text(f"Generating Chapter {i+1} on {topic}...")
         content = generate_chapter(topic)
         if not content:
-            st.error("Error al generar el contenido del capítulo. Se detiene la generación.")
+            st.error("Failed to generate chapter content. Stopping generation.")
             break
 
         images = []
-        for img_num in range(1, 3):  # Generar dos ilustraciones por capítulo
+        for img_num in range(1, 2):  # Generate one illustration per chapter
             image = generate_image(topic, i+1, img_num)
             if image:
                 images.append(image)
-            time.sleep(1)  # Para evitar exceder los límites de las APIs
+            time.sleep(1)  # To avoid hitting API rate limits
 
         chapters.append({
             "topic": topic,
@@ -179,22 +173,22 @@ if st.button("Generar Libro"):
 
         progress = (i + 1) / num_chapters
         progress_bar.progress(progress)
-        time.sleep(0.5)  # Simulación de progreso
+        time.sleep(0.5)  # Simulate progress
 
     if len(chapters) == num_chapters:
-        status_text.text("Generando el documento de Word...")
+        status_text.text("Generating Word document...")
         doc = create_word_document(book_title, chapters)
 
-        # Guardar el documento en un stream de BytesIO
+        # Save the document to a BytesIO stream
         doc_stream = BytesIO()
         doc.save(doc_stream)
         doc_bytes = doc_stream.getvalue()
 
-        # Codificar el documento en base64 para la descarga
+        # Encode the document in base64 for download
         b64 = base64.b64encode(doc_bytes).decode()
 
-        href = f'<a href="data:application/octet-stream;base64,{b64}" download="{book_title.replace(" ", "_")}.docx">📄 Descargar Libro como Documento de Word</a>'
+        href = f'<a href="data:application/octet-stream;base64,{b64}" download="{book_title.replace(" ", "_")}.docx">📄 Download Book as Word Document</a>'
         st.markdown(href, unsafe_allow_html=True)
-        st.success("¡Generación del libro completada exitosamente!")
+        st.success("Book generation completed successfully!")
     else:
-        st.error("No se generaron todos los capítulos requeridos.")
+        st.error("Not all chapters were generated successfully.")
