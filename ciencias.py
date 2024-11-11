@@ -17,19 +17,19 @@ def generate_chapter(topic):
         "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}"
     }
     prompt = (
-        f"Write a chapter for a children's book about the scientific discipline specified by the user, suitable for kids aged 9 to 12. "
+        f"Write a chapter for a children's book about the scientific discipline '{topic}', suitable for kids aged 9 to 12. "
         f"The chapter should be both educational and engaging, presenting scientific concepts in an entertaining and informative manner. "
-        f"It should aim to spark curiosity and interest in the specified scientific field while being accessible and enjoyable for the target age group.\n\n"
-        f"Your chapter should blend storytelling with educational content, using creative and engaging language to explain scientific principles and concepts. "
-        f"It should incorporate interactive elements, such as experiments or activities, to make learning fun and hands-on for the young readers.\n\n"
-        f"Please ensure that the chapter is age-appropriate, presenting scientific ideas in a way that is understandable and captivating for children aged 9 to 12. "
-        f"Consider using storytelling, illustrations, and interactive elements to create an immersive and educational experience for the young readers while maintaining a balance between instruction and entertainment.\n\n"
+        f"It should aim to spark curiosity and interest in '{topic}' while being accessible and enjoyable for the target age group.\n\n"
+        f"Blend storytelling with educational content, using creative and engaging language to explain scientific principles and concepts. "
+        f"Incorporate interactive elements, such as experiments or activities, to make learning fun and hands-on for the young readers.\n\n"
+        f"Ensure the chapter is age-appropriate, presenting scientific ideas in a way that is understandable and captivating for children aged 9 to 12. "
+        f"Use storytelling, illustrations, and interactive elements to create an immersive and educational experience while maintaining a balance between instruction and entertainment.\n\n"
         f"Additionally, cover the following aspects:\n"
-        f"1. Introduction to the scientific discipline ({topic}): its definition and purpose.\n"
-        f"2. Scope of {topic}: what areas it covers.\n"
-        f"3. Methods used in {topic}: how scientists conduct research in this field.\n"
-        f"4. Achievements in {topic}: significant discoveries and advancements.\n"
-        f"5. Current state of {topic}: latest trends and developments.\n"
+        f"1. Introduction to '{topic}': its definition and purpose.\n"
+        f"2. Scope of '{topic}': what areas it covers.\n"
+        f"3. Methods used in '{topic}': how scientists conduct research in this field.\n"
+        f"4. Achievements in '{topic}': significant discoveries and advancements.\n"
+        f"5. Current state of '{topic}': latest trends and developments.\n"
         f"6. Include numerous examples to illustrate concepts."
     )
     data = {
@@ -135,42 +135,75 @@ st.write("Generate a personalized science book for children aged 9 to 12 with au
 # User Inputs
 book_title = st.text_input("Book Title", "Amazing Scientific Adventures")
 num_chapters = st.number_input("Number of Chapters", min_value=1, max_value=20, value=5, step=1)
-topics = st.text_area(
-    "List of Topics (one per line)",
-    "Astronomy\nBiology\nGeology\nBotany\nPhysics\nChemistry\nEnvironmental Science\nMarine Biology\nTechnology\nSpace Exploration"
+
+# Define the list of 20 topics
+topics_list = [
+    "Astronomy",
+    "Biology",
+    "Geology",
+    "Botany",
+    "Physics",
+    "Chemistry",
+    "Environmental Science",
+    "Marine Biology",
+    "Technology",
+    "Space Exploration",
+    "Meteorology",
+    "Ecology",
+    "Genetics",
+    "Anatomy",
+    "Paleontology",
+    "Neuroscience",
+    "Robotics",
+    "Forensic Science",
+    "Renewable Energy",
+    "Biomedical Science"
+]
+
+# Allow user to select topics from the predefined list
+selected_topics = st.multiselect(
+    "Select Topics for Chapters (Each chapter will have a unique topic):",
+    options=topics_list,
+    default=topics_list[:num_chapters],
+    help="Select up to 20 unique scientific topics for the chapters."
 )
+
+# Ensure the number of selected topics matches the number of chapters
+if len(selected_topics) < num_chapters:
+    st.warning("Not enough unique topics selected. Some topics will be reused.")
+elif len(selected_topics) > num_chapters:
+    selected_topics = selected_topics[:num_chapters]
 
 # Button to start book generation
 if st.button("Generate Book"):
-    topics_list = [topic.strip() for topic in topics.split('\n') if topic.strip()]
-    if len(topics_list) < num_chapters:
-        st.warning("Not enough topics provided for the number of chapters. Some topics will be reused.")
-
     chapters = []
     progress_bar = st.progress(0)
     status_text = st.empty()
 
     for i in range(num_chapters):
-        topic = topics_list[i % len(topics_list)]
+        # Select topic for the current chapter
+        topic = selected_topics[i % len(selected_topics)]
+
         status_text.text(f"Generating Chapter {i+1} on {topic}...")
+        # Generate chapter content
         content = generate_chapter(topic)
         if not content:
             st.error("Failed to generate chapter content. Stopping generation.")
             break
 
-        images = []
-        for img_num in range(1, 2):  # Generate one illustration per chapter
-            image = generate_image(topic, i+1, img_num)
-            if image:
-                images.append(image)
-            time.sleep(1)  # To avoid hitting API rate limits
+        # Generate illustration
+        image = generate_image(topic, i+1, 1)  # Only one illustration per chapter
+        if not image:
+            st.error("Failed to generate illustration. Stopping generation.")
+            break
 
         chapters.append({
             "topic": topic,
             "content": content,
-            "images": images
+            "images": [image]  # List containing one image
         })
 
+        # Update progress bar
         progress = (i + 1) / num_chapters
         progress_bar.progress(progress)
         time.sleep(0.5)  # Simulate progress
@@ -187,6 +220,7 @@ if st.button("Generate Book"):
         # Encode the document in base64 for download
         b64 = base64.b64encode(doc_bytes).decode()
 
+        # Create download link
         href = f'<a href="data:application/octet-stream;base64,{b64}" download="{book_title.replace(" ", "_")}.docx">📄 Download Book as Word Document</a>'
         st.markdown(href, unsafe_allow_html=True)
         st.success("Book generation completed successfully!")
