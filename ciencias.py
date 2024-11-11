@@ -117,15 +117,21 @@ def create_word_document(book_title, chapters):
         # Añadir el título del capítulo como encabezado de nivel 1
         doc.add_heading(f"Chapter {idx}: {chapter['topic'].capitalize()}", level=1)
         
+        # Insertar la primera ilustración al inicio del capítulo
+        if len(chapter['images']) >= 1:
+            doc.add_paragraph(f"Figure 1: Illustration for Chapter {idx} (Beginning)")
+            image_stream = BytesIO(chapter['images'][0])
+            doc.add_picture(image_stream, width=Inches(6))
+        
         # Añadir el contenido del capítulo con formato
         add_formatted_content(doc, chapter['content'])
 
-        # Añadir ilustraciones
-        for img_idx, img in enumerate(chapter['images'], 1):
-            doc.add_paragraph(f"Figure {img_idx}: Illustration for Chapter {idx}")
-            image_stream = BytesIO(img)
+        # Insertar la segunda ilustración al final del capítulo
+        if len(chapter['images']) >= 2:
+            doc.add_paragraph(f"Figure 2: Illustration for Chapter {idx} (End)")
+            image_stream = BytesIO(chapter['images'][1])
             doc.add_picture(image_stream, width=Inches(6))
-    
+
     return doc
 
 # Configuración de la interfaz de la aplicación
