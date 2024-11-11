@@ -1,3 +1,5 @@
+# app.py
+
 import streamlit as st
 import requests
 import time
@@ -5,6 +7,7 @@ from docx import Document
 from docx.shared import Inches
 import base64
 from io import BytesIO
+import re
 
 # Función para generar el contenido del capítulo usando la API de OpenRouter
 def generate_chapter(topic):
@@ -77,15 +80,47 @@ def generate_image(topic, chapter_number, img_num):
         st.error(f"Error al generar la imagen: {response.text}")
         return None
 
+# Función para procesar el contenido con formato Markdown y aplicarlo en el documento Word
+def add_formatted_content(doc, content):
+    lines = content.split('\n')
+    for line in lines:
+        # Encabezados de nivel 1 (equivale a #)
+        if line.startswith('# '):
+            doc.add_heading(line[2:].strip(), level=1)
+        # Encabezados de nivel 2 (equivale a ##)
+        elif line.startswith('## '):
+            doc.add_heading(line[3:].strip(), level=2)
+        # Encabezados de nivel 3 (equivale a ###)
+        elif line.startswith('### '):
+            doc.add_heading(line[4:].strip(), level=3)
+        else:
+            # Procesar texto con negrita **texto**
+            # Utilizar expresiones regulares para encontrar textos entre **
+            bold_pattern = re.compile(r'\*\*(.*?)\*\*')
+            parts = bold_pattern.split(line)
+            paragraph = doc.add_paragraph()
+            for idx, part in enumerate(parts):
+                if idx % 2 == 1:
+                    # Texto en negrita
+                    run = paragraph.add_run(part)
+                    run.bold = True
+                else:
+                    # Texto normal
+                    paragraph.add_run(part)
+
 # Función para crear el documento de Word
 def create_word_document(book_title, chapters):
     doc = Document()
     doc.add_heading(book_title, 0)
 
     for idx, chapter in enumerate(chapters, 1):
+        # Añadir el título del capítulo como encabezado de nivel 1
         doc.add_heading(f"Chapter {idx}: {chapter['topic'].capitalize()}", level=1)
-        doc.add_paragraph(chapter['content'])
+        
+        # Añadir el contenido del capítulo con formato
+        add_formatted_content(doc, chapter['content'])
 
+        # Añadir ilustraciones
         for img_idx, img in enumerate(chapter['images'], 1):
             doc.add_paragraph(f"Figure {img_idx}: Illustration for Chapter {idx}")
             image_stream = BytesIO(img)
@@ -124,7 +159,7 @@ if st.button("Generar Libro"):
             break
 
         images = []
-        for img_num in range(1, 3):  # Cambiado de 1-4 a 1-3 para generar dos imágenes
+        for img_num in range(1, 3):  # Generar dos ilustraciones por capítulo
             image = generate_image(topic, i+1, img_num)
             if image:
                 images.append(image)
