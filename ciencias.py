@@ -4,7 +4,8 @@ import streamlit as st
 import requests
 import time
 from docx import Document
-from docx.shared import Inches
+from docx.shared import Inches, Pt
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT, WD_LINE_SPACING
 import base64
 from io import BytesIO
 import re
@@ -24,6 +25,7 @@ def generate_chapter(topic):
         f"Incorporate interactive elements, such as experiments or activities, to make learning fun and hands-on for the young readers.\n\n"
         f"Ensure the chapter is age-appropriate, presenting scientific ideas in a way that is understandable and captivating for children aged 9 to 12. "
         f"Use storytelling, illustrations, and interactive elements to create an immersive and educational experience while maintaining a balance between instruction and entertainment.\n\n"
+        f"Avoid including the chapter title within the content.\n\n"
         f"Additionally, cover the following aspects:\n"
         f"1. Introduction to '{topic}': its definition and purpose.\n"
         f"2. Scope of '{topic}': what areas it covers.\n"
@@ -84,13 +86,13 @@ def generate_image(topic, chapter_number, img_num):
 def add_formatted_content(doc, content):
     lines = content.split('\n')
     for line in lines:
-        # Level 1 Headings (equivalent to #)
+        # Level 1 Headings (equivalent to # )
         if line.startswith('# '):
             doc.add_heading(line[2:].strip(), level=1)
-        # Level 2 Headings (equivalent to ##)
+        # Level 2 Headings (equivalent to ## )
         elif line.startswith('## '):
             doc.add_heading(line[3:].strip(), level=2)
-        # Level 3 Headings (equivalent to ###)
+        # Level 3 Headings (equivalent to ### )
         elif line.startswith('### '):
             doc.add_heading(line[4:].strip(), level=3)
         else:
@@ -107,9 +109,27 @@ def add_formatted_content(doc, content):
                     # Normal text
                     paragraph.add_run(part)
 
-# Function to create the Word document
+            # Apply paragraph formatting
+            paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+            paragraph.paragraph_format.line_spacing = Pt(14)  # 1.15 line spacing (approx. 14 pt for 14 pt font)
+            paragraph.paragraph_format.space_after = Pt(0)
+
+# Function to create the Word document with specified formatting
 def create_word_document(book_title, chapters):
     doc = Document()
+
+    # Set default font to Cambria, size 14
+    style = doc.styles['Normal']
+    font = style.font
+    font.name = 'Cambria'
+    font.size = Pt(14)
+
+    # Set default paragraph formatting
+    style.paragraph_format.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+    style.paragraph_format.line_spacing = Pt(16.1)  # 1.15 * 14 pt ≈ 16.1 pt
+    style.paragraph_format.space_after = Pt(0)
+
+    # Add book title as Heading 0 (Title)
     doc.add_heading(book_title, 0)
 
     for idx, chapter in enumerate(chapters, 1):
@@ -117,11 +137,13 @@ def create_word_document(book_title, chapters):
         chapter_title = f"Chapter {idx}: {chapter['topic'].capitalize()}"
         doc.add_heading(chapter_title, level=1)
 
-        # Insert the first illustration after the title
+        # Insert the illustration immediately after the chapter title
         if len(chapter['images']) >= 1:
             doc.add_paragraph(f"Figure 1: Illustration for {chapter['topic']}")
             image_stream = BytesIO(chapter['images'][0])
             doc.add_picture(image_stream, width=Inches(6))
+            last_paragraph = doc.paragraphs[-1]
+            last_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
 
         # Add chapter content with formatting
         add_formatted_content(doc, chapter['content'])
