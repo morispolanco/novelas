@@ -35,27 +35,30 @@ if 'images' not in st.session_state:
 def parse_text(content):
     """
     Asume que los cuentos están marcados con '# Cuento X: Título'
-    y los capítulos con '## Capítulo X: Título'.
+    y los capítulos con 'CAP. X: Título'.
     """
+    # Separar cuentos
     cuentos = re.split(r'^# Cuento \d+:', content, flags=re.MULTILINE)
     # El primer elemento puede estar vacío si el texto comienza con '# Cuento 1: ...'
     cuentos = [c for c in cuentos if c.strip()]
     
     parsed_cuentos = []
     for idx, cuento in enumerate(cuentos, 1):
-        titulo_match = re.search(r'^# Cuento \d+: (.+)', content, re.MULTILINE)
+        # Buscar el título del cuento dentro del segmento de cuento
+        titulo_match = re.search(r'^# Cuento \d+: (.+)', cuento, re.MULTILINE)
         titulo = titulo_match.group(1).strip() if titulo_match else f"Cuento {idx}"
         
         # Separar capítulos
-        capitulos = re.split(r'^## Capítulo \d+:', cuento, flags=re.MULTILINE)
+        capitulos = re.split(r'^CAP\. \d+:', cuento, flags=re.MULTILINE)
         capitulos = [c for c in capitulos if c.strip()]
         
         parsed_capitulos = []
         for c_idx, capitulo in enumerate(capitulos, 1):
-            capitulo_match = re.search(r'^## Capítulo \d+: (.+)', capitulo, re.MULTILINE)
+            # Buscar el título del capítulo dentro del segmento de capítulo
+            capitulo_match = re.search(r'^CAP\. \d+: (.+)', capitulo, re.MULTILINE)
             capitulo_titulo = capitulo_match.group(1).strip() if capitulo_match else f"Capítulo {c_idx}"
             # Extraer el contenido del capítulo
-            contenido = re.split(r'^## Capítulo \d+: .+', capitulo, flags=re.MULTILINE)[-1].strip()
+            contenido = re.split(r'^CAP\. \d+: .+', capitulo, flags=re.MULTILINE)[-1].strip()
             parsed_capitulos.append({
                 'titulo': capitulo_titulo,
                 'contenido': contenido
@@ -184,69 +187,69 @@ if uploaded_file is not None:
             cuento_num = cuento['numero']
             cuento_titulo = cuento['titulo']
             
-            with st.expander(f"Cuento {cuento_num}: {cuento_titulo}", expanded=False):
-                # Iterar sobre los capítulos del cuento
-                for capitulo in cuento['capitulos']:
-                    capitulo_num = capitulo['numero'] if 'numero' in capitulo else 1  # Ajustar si hay numeración
-                    capitulo_titulo = capitulo['titulo']
-                    contenido = capitulo['contenido']
+            st.markdown(f"### Cuento {cuento_num}: {cuento_titulo}")
+            
+            # Iterar sobre los capítulos del cuento
+            for capitulo_num, capitulo in enumerate(cuento['capitulos'], 1):
+                capitulo_titulo = capitulo['titulo']
+                contenido = capitulo['contenido']
+                
+                capitulo_id = f"cuento_{cuento_num}_capitulo_{capitulo_num}"
+                
+                st.markdown(f"#### Capítulo {capitulo_num}: {capitulo_titulo}")
+                with st.expander(f"Ver Contenido del Capítulo {capitulo_num}", expanded=False):
+                    st.text_area(f"Capítulo {capitulo_num}:", contenido, height=200)
+                
+                # Botón para extraer momentos clave
+                if st.button(f"Extraer Momentos Clave para Capítulo {capitulo_num} del Cuento {cuento_num}", key=f"extract_{capitulo_id}"):
+                    with st.spinner("Extrayendo momentos clave..."):
+                        key_moments = extract_key_moments_with_together(cuento_num, capitulo_num, contenido, TOGETHER_API_KEY)
+                        if key_moments:
+                            st.markdown(f"**Momentos Clave:**\n{key_moments}")
+                
+                # Verificar si los momentos clave ya han sido extraídos y almacenados
+                key_moments = st.session_state['key_moments'].get(capitulo_id, None)
+                
+                if key_moments:
+                    prompt = generate_prompt(key_moments)
+                    st.markdown(f"**Prompt para la API de Imagen:** {prompt}")
                     
-                    capitulo_id = f"cuento_{cuento_num}_capitulo_{capitulo_num}"
-                    
-                    st.markdown(f"#### Capítulo {capitulo_num}: {capitulo_titulo}")
-                    with st.expander(f"Ver Contenido del Capítulo {capitulo_num}", expanded=False):
-                        st.text_area(f"Capítulo {capitulo_num}:", contenido, height=200)
-                    
-                    # Botón para extraer momentos clave
-                    if st.button(f"Extraer Momentos Clave para Capítulo {capitulo_num} del Cuento {cuento_num}", key=f"extract_{capitulo_id}"):
-                        with st.spinner("Extrayendo momentos clave..."):
-                            key_moments = extract_key_moments_with_together(cuento_num, capitulo_num, contenido, TOGETHER_API_KEY)
-                            if key_moments:
-                                st.markdown(f"**Momentos Clave:**\n{key_moments}")
-                    
-                    # Verificar si los momentos clave ya han sido extraídos y almacenados
-                    key_moments = st.session_state['key_moments'].get(capitulo_id, None)
-                    
-                    if key_moments:
-                        prompt = generate_prompt(key_moments)
-                        st.markdown(f"**Prompt para la API de Imagen:** {prompt}")
+                    # Botón para generar ilustración
+                    if capitulo_id not in st.session_state['images']:
+                        if st.button(f"Generar Ilustración para Capítulo {capitulo_num} del Cuento {cuento_num}", key=f"generate_{capitulo_id}"):
+                            with st.spinner("Generando ilustración..."):
+                                b64_image = generate_image(prompt, TOGETHER_API_KEY, capitulo_id)
+                                if b64_image:
+                                    # Decodificar la imagen
+                                    image_bytes = base64.b64decode(b64_image)
+                                    encoded_image = base64.b64encode(image_bytes).decode()
+                                    image_uri = f"data:image/png;base64,{encoded_image}"
+                                    
+                                    st.image(image_uri, caption=f"Ilustración para Capítulo {capitulo_num} del Cuento {cuento_num}", use_column_width=True)
+                                    
+                                    # Opción para descargar la imagen
+                                    st.markdown(f"### Descargar Ilustración del Capítulo {capitulo_num}")
+                                    st.download_button(
+                                        label="Descargar Imagen",
+                                        data=image_bytes,
+                                        file_name=f"ilustracion_cuento_{cuento_num}_capitulo_{capitulo_num}.png",
+                                        mime="image/png"
+                                    )
+                    else:
+                        # Mostrar la imagen si ya ha sido generada
+                        b64_image = st.session_state['images'][capitulo_id]
+                        image_bytes = base64.b64decode(b64_image)
+                        encoded_image = base64.b64encode(image_bytes).decode()
+                        image_uri = f"data:image/png;base64,{encoded_image}"
                         
-                        # Botón para generar ilustración
-                        if capitulo_id not in st.session_state['images']:
-                            if st.button(f"Generar Ilustración para Capítulo {capitulo_num} del Cuento {cuento_num}", key=f"generate_{capitulo_id}"):
-                                with st.spinner("Generando ilustración..."):
-                                    b64_image = generate_image(prompt, TOGETHER_API_KEY, capitulo_id)
-                                    if b64_image:
-                                        # Decodificar la imagen
-                                        image_bytes = base64.b64decode(b64_image)
-                                        encoded_image = base64.b64encode(image_bytes).decode()
-                                        image_uri = f"data:image/png;base64,{encoded_image}"
-                                        
-                                        st.image(image_uri, caption=f"Ilustración para Capítulo {capitulo_num} del Cuento {cuento_num}", use_column_width=True)
-                                        
-                                        # Opción para descargar la imagen
-                                        st.markdown(f"### Descargar Ilustración del Capítulo {capitulo_num}")
-                                        st.download_button(
-                                            label="Descargar Imagen",
-                                            data=image_bytes,
-                                            file_name=f"ilustracion_cuento_{cuento_num}_capitulo_{capitulo_num}.png",
-                                            mime="image/png"
-                                        )
-                        else:
-                            # Mostrar la imagen si ya ha sido generada
-                            b64_image = st.session_state['images'][capitulo_id]
-                            image_bytes = base64.b64decode(b64_image)
-                            encoded_image = base64.b64encode(image_bytes).decode()
-                            image_uri = f"data:image/png;base64,{encoded_image}"
-                            
-                            st.image(image_uri, caption=f"Ilustración para Capítulo {capitulo_num} del Cuento {cuento_num}", use_column_width=True)
-                            
-                            # Opción para descargar la imagen
-                            st.markdown(f"### Descargar Ilustración del Capítulo {capitulo_num}")
-                            st.download_button(
-                                label="Descargar Imagen",
-                                data=image_bytes,
-                                file_name=f"ilustracion_cuento_{cuento_num}_capitulo_{capitulo_num}.png",
-                                mime="image/png"
-                            )
-                    st.markdown("---")
+                        st.image(image_uri, caption=f"Ilustración para Capítulo {capitulo_num} del Cuento {cuento_num}", use_column_width=True)
+                        
+                        # Opción para descargar la imagen
+                        st.markdown(f"### Descargar Ilustración del Capítulo {capitulo_num}")
+                        st.download_button(
+                            label="Descargar Imagen",
+                            data=image_bytes,
+                            file_name=f"ilustracion_cuento_{cuento_num}_capitulo_{capitulo_num}.png",
+                            mime="image/png"
+                        )
+                st.markdown("---")
