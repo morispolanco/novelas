@@ -1,184 +1,156 @@
 import streamlit as st
-import json
-from PIL import Image
-from io import BytesIO
 import requests
+import json
 import base64
-from docx import Document
-from docx.shared import Inches
+from typing import List
+from io import BytesIO
+from PIL import Image
 
-# Configuración de la página
+# Set page configuration
 st.set_page_config(
-    page_title="Biblioteca de Cuentos Clásicos con Ilustraciones",
-    layout="centered",
-    initial_sidebar_state="expanded",
+    page_title="Fábulas Ilustradas",
+    page_icon="📖🎨",
+    layout="wide",
 )
 
-# Verificar que las claves API estén configuradas
-if not st.secrets.get('TOGETHER_API_KEY'):
-    st.sidebar.error("Por favor, configura la clave API de Together.xyz en los secretos de Streamlit.")
-    st.stop()
+# Title of the app
+st.title("📖 Fábulas Ilustradas")
 
-# Cargar historias desde el archivo JSON
-@st.cache_data
-def load_stories():
-    with open('stories.json', 'r', encoding='utf-8') as file:
-        return json.load(file)
-
-stories_data = load_stories()
-
-# Título de la aplicación
-st.title("📚 Biblioteca de Cuentos Clásicos con Ilustraciones")
-
-# Descripción
+# Description
 st.markdown("""
-Explora y disfruta de una colección de **Fábulas de Esopo**, **Cuentos de La Fontaine**, **Cuentos de los Hermanos Grimm** y **Cuentos de Hans Christian Andersen**. 
-Selecciona las historias que deseas leer y obtener ilustraciones personalizadas.
+Esta aplicación permite a los usuarios pegar el texto de una fábula clásica. Utiliza la API de Together para extraer momentos clave de la fábula y generar ilustraciones a lápiz en blanco y negro para cada uno de ellos.
 """)
 
-# Barra lateral para seleccionar las historias
-st.sidebar.header("Selecciona las Historias")
+# Input area for the fable
+fable_text = st.text_area(
+    "Pega el texto de la fábula aquí:",
+    height=300,
+    placeholder="Escribe o pega la fábula clásica que deseas ilustrar..."
+)
 
-# Obtener las categorías (autores)
-categories = list(stories_data.keys())
-
-# Crear un diccionario para almacenar las selecciones
-selected_stories = {}
-
-for category in categories:
-    titles = [story['título'] for story in stories_data[category]]
-    selected = st.sidebar.multiselect(
-        label=f"{category}",
-        options=titles,
-        key=category
-    )
-    selected_stories[category] = selected
-
-# Botón para generar ilustraciones
-generate_images = st.sidebar.button("Generar Ilustraciones")
-
-# Variable para almacenar las historias seleccionadas
-stories_to_display = []
-
-# Iterar sobre las selecciones y recopilar las historias
-for category, titles in selected_stories.items():
-    for title in titles:
-        # Encontrar la historia en el JSON
-        story = next((s for s in stories_data[category] if s['título'] == title), None)
-        if story:
-            stories_to_display.append({
-                "categoría": category,
-                "título": story['título'],
-                "texto": story['texto']
-            })
-
-# Función para generar una ilustración usando Together.xyz
-def generate_image(prompt_description):
-    together_api_key = st.secrets.get('TOGETHER_API_KEY')
-    if not together_api_key:
-        st.error("La clave API de Together.xyz no está configurada en los secretos de Streamlit.")
-        return None
-
-    api_url = "https://api.together.xyz/v1/images/generations"
+# Function to extract key moments using Together's Chat Completions API
+def get_key_moments(fable: str, api_key: str) -> List[str]:
+    url = "https://api.together.xyz/v1/chat/completions"
     headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {together_api_key}"
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
     }
+    
+    messages = [
+        {
+            "role": "system",
+            "content": "Extrae los momentos clave de la siguiente fábula. Devuelve una lista enumerada de momentos importantes."
+        },
+        {
+            "role": "user",
+            "content": fable
+        }
+    ]
+    
+    payload = {
+        "model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+        "messages": messages,
+        "max_tokens": 1500,
+        "temperature": 0.7,
+        "top_p": 0.7,
+        "top_k": 50,
+        "repetition_penalty": 1,
+        "stop": ["<|eot_id|>"],
+        "stream": False
+    }
+    
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    
+    if response.status_code != 200:
+        st.error(f"Error al extraer momentos clave: {response.text}")
+        return []
+    
+    data = response.json()
+    key_moments_text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    
+    # Procesar el texto para obtener una lista de momentos
+    key_moments = []
+    for line in key_moments_text.split('\n'):
+        line = line.strip()
+        if line and (line[0].isdigit() and line[1] == '.'):
+            # Eliminar el número y el punto
+            moment = line.split('.', 1)[1].strip()
+            key_moments.append(moment)
+    
+    return key_moments
 
-    data = {
+# Function to generate an image using Together's Image Generation API
+def generate_image(prompt: str, api_key: str) -> Image.Image:
+    url = "https://api.together.xyz/v1/images/generations"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    # Añadir detalles al prompt para asegurar el estilo deseado
+    full_prompt = f"Dibujo a lápiz en blanco y negro de: {prompt}"
+    
+    payload = {
         "model": "black-forest-labs/FLUX.1.1-pro",
-        "prompt": prompt_description,
+        "prompt": full_prompt,
         "width": 512,
         "height": 512,
-        "steps": 50,  # Ajusta según la calidad deseada
+        "steps": 50,  # Aumentar pasos para mejor calidad
         "n": 1,
         "response_format": "b64_json"
     }
+    
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    
+    if response.status_code != 200:
+        st.error(f"Error al generar la imagen: {response.text}")
+        return None
+    
+    data = response.json()
+    image_data = data.get("data", [])[0].get("b64_json", "")
+    
+    if not image_data:
+        st.error("No se recibió imagen en la respuesta.")
+        return None
+    
+    # Decodificar la imagen de base64
+    image_bytes = base64.b64decode(image_data)
+    image = Image.open(BytesIO(image_bytes))
+    
+    return image
 
-    try:
-        response = requests.post(api_url, headers=headers, data=json.dumps(data))
-        response.raise_for_status()
-        result = response.json()
-        b64_image = result['data'][0]['b64_json']
-        image_bytes = base64.b64decode(b64_image)
-        image = Image.open(BytesIO(image_bytes))
-        return image
-    except requests.exceptions.HTTPError as http_err:
-        st.error(f"Error HTTP al generar la imagen: {http_err}")
-        if 'response' in locals():
-            st.write(response.text)  # Mostrar la respuesta completa para depuración
-    except Exception as err:
-        st.error(f"Error al generar la imagen: {err}")
-    return None
-
-# Si hay historias seleccionadas y el usuario ha presionado el botón para generar ilustraciones
-if stories_to_display and generate_images:
-    st.markdown("### Historias Seleccionadas con Ilustraciones")
-    doc = Document()
-    doc.add_heading("Biblioteca de Cuentos Clásicos con Ilustraciones", 0)
-
-    for idx, story in enumerate(stories_to_display, start=1):
-        st.markdown(f"#### {story['título']} ({story['categoría']})")
-        st.write(story['texto'])
-
-        # Generar descripciones para las ilustraciones basadas en la historia
-        image_prompt1 = f"Una ilustración colorida y atractiva para un cuento infantil sobre '{story['título']}'. Representa un momento clave de la historia."
-        image_prompt2 = f"Una segunda ilustración que represente otro momento significativo en la historia de '{story['título']}'."
-
-        # Generar las imágenes
-        image1 = generate_image(image_prompt1)
-        image2 = generate_image(image_prompt2)
-
-        # Mostrar las imágenes en la aplicación
-        if image1:
-            st.image(image1, caption="Ilustración 1", use_column_width=True)
+# Check if API key is available
+if "TOGETHER_API_KEY" not in st.secrets:
+    st.error("Falta la clave API de Together. Por favor, agrega `TOGETHER_API_KEY` en los secretos de Streamlit.")
+else:
+    together_api_key = st.secrets["TOGETHER_API_KEY"]
+    
+    if st.button("Generar Ilustraciones"):
+        if not fable_text.strip():
+            st.warning("Por favor, pega el texto de una fábula para comenzar.")
         else:
-            st.write("No se pudo generar la ilustración 1.")
-
-        if image2:
-            st.image(image2, caption="Ilustración 2", use_column_width=True)
-        else:
-            st.write("No se pudo generar la ilustración 2.")
-
-        st.markdown("---")
-
-        # Añadir al documento de Word
-        doc.add_heading(f"{story['título']}", level=1)
-        doc.add_paragraph(story['texto'])
-
-        # Añadir imágenes al documento
-        for img in [image1, image2]:
-            if img:
-                img_byte_arr = BytesIO()
-                img.save(img_byte_arr, format='PNG')
-                img_byte_arr = img_byte_arr.getvalue()
-                doc.add_picture(BytesIO(img_byte_arr), width=Inches(4))
-                doc.add_paragraph("")  # Espacio adicional después de la imagen
+            with st.spinner("Extrayendo momentos clave de la fábula..."):
+                key_moments = get_key_moments(fable_text, together_api_key)
+            
+            if key_moments:
+                st.success(f"Se han extraído {len(key_moments)} momentos clave.")
+                
+                st.markdown("### Ilustraciones Generadas")
+                
+                for idx, moment in enumerate(key_moments, 1):
+                    st.markdown(f"**Momento {idx}:** {moment}")
+                    with st.spinner(f"Generando imagen para el momento {idx}..."):
+                        image = generate_image(moment, together_api_key)
+                    
+                    if image:
+                        st.image(image, use_column_width=True)
             else:
-                doc.add_paragraph("No se pudo generar la ilustración.")
+                st.error("No se pudieron extraer momentos clave de la fábula.")
 
-    # Guardar el documento en un flujo de BytesIO
-    doc_io = BytesIO()
-    doc.save(doc_io)
-    doc_io.seek(0)
+# Información adicional
+st.markdown("""
+---
+**Nota:** Asegúrate de haber agregado tu clave API de Together en los secretos de Streamlit. Puedes hacerlo creando un archivo `secrets.toml` en la carpeta `.streamlit` con el siguiente contenido:
 
-    # Proporcionar el botón de descarga
-    st.success("¡Historias e ilustraciones generadas con éxito!")
-    st.download_button(
-        label="📄 Descargar Historias como Documento de Word",
-        data=doc_io,
-        file_name="Biblioteca_Cuentos_Clásicos.docx",
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
-
-# Mostrar las historias seleccionadas sin ilustraciones
-if stories_to_display:
-    st.markdown("### Historias Seleccionadas")
-    for story in stories_to_display:
-        st.markdown(f"#### {story['título']} ({story['categoría']})")
-        st.write(story['texto'])
-        st.markdown("---")
-
-# Pie de página
-st.markdown("---")
-st.markdown("© 2024 Biblioteca de Cuentos Clásicos. Todos los derechos reservados.")
+```toml
+TOGETHER_API_KEY = "tu_clave_api_aquí"
