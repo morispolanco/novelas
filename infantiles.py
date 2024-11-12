@@ -7,6 +7,12 @@ from io import BytesIO
 import random
 from PIL import Image
 import base64
+import nltk
+from nltk.tokenize import sent_tokenize
+import concurrent.futures
+
+# Descargar recursos de NLTK si no están disponibles
+nltk.download('punkt')
 
 # Configuración de la página
 st.set_page_config(
@@ -208,6 +214,15 @@ def get_unique_name(used_names):
         return f"Personaje_{random.randint(1000, 9999)}"
     return random.choice(available_names)
 
+# Función para extraer momentos clave de la historia
+def extract_key_moments(story, num_moments=2):
+    sentences = sent_tokenize(story, language='spanish')
+    if len(sentences) < num_moments:
+        return sentences
+    interval = len(sentences) // (num_moments + 1)
+    moments = [sentences[interval * (i + 1)] for i in range(num_moments)]
+    return moments
+
 # Barra lateral para la entrada del usuario
 st.sidebar.header("Parámetros de Entrada")
 
@@ -299,7 +314,7 @@ if st.sidebar.button("Generar Cuentos"):
 
 20. **Transmitir Valores Positivos sin Ser Moralista:**
     - En lugar de hacer la moral explícita, permite que los valores positivos emerjan naturalmente de las decisiones y acciones de los personajes. Esto evita que las historias se sientan moralizantes y da al mensaje una resonancia poderosa y sutil.
-"""
+            """
 
             # Añadir las directrices al prompt
             prompt = f"""
@@ -311,7 +326,7 @@ Crea una historia que cumpla con las siguientes características:
 - Grupo de edad: {age_group}
 - Nombre del personaje principal: {character_name}
 - Texto continuo sin subdivisiones ni subtítulos.
-"""
+            """
 
             data = {
                 "model": "gpt-4",  # Asegúrate de que este modelo esté disponible en OpenRouter
@@ -392,27 +407,44 @@ Crea una historia que cumpla con las siguientes características:
         stories = []
         used_names = []
         progress_bar = st.progress(0)
-        for i in range(num_stories):
-            theme = selected_themes[i]
-            # Obtener un nombre de personaje único
-            character_name = get_unique_name(used_names)
-            used_names.append(character_name)
-            story = generate_corrected_story(theme, selected_age_group, character_name)
-            if story.startswith("Lo siento"):
-                images = [None, None]
-            else:
-                # Crear descripciones para las ilustraciones basadas en el tema y el contenido del cuento
-                image_prompt1 = f"Una ilustración colorida y atractiva para un cuento infantil sobre {theme}."
-                image_prompt2 = f"Una segunda ilustración que represente un momento clave en la historia de {character_name} en el tema de {theme}."
-                image1 = generate_image(image_prompt1)
-                image2 = generate_image(image_prompt2)
-                images = [image1, image2]
-            stories.append({
-                "title": f"Capítulo {i+1}: {theme.title()}",
-                "content": story,
-                "images": images  # Almacenar una lista de imágenes
-            })
-            progress_bar.progress((i + 1) / num_stories)
+
+        # Uso de ThreadPoolExecutor para paralelizar la generación de cuentos e imágenes
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_to_story = {}
+            for i in range(num_stories):
+                theme = selected_themes[i]
+                # Obtener un nombre de personaje único
+                character_name = get_unique_name(used_names)
+                used_names.append(character_name)
+                # Iniciar la generación del cuento
+                future = executor.submit(generate_corrected_story, theme, selected_age_group, character_name)
+                future_to_story[future] = (theme, character_name, i)
+
+            for future in concurrent.futures.as_completed(future_to_story):
+                theme, character_name, i = future_to_story[future]
+                story = future.result()
+                if story.startswith("Lo siento"):
+                    images = [None, None]
+                else:
+                    # Extraer momentos clave de la historia
+                    key_moments = extract_key_moments(story)
+                    if len(key_moments) < 2:
+                        # Si hay menos de 2 momentos clave, usar descripciones generales
+                        image_prompt1 = f"Ilustración colorida y atractiva para un cuento infantil sobre {theme}."
+                        image_prompt2 = f"Ilustración que represente un momento significativo en la historia de {character_name} en el tema de {theme}."
+                    else:
+                        image_prompt1 = f"Ilustración colorida y atractiva de un momento clave: {key_moments[0]}"
+                        image_prompt2 = f"Ilustración que represente otro momento significativo: {key_moments[1]}"
+                    # Generar las imágenes
+                    image1 = generate_image(image_prompt1)
+                    image2 = generate_image(image_prompt2)
+                    images = [image1, image2]
+                stories.append({
+                    "title": f"Capítulo {i+1}: {theme.title()}",
+                    "content": story,
+                    "images": images  # Almacenar una lista de imágenes
+                })
+                progress_bar.progress((i + 1) / num_stories)
 
         # Crear un documento de Word
         doc = Document()
