@@ -1,190 +1,137 @@
 import streamlit as st
+import nltk
+from nltk.tokenize import sent_tokenize
+from nltk.corpus import stopwords
 import requests
 import base64
-from PIL import Image
-from io import BytesIO
-import re
-import os
-import zipfile
+import json
+from io import StringIO
+from datetime import datetime
 
-import PyPDF2
-from docx import Document
+# Descargar recursos de NLTK si no están ya descargados
+nltk.download('punkt')
+nltk.download('stopwords')
 
-# Función para dividir la novela en capítulos
-def dividir_en_capitulos(texto):
-    # Suponiendo que los capítulos están marcados con "Capítulo" o "Chapter"
-    capitulos = re.split(r'(Capítulo\s+\d+|Chapter\s+\d+)', texto, flags=re.IGNORECASE)
-    capitulos_limpios = []
-    for i in range(1, len(capitulos), 2):
-        titulo = capitulos[i].strip()
-        contenido = capitulos[i+1].strip() if i+1 < len(capitulos) else ""
-        capitulos_limpios.append({'titulo': titulo, 'contenido': contenido})
-    return capitulos_limpios
+# Configuración de la página
+st.set_page_config(
+    page_title="Generador de Ilustraciones para Cuentos",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
-# Función para generar un resumen de un párrafo usando OpenRouter
-def generar_resumen(capitulo):
-    api_key = st.secrets["OPENROUTER_API_KEY"]
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
-    }
-    data = {
-        "model": "openai/gpt-4o-mini",
-        "messages": [
-            {
-                "role": "user",
-                "content": f"Genera un resumen de un párrafo para el siguiente capítulo de una novela, asegurando coherencia en los personajes y el ambiente:\n\n{capitulo}"
-            }
-        ]
-    }
-    response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
-    if response.status_code == 200:
-        resumen = response.json()['choices'][0]['message']['content'].strip()
-        return resumen
-    else:
-        st.error(f"Error al generar el resumen: {response.status_code} - {response.text}")
-        return None
+# Título de la aplicación
+st.title("Generador de Ilustraciones para Cuentos con Streamlit y Together API")
 
-# Función para generar una ilustración usando Together API
-def generar_ilustracion(prompt, width=512, height=512):
-    api_key = st.secrets["TOGETHER_API_KEY"]
+# Instrucciones
+st.markdown("""
+Esta aplicación permite subir un archivo de texto que contiene varios cuentos. Para cada cuento, se extraen momentos clave y se generan ilustraciones de arte digital imitando el estilo del siglo XVIII, a lápiz y en blanco y negro.
+
+**Pasos:**
+1. Sube un archivo de texto con tus cuentos.
+2. La aplicación procesará cada cuento y generará ilustraciones automáticamente.
+3. Visualiza y descarga las ilustraciones generadas.
+""")
+
+# Función para extraer momentos clave utilizando NLTK
+def extract_key_moments(text, num_moments=3):
+    sentences = sent_tokenize(text)
+    # Aquí puedes implementar una lógica más avanzada para extraer momentos clave
+    # Por simplicidad, seleccionaremos las primeras 'num_moments' oraciones
+    key_moments = sentences[:num_moments]
+    return " ".join(key_moments)
+
+# Función para generar prompt
+def generate_prompt(key_moments):
+    prompt = (
+        f"Ilustración en estilo de arte del siglo XVIII, a lápiz, en blanco y negro. "
+        f"Escena que representa: {key_moments}"
+    )
+    return prompt
+
+# Función para generar imagen utilizando la API de Together
+def generate_image(prompt, api_key):
+    url = "https://api.together.xyz/v1/images/generations"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
-    data = {
-        "model": "black-forest-labs/FLUX.1-pro",
+    payload = {
+        "model": "black-forest-labs/FLUX.1-schnell-Free",
         "prompt": prompt,
-        "width": width,
-        "height": height,
-        "steps": 28,
+        "width": 512,
+        "height": 512,
+        "steps": 4,
         "n": 1,
-        "response_format": "b64_json"
+        "response_format": "b64_json",
+        "update_at": datetime.utcnow().isoformat() + "Z"
     }
-    try:
-        response = requests.post("https://api.together.xyz/v1/images/generations", headers=headers, json=data)
-        response.raise_for_status()
-        response_data = response.json()
-        # Decodificar la imagen de base64
-        b64_image = response_data["data"][0]["b64_json"]
-        image_bytes = base64.b64decode(b64_image)
-        image = Image.open(BytesIO(image_bytes))
-        return image
-    except requests.exceptions.HTTPError as http_err:
-        st.error(f"Error HTTP al generar la imagen: {http_err} - {response.text}")
-    except Exception as e:
-        st.error(f"Error al generar la imagen: {e}")
-    return None
-
-# Función para crear un archivo ZIP con resúmenes e ilustraciones
-def crear_zip(capitulos, resúmenes, ilustraciones):
-    # Crear un objeto BytesIO para el ZIP
-    zip_buffer = BytesIO()
-    with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
-        for idx, cap in enumerate(capitulos, 1):
-            # Nombre de los archivos
-            resumen_nombre = f"Capitulo_{idx}_Resumen.txt"
-            ilustracion_nombre = f"Capitulo_{idx}_Ilustracion.png"
-            
-            # Agregar resumen al ZIP
-            zip_file.writestr(resumen_nombre, resúmenes[idx-1])
-            
-            # Agregar ilustración al ZIP
-            if ilustraciones[idx-1]:
-                img_byte_arr = BytesIO()
-                ilustraciones[idx-1].save(img_byte_arr, format='PNG')
-                img_byte_arr.seek(0)
-                zip_file.writestr(ilustracion_nombre, img_byte_arr.read())
     
-    zip_buffer.seek(0)
-    return zip_buffer
-
-# Título de la aplicación
-st.title("Convertidor de Novela en Historia Ilustrada")
-
-# Instrucciones
-st.markdown("""
-Sube tu novela en formato `.txt`, `.docx` o `.pdf`, y la aplicación generará un resumen de un párrafo para cada capítulo y una ilustración coherente en estilo 'Arte Digital'. Al final, podrás descargar un archivo ZIP que contiene todos los resúmenes e ilustraciones generados.
-""")
-
-# Subida de archivo
-uploaded_file = st.file_uploader("Sube tu novela", type=["txt", "pdf", "docx"])
-
-# Botón para procesar
-if st.button("Procesar Novela"):
-    if uploaded_file is not None:
-        # Leer el contenido del archivo
-        contenido = ""
-        if uploaded_file.type == "text/plain":
-            try:
-                contenido = uploaded_file.read().decode("utf-8")
-            except Exception as e:
-                st.error(f"Error al leer el archivo de texto: {e}")
-        elif uploaded_file.type == "application/pdf":
-            try:
-                pdf_reader = PyPDF2.PdfReader(uploaded_file)
-                for page in pdf_reader.pages:
-                    texto_pagina = page.extract_text()
-                    if texto_pagina:
-                        contenido += texto_pagina + "\n"
-            except Exception as e:
-                st.error(f"Error al leer el PDF: {e}")
-        elif uploaded_file.type in ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword"]:
-            try:
-                doc = Document(uploaded_file)
-                for para in doc.paragraphs:
-                    contenido += para.text + "\n"
-            except Exception as e:
-                st.error(f"Error al leer el archivo de Word: {e}")
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        data = response.json()
+        if "data" in data and len(data["data"]) > 0:
+            return data["data"][0]["b64_json"]
         else:
-            st.error("Formato de archivo no soportado.")
-        
-        if contenido:
-            st.success("Archivo leído correctamente. Procesando...")
-            # Dividir en capítulos
-            capitulos = dividir_en_capitulos(contenido)
-            st.info(f"Se encontraron {len(capitulos)} capítulos.")
-            
-            if len(capitulos) == 0:
-                st.error("No se encontraron capítulos en el documento. Asegúrate de que los capítulos estén marcados con 'Capítulo' o 'Chapter' seguido de un número.")
-            else:
-                # Crear listas para almacenar resúmenes e ilustraciones
-                resúmenes = []
-                ilustraciones = []
-                
-                for idx, cap in enumerate(capitulos, 1):
-                    st.write(f"### {cap['titulo']}")
-                    
-                    # Generar resumen
-                    with st.spinner(f"Generando resumen para el capítulo {idx}..."):
-                        resumen = generar_resumen(cap['contenido'])
-                        if resumen:
-                            resúmenes.append(resumen)
-                            st.write("**Resumen de un párrafo:**")
-                            st.write(resumen)
-                    
-                    # Generar una ilustración
-                    with st.spinner(f"Generando ilustración para el capítulo {idx}..."):
-                        prompt = f"{resumen}. Estilo artístico: Arte Digital."
-                        imagen = generar_ilustracion(prompt)
-                        if imagen:
-                            ilustraciones.append(imagen)
-                            st.image(imagen, caption=f"Ilustración Capítulo {idx} - Arte Digital", use_column_width=True)
-                    
-                    st.markdown("---")
-                
-                st.success("Procesamiento completado.")
-                
-                # Crear el archivo ZIP
-                with st.spinner("Creando archivo ZIP con resúmenes e ilustraciones..."):
-                    zip_file = crear_zip(capitulos, resúmenes, ilustraciones)
-                
-                # Proporcionar botón para descargar
-                st.download_button(
-                    label="Descargar Resúmenes e Ilustraciones en ZIP",
-                    data=zip_file,
-                    file_name='resumenes_ilustraciones.zip',
-                    mime='application/zip'
-                )
+            st.error("Respuesta inesperada de la API.")
+            return None
+    except requests.exceptions.HTTPError as http_err:
+        st.error(f"HTTP error occurred: {http_err}")
+        return None
+    except Exception as err:
+        st.error(f"Other error occurred: {err}")
+        return None
+
+# Sección para subir el archivo
+uploaded_file = st.file_uploader("Sube un archivo de texto con tus cuentos", type=["txt"])
+
+if uploaded_file is not None:
+    # Leer el contenido del archivo
+    content = uploaded_file.read().decode("utf-8")
+    
+    # Suponiendo que los cuentos están separados por títulos en mayúsculas
+    # Puedes ajustar esto según el formato de tu archivo
+    cuentos = content.split("\n\n")  # Separar por párrafos dobles como ejemplo
+    
+    st.success(f"Archivo cargado exitosamente. Número de cuentos detectados: {len(cuentos)}")
+    
+    # Obtener la clave de la API de los secretos de Streamlit
+    TOGETHER_API_KEY = st.secrets["TOGETHER_API_KEY"]
+    
+    if not TOGETHER_API_KEY:
+        st.error("La clave de la API de Together no está configurada en los secretos de Streamlit.")
     else:
-        st.error("Por favor, sube un archivo para comenzar.")
+        # Crear una sección para mostrar los resultados
+        for idx, cuento in enumerate(cuentos, 1):
+            st.markdown(f"### Cuento {idx}")
+            st.text_area(f"Cuento {idx}:", cuento, height=150)
+            
+            # Extraer momentos clave
+            key_moments = extract_key_moments(cuento)
+            st.markdown(f"**Momentos Clave:** {key_moments}")
+            
+            # Generar prompt
+            prompt = generate_prompt(key_moments)
+            st.markdown(f"**Prompt para la API:** {prompt}")
+            
+            # Botón para generar la imagen
+            if st.button(f"Generar Ilustración para Cuento {idx}"):
+                with st.spinner("Generando ilustración..."):
+                    b64_image = generate_image(prompt, TOGETHER_API_KEY)
+                    if b64_image:
+                        # Decodificar la imagen
+                        image_bytes = base64.b64decode(b64_image)
+                        encoded_image = base64.b64encode(image_bytes).decode()
+                        image_uri = f"data:image/png;base64,{encoded_image}"
+                        
+                        st.image(image_uri, caption=f"Ilustración para Cuento {idx}", use_column_width=True)
+                        
+                        # Opción para descargar la imagen
+                        st.markdown(f"### Descargar Ilustración {idx}")
+                        st.download_button(
+                            label="Descargar Imagen",
+                            data=image_bytes,
+                            file_name=f"ilustracion_cuento_{idx}.png",
+                            mime="image/png"
+                        )
+            st.markdown("---")
