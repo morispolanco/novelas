@@ -3,3 +3,4 @@ requests
 python-docx
 Pillow
 language-tool-python
+nltk
