@@ -1,27 +1,26 @@
 import streamlit as st
 import requests
 import base64
-from io import StringIO
 from datetime import datetime
-import json
+import re
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Generador de Ilustraciones para Cuentos",
+    page_title="Generador de Ilustraciones para Cuentos por Capítulo",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 # Título de la aplicación
-st.title("Generador de Ilustraciones para Cuentos con Streamlit y Together API")
+st.title("Generador de Ilustraciones para Cuentos por Capítulo con Streamlit y Together API")
 
 # Instrucciones
 st.markdown("""
-Esta aplicación permite subir un archivo de texto que contiene varios cuentos. Para cada cuento, se extraen momentos clave utilizando la API de Together y se generan ilustraciones de arte digital imitando el estilo del siglo XVIII, a lápiz y en blanco y negro.
+Esta aplicación permite subir un archivo de texto que contiene varios cuentos divididos en capítulos. Para cada capítulo, se extraen momentos clave utilizando la API de Together y se generan ilustraciones de arte digital imitando el estilo del siglo XVIII, a lápiz y en blanco y negro.
 
 **Pasos:**
-1. Sube un archivo de texto con tus cuentos.
-2. Para cada cuento, haz clic en "Extraer Momentos Clave".
+1. Sube un archivo de texto con tus cuentos y capítulos.
+2. Para cada capítulo, haz clic en "Extraer Momentos Clave".
 3. Una vez extraídos los momentos clave, haz clic en "Generar Ilustración".
 4. Visualiza y descarga las ilustraciones generadas.
 """)
@@ -32,22 +31,60 @@ if 'key_moments' not in st.session_state:
 if 'images' not in st.session_state:
     st.session_state['images'] = {}
 
+# Función para separar el texto en cuentos y capítulos
+def parse_text(content):
+    """
+    Asume que los cuentos están marcados con '# Cuento X: Título'
+    y los capítulos con '## Capítulo X: Título'.
+    """
+    cuentos = re.split(r'^# Cuento \d+:', content, flags=re.MULTILINE)
+    # El primer elemento puede estar vacío si el texto comienza con '# Cuento 1: ...'
+    cuentos = [c for c in cuentos if c.strip()]
+    
+    parsed_cuentos = []
+    for idx, cuento in enumerate(cuentos, 1):
+        titulo_match = re.search(r'^# Cuento \d+: (.+)', content, re.MULTILINE)
+        titulo = titulo_match.group(1).strip() if titulo_match else f"Cuento {idx}"
+        
+        # Separar capítulos
+        capitulos = re.split(r'^## Capítulo \d+:', cuento, flags=re.MULTILINE)
+        capitulos = [c for c in capitulos if c.strip()]
+        
+        parsed_capitulos = []
+        for c_idx, capitulo in enumerate(capitulos, 1):
+            capitulo_match = re.search(r'^## Capítulo \d+: (.+)', capitulo, re.MULTILINE)
+            capitulo_titulo = capitulo_match.group(1).strip() if capitulo_match else f"Capítulo {c_idx}"
+            # Extraer el contenido del capítulo
+            contenido = re.split(r'^## Capítulo \d+: .+', capitulo, flags=re.MULTILINE)[-1].strip()
+            parsed_capitulos.append({
+                'titulo': capitulo_titulo,
+                'contenido': contenido
+            })
+        
+        parsed_cuentos.append({
+            'numero': idx,
+            'titulo': titulo,
+            'capitulos': parsed_capitulos
+        })
+    
+    return parsed_cuentos
+
 # Función para extraer momentos clave utilizando la API de Together
-def extract_key_moments_with_together(cuento, api_key, cuento_id):
+def extract_key_moments_with_together(cuento_num, capitulo_num, contenido, api_key):
     url = "https://api.together.xyz/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
     prompt = (
-        "Analiza el siguiente cuento y extrae los tres momentos más importantes o destacados. "
+        "Analiza el siguiente capítulo de un cuento y extrae los tres momentos más importantes o destacados. "
         "Proporciona una lista numerada con cada momento.\n\n"
-        f"Cuento:\n{cuento}\n\nMomentos Clave:"
+        f"Capítulo:\n{contenido}\n\nMomentos Clave:"
     )
     payload = {
         "model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
         "messages": [
-            {"role": "system", "content": "Eres un asistente que ayuda a extraer los momentos clave de un cuento."},
+            {"role": "system", "content": "Eres un asistente que ayuda a extraer los momentos clave de un capítulo de un cuento."},
             {"role": "user", "content": prompt}
         ],
         "max_tokens": 512,
@@ -63,11 +100,11 @@ def extract_key_moments_with_together(cuento, api_key, cuento_id):
         response = requests.post(url, headers=headers, json=payload)
         response.raise_for_status()
         data = response.json()
-        # Verificar la estructura de la respuesta
         if "choices" in data and len(data["choices"]) > 0:
             key_moments = data['choices'][0]['message']['content'].strip()
             # Almacenar los momentos clave en el estado de la sesión
-            st.session_state['key_moments'][cuento_id] = key_moments
+            clave_id = f"cuento_{cuento_num}_capitulo_{capitulo_num}"
+            st.session_state['key_moments'][clave_id] = key_moments
             return key_moments
         else:
             st.error("Respuesta inesperada de la API de extracción de momentos clave.")
@@ -88,7 +125,7 @@ def generate_prompt(key_moments):
     return prompt
 
 # Función para generar imagen utilizando la API de Together
-def generate_image(prompt, api_key, cuento_id):
+def generate_image(prompt, api_key, clave_id):
     url = "https://api.together.xyz/v1/images/generations"
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -112,7 +149,7 @@ def generate_image(prompt, api_key, cuento_id):
         if "data" in data and len(data["data"]) > 0:
             image_b64 = data["data"][0]["b64_json"]
             # Almacenar la imagen en el estado de la sesión
-            st.session_state['images'][cuento_id] = image_b64
+            st.session_state['images'][clave_id] = image_b64
             return image_b64
         else:
             st.error("Respuesta inesperada de la API de generación de imágenes.")
@@ -125,17 +162,16 @@ def generate_image(prompt, api_key, cuento_id):
         return None
 
 # Sección para subir el archivo
-uploaded_file = st.file_uploader("Sube un archivo de texto con tus cuentos", type=["txt"])
+uploaded_file = st.file_uploader("Sube un archivo de texto con tus cuentos y capítulos", type=["txt"])
 
 if uploaded_file is not None:
     # Leer el contenido del archivo
     content = uploaded_file.read().decode("utf-8")
     
-    # Suponiendo que los cuentos están separados por dos saltos de línea
-    # Puedes ajustar esto según el formato de tu archivo
-    cuentos = [cuento.strip() for cuento in content.split("\n\n") if cuento.strip()]
+    # Parsear el contenido en cuentos y capítulos
+    parsed_cuentos = parse_text(content)
     
-    st.success(f"Archivo cargado exitosamente. Número de cuentos detectados: {len(cuentos)}")
+    st.success(f"Archivo cargado exitosamente. Número de cuentos detectados: {len(parsed_cuentos)}")
     
     # Obtener la clave de la API de los secretos de Streamlit
     TOGETHER_API_KEY = st.secrets["TOGETHER_API_KEY"]
@@ -143,63 +179,74 @@ if uploaded_file is not None:
     if not TOGETHER_API_KEY:
         st.error("La clave de la API de Together no está configurada en los secretos de Streamlit.")
     else:
-        # Crear una sección para mostrar los resultados
-        for idx, cuento in enumerate(cuentos, 1):
-            cuento_id = f"cuento_{idx}"
-            st.markdown(f"### Cuento {idx}")
-            with st.expander(f"Cuento {idx}", expanded=False):
-                st.text_area(f"Cuento {idx}:", cuento, height=150)
+        # Iterar sobre los cuentos
+        for cuento in parsed_cuentos:
+            cuento_num = cuento['numero']
+            cuento_titulo = cuento['titulo']
             
-            # Extraer momentos clave usando la API de Together
-            if st.button(f"Extraer Momentos Clave para Cuento {idx}", key=f"extract_{idx}"):
-                with st.spinner("Extrayendo momentos clave..."):
-                    key_moments = extract_key_moments_with_together(cuento, TOGETHER_API_KEY, cuento_id)
+            with st.expander(f"Cuento {cuento_num}: {cuento_titulo}", expanded=False):
+                # Iterar sobre los capítulos del cuento
+                for capitulo in cuento['capitulos']:
+                    capitulo_num = capitulo['numero'] if 'numero' in capitulo else 1  # Ajustar si hay numeración
+                    capitulo_titulo = capitulo['titulo']
+                    contenido = capitulo['contenido']
+                    
+                    capitulo_id = f"cuento_{cuento_num}_capitulo_{capitulo_num}"
+                    
+                    st.markdown(f"#### Capítulo {capitulo_num}: {capitulo_titulo}")
+                    with st.expander(f"Ver Contenido del Capítulo {capitulo_num}", expanded=False):
+                        st.text_area(f"Capítulo {capitulo_num}:", contenido, height=200)
+                    
+                    # Botón para extraer momentos clave
+                    if st.button(f"Extraer Momentos Clave para Capítulo {capitulo_num} del Cuento {cuento_num}", key=f"extract_{capitulo_id}"):
+                        with st.spinner("Extrayendo momentos clave..."):
+                            key_moments = extract_key_moments_with_together(cuento_num, capitulo_num, contenido, TOGETHER_API_KEY)
+                            if key_moments:
+                                st.markdown(f"**Momentos Clave:**\n{key_moments}")
+                    
+                    # Verificar si los momentos clave ya han sido extraídos y almacenados
+                    key_moments = st.session_state['key_moments'].get(capitulo_id, None)
+                    
                     if key_moments:
-                        st.markdown(f"**Momentos Clave:**\n{key_moments}")
-            
-            # Verificar si los momentos clave ya han sido extraídos y almacenados
-            key_moments = st.session_state['key_moments'].get(cuento_id, None)
-            
-            if key_moments:
-                prompt = generate_prompt(key_moments)
-                st.markdown(f"**Prompt para la API de Imagen:** {prompt}")
-                
-                # Generar la ilustración solo si no se ha generado previamente
-                if cuento_id not in st.session_state['images']:
-                    if st.button(f"Generar Ilustración para Cuento {idx}", key=f"generate_{idx}"):
-                        with st.spinner("Generando ilustración..."):
-                            b64_image = generate_image(prompt, TOGETHER_API_KEY, cuento_id)
-                            if b64_image:
-                                # Decodificar la imagen
-                                image_bytes = base64.b64decode(b64_image)
-                                encoded_image = base64.b64encode(image_bytes).decode()
-                                image_uri = f"data:image/png;base64,{encoded_image}"
-                                
-                                st.image(image_uri, caption=f"Ilustración para Cuento {idx}", use_column_width=True)
-                                
-                                # Opción para descargar la imagen
-                                st.markdown(f"### Descargar Ilustración {idx}")
-                                st.download_button(
-                                    label="Descargar Imagen",
-                                    data=image_bytes,
-                                    file_name=f"ilustracion_cuento_{idx}.png",
-                                    mime="image/png"
-                                )
-                else:
-                    # Mostrar la imagen si ya ha sido generada
-                    b64_image = st.session_state['images'][cuento_id]
-                    image_bytes = base64.b64decode(b64_image)
-                    encoded_image = base64.b64encode(image_bytes).decode()
-                    image_uri = f"data:image/png;base64,{encoded_image}"
-                    
-                    st.image(image_uri, caption=f"Ilustración para Cuento {idx}", use_column_width=True)
-                    
-                    # Opción para descargar la imagen
-                    st.markdown(f"### Descargar Ilustración {idx}")
-                    st.download_button(
-                        label="Descargar Imagen",
-                        data=image_bytes,
-                        file_name=f"ilustracion_cuento_{idx}.png",
-                        mime="image/png"
-                    )
-            st.markdown("---")
+                        prompt = generate_prompt(key_moments)
+                        st.markdown(f"**Prompt para la API de Imagen:** {prompt}")
+                        
+                        # Botón para generar ilustración
+                        if capitulo_id not in st.session_state['images']:
+                            if st.button(f"Generar Ilustración para Capítulo {capitulo_num} del Cuento {cuento_num}", key=f"generate_{capitulo_id}"):
+                                with st.spinner("Generando ilustración..."):
+                                    b64_image = generate_image(prompt, TOGETHER_API_KEY, capitulo_id)
+                                    if b64_image:
+                                        # Decodificar la imagen
+                                        image_bytes = base64.b64decode(b64_image)
+                                        encoded_image = base64.b64encode(image_bytes).decode()
+                                        image_uri = f"data:image/png;base64,{encoded_image}"
+                                        
+                                        st.image(image_uri, caption=f"Ilustración para Capítulo {capitulo_num} del Cuento {cuento_num}", use_column_width=True)
+                                        
+                                        # Opción para descargar la imagen
+                                        st.markdown(f"### Descargar Ilustración del Capítulo {capitulo_num}")
+                                        st.download_button(
+                                            label="Descargar Imagen",
+                                            data=image_bytes,
+                                            file_name=f"ilustracion_cuento_{cuento_num}_capitulo_{capitulo_num}.png",
+                                            mime="image/png"
+                                        )
+                        else:
+                            # Mostrar la imagen si ya ha sido generada
+                            b64_image = st.session_state['images'][capitulo_id]
+                            image_bytes = base64.b64decode(b64_image)
+                            encoded_image = base64.b64encode(image_bytes).decode()
+                            image_uri = f"data:image/png;base64,{encoded_image}"
+                            
+                            st.image(image_uri, caption=f"Ilustración para Capítulo {capitulo_num} del Cuento {cuento_num}", use_column_width=True)
+                            
+                            # Opción para descargar la imagen
+                            st.markdown(f"### Descargar Ilustración del Capítulo {capitulo_num}")
+                            st.download_button(
+                                label="Descargar Imagen",
+                                data=image_bytes,
+                                file_name=f"ilustracion_cuento_{cuento_num}_capitulo_{capitulo_num}.png",
+                                mime="image/png"
+                            )
+                    st.markdown("---")
