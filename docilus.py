@@ -7,7 +7,7 @@ from io import BytesIO
 
 # Configuración de la página
 st.title("Generador de Ilustraciones para Capítulos")
-st.write("Sube un archivo Word y genera ilustraciones para cada capítulo.")
+st.write("Sube un archivo Word y genera ilustraciones en estilo lápiz para cada capítulo.")
 
 # Cargar las API keys desde los secretos
 OPENROUTER_API_KEY = st.secrets["OPENROUTER_API_KEY"]
@@ -46,6 +46,9 @@ def get_key_moment(chapter_text):
 
 # Función para generar la ilustración usando Together
 def generate_illustration(prompt):
+    # Modificar el prompt para solicitar un estilo de lápiz
+    pencil_style_prompt = f"{prompt}, estilo lápiz, en blanco y negro"
+    
     response = requests.post(
         "https://api.together.xyz/v1/images/generations",
         headers={
@@ -54,7 +57,7 @@ def generate_illustration(prompt):
         },
         json={
             "model": "black-forest-labs/FLUX.1.1-pro",
-            "prompt": prompt,
+            "prompt": pencil_style_prompt,
             "width": 512,
             "height": 512,
             "steps": 1,
@@ -78,20 +81,22 @@ def create_document(chapters_with_images):
 
 # Cargar archivo Word
 uploaded_file = st.file_uploader("Selecciona un archivo Word", type=["docx"])
+
 if uploaded_file:
-    chapters = extract_chapters(uploaded_file)
-    chapters_with_images = []
-    
-    for chapter in chapters:
-        key_moment = get_key_moment(chapter)
-        if key_moment:
-            image = generate_illustration(key_moment)
-            chapters_with_images.append((chapter, image))
-    
-    # Crear y descargar el nuevo documento Word
-    if st.button("Generar Documento"):
+    if st.button("Enviar"):
+        chapters = extract_chapters(uploaded_file)
+        chapters_with_images = []
+        
+        for chapter in chapters:
+            key_moment = get_key_moment(chapter)
+            if key_moment:
+                image = generate_illustration(key_moment)
+                chapters_with_images.append((chapter, image))
+        
+        # Crear y descargar el nuevo documento Word
         new_doc = create_document(chapters_with_images)
         docx_file_path = "documento_generado.docx"
         new_doc.save(docx_file_path)
+        
         with open(docx_file_path, "rb") as f:
             st.download_button("Descargar Documento Word", f, file_name=docx_file_path, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
