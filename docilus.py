@@ -1,17 +1,11 @@
 import streamlit as st
 from docx import Document
 import requests
+import json
 import base64
-import os
+from PIL import Image
 from io import BytesIO
-
-# Configuración de la página
-st.title("Generador de Ilustraciones para Capítulos")
-st.write("Sube un archivo Word y genera ilustraciones en estilo lápiz para cada capítulo.")
-
-# Cargar las API keys desde los secretos
-OPENROUTER_API_KEY = st.secrets["OPENROUTER_API_KEY"]
-TOGETHER_API_KEY = st.secrets["TOGETHER_API_KEY"]
+from typing import List
 
 # Función para extraer texto de un documento Word
 def extract_chapters(docx_file):
@@ -29,74 +23,128 @@ def extract_chapters(docx_file):
         chapters.append(current_chapter)
     return chapters
 
-# Función para obtener el momento clave usando Open Router
-def get_key_moment(chapter_text):
-    response = requests.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}"
-        },
-        json={
-            "model": "openai/gpt-4o-mini",
-            "messages": [{"role": "user", "content": chapter_text}]
-        }
-    )
-    return response.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-
-# Función para generar la ilustración usando Together
-def generate_illustration(prompt):
-    # Modificar el prompt para solicitar un estilo de lápiz
-    pencil_style_prompt = f"{prompt}, estilo lápiz, en blanco y negro"
+# Función para obtener momentos clave de una fábula
+def get_key_moments(fable: str, api_key: str) -> List[str]:
+    url = "https://api.together.xyz/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
     
-    response = requests.post(
-        "https://api.together.xyz/v1/images/generations",
-        headers={
-            "Authorization": f"Bearer {TOGETHER_API_KEY}",
-            "Content-Type": "application/json"
+    messages = [
+        {
+            "role": "system",
+            "content": "Extrae los momentos clave de la siguiente fábula. Devuelve una lista enumerada de momentos importantes."
         },
-        json={
-            "model": "black-forest-labs/FLUX.1.1-pro",
-            "prompt": pencil_style_prompt,
-            "width": 512,
-            "height": 512,
-            "steps": 1,
-            "n": 1,
-            "response_format": "b64_json"
+        {
+            "role": "user",
+            "content": fable
         }
-    )
-    return response.json().get("data", [{}])[0].get("b64_json", "")
+    ]
+    
+    payload = {
+        "model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+        "messages": messages,
+        "max_tokens": 1500,
+        "temperature": 0.7,
+        "top_p": 0.7,
+        "top_k": 50,
+        "repetition_penalty": 1,
+        "stop": ["<|eot_id|>"],
+        "stream": False
+    }
+    
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    
+    if response.status_code != 200:
+        st.error(f"Error al extraer momentos clave: {response.text}")
+        return []
+    
+    data = response.json()
+    key_moments_text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    
+    # Procesar el texto para obtener una lista de momentos
+    key_moments = []
+    for line in key_moments_text.split('\n'):
+        line = line.strip()
+        if line and (line[0].isdigit() and line[1] == '.'):
+            moment = line.split('.', 1)[1].strip()
+            key_moments.append(moment)
+    
+    return key_moments
 
-# Función para crear un nuevo documento Word
-def create_document(chapters_with_images):
-    doc = Document()
-    for chapter, image in chapters_with_images:
-        doc.add_heading(chapter.split('\n')[0], level=1)
-        doc.add_paragraph(chapter)
-        if image:
-            img_data = base64.b64decode(image)
-            image_stream = BytesIO(img_data)
-            doc.add_picture(image_stream)
-    return doc
+# Función para generar una imagen usando la API de Together
+def generate_image(prompt: str, api_key: str) -> Image.Image:
+    url = "https://api.together.xyz/v1/images/generations"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    # Añadir detalles al prompt para asegurar el estilo deseado
+    full_prompt = f"Dibujo a lápiz en blanco y negro de: {prompt}"
+    
+    payload = {
+        "model": "black-forest-labs/FLUX.1.1-pro",
+        "prompt": full_prompt,
+        "width": 512,
+        "height": 512,
+        "steps": 50,  # Aumentar pasos para mejor calidad
+        "n": 1,
+        "response_format": "b64_json"
+    }
+    
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    
+    if response.status_code != 200:
+        st.error(f"Error al generar la imagen: {response.text}")
+        return None
+    
+    data = response.json()
+    image_data = data.get("data", [])[0].get("b64_json", "")
+    
+    if not image_data:
+        st.error("No se recibió imagen en la respuesta.")
+        return None
+    
+    # Decodificar la imagen de base64
+    image_bytes = base64.b64decode(image_data)
+    image = Image.open(BytesIO(image_bytes))
+    
+    return image
 
-# Cargar archivo Word
+# Interfaz de Streamlit
+st.title("Generador de Ilustraciones a Lápiz para Fábulas")
 uploaded_file = st.file_uploader("Selecciona un archivo Word", type=["docx"])
 
-if uploaded_file:
-    if st.button("Enviar"):
-        chapters = extract_chapters(uploaded_file)
-        chapters_with_images = []
-        
-        for chapter in chapters:
-            key_moment = get_key_moment(chapter)
-            if key_moment:
-                image = generate_illustration(key_moment)
-                chapters_with_images.append((chapter, image))
-        
-        # Crear y descargar el nuevo documento Word
-        new_doc = create_document(chapters_with_images)
-        docx_file_path = "documento_generado.docx"
-        new_doc.save(docx_file_path)
-        
-        with open(docx_file_path, "rb") as f:
-            st.download_button("Descargar Documento Word", f, file_name=docx_file_path, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+# Verificar si la clave API está disponible
+if "TOGETHER_API_KEY" not in st.secrets:
+    st.error("Falta la clave API de Together. Por favor, agrega `TOGETHER_API_KEY` en los secretos de Streamlit.")
+else:
+    together_api_key = st.secrets["TOGETHER_API_KEY"]
+    
+    if uploaded_file:
+        if st.button("Enviar"):
+            chapters = extract_chapters(uploaded_file)
+            st.success(f"Se han extraído {len(chapters)} capítulos.")
+            
+            for chapter in chapters:
+                st.markdown("### Capítulo")
+                st.write(chapter)
+                
+                key_moments = get_key_moments(chapter, together_api_key)
+                
+                if key_moments:
+                    st.success(f"Se han extraído {len(key_moments)} momentos clave.")
+                    
+                    st.markdown("### Ilustraciones Generadas")
+                    
+                    for idx, moment in enumerate(key_moments, 1):
+                        st.markdown(f"**Momento {idx}:** {moment}")
+                        with st.spinner(f"Generando imagen para el momento {idx}..."):
+                            image = generate_image(moment, together_api_key)
+                        
+                        if image:
+                            st.image(image, use_column_width=True)
+                else:
+                    st.error("No se pudieron extraer momentos clave de la fábula.")
