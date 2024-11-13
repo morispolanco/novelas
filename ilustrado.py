@@ -60,8 +60,6 @@ if st.button("Generate Illustration"):
 
             if response.status_code == 200:
                 response_data = response.json()
-                # Debugging output
-                st.write("Assistant's raw response:", response_data)
 
                 # Extract the assistant's message content
                 try:
@@ -72,9 +70,6 @@ if st.button("Generate Illustration"):
                     except KeyError:
                         st.error("Could not find the assistant's response in the API response.")
                         st.stop()
-
-                # Debugging output
-                st.write("Assistant's response text:", assistant_message)
 
                 # Try to parse the assistant's response as JSON
                 try:
