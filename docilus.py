@@ -1,5 +1,7 @@
 import streamlit as st
 from docx import Document
+from docx.shared import Inches, Pt
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 import requests
 import json
 import base64
@@ -93,12 +95,34 @@ def generate_image(prompt: str, api_key: str) -> Optional[Image.Image]:
 def create_word_document(chapters: List[str], images: List[Image.Image]) -> BytesIO:
     new_doc = Document()
     
+    # Configurar el tamaño de página y márgenes
+    section = new_doc.sections[0]
+    section.page_width = Inches(7.5)
+    section.page_height = Inches(7.5)
+    section.top_margin = Inches(1)
+    section.bottom_margin = Inches(1)
+    section.left_margin = Inches(1)
+    section.right_margin = Inches(1)
+    
+    # Definir estilos para los párrafos
+    style = new_doc.styles['Normal']
+    font = style.font
+    font.name = 'Arial'  # Puedes cambiar a otra fuente si lo prefieres
+    font.size = Pt(14)
+    
+    # Configurar interlineado y espacio después
+    paragraph_format = style.paragraph_format
+    paragraph_format.line_spacing = 1.15
+    paragraph_format.space_after = Pt(10)
+    paragraph_format.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+    
     for idx, (chapter, image) in enumerate(zip(chapters, images), 1):
         # Añadir el capítulo como un encabezado (Heading 1)
         new_doc.add_heading(f"Capítulo {idx}", level=1)
         
         # Añadir el texto del capítulo
-        new_doc.add_paragraph(chapter)
+        para = new_doc.add_paragraph(chapter)
+        para.style = 'Normal'
         
         # Añadir la ilustración
         if image:
@@ -107,8 +131,8 @@ def create_word_document(chapters: List[str], images: List[Image.Image]) -> Byte
             image.save(img_buffer, format='PNG')
             img_buffer.seek(0)
             
-            # Añadir la imagen al documento
-            new_doc.add_picture(img_buffer, width=Inches(4))  # Ajustar el ancho según sea necesario
+            # Añadir la imagen al documento con tamaño 5.5 x 5.5 pulgadas
+            new_doc.add_picture(img_buffer, width=Inches(5.5), height=Inches(5.5))
             
             # Añadir un espacio después de la imagen
             new_doc.add_paragraph("\n")
@@ -119,9 +143,6 @@ def create_word_document(chapters: List[str], images: List[Image.Image]) -> Byte
     doc_buffer.seek(0)
     
     return doc_buffer
-
-# Importar Inches para ajustar el tamaño de las imágenes en el documento
-from docx.shared import Inches
 
 # Interfaz de Streamlit
 def main():
