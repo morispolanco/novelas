@@ -26,15 +26,18 @@ def extract_chapters(docx_file) -> List[str]:
         chapters.append(current_chapter)
     return chapters
 
-# Función para generar un prompt adecuado para niños de 10 años
+# Función para generar un prompt adecuado para adultos
 def generate_prompt(chapter: str) -> str:
-    # Aquí podrías implementar una función de resumen más avanzada si es necesario.
+    # Separar el capítulo en párrafos
     paragraphs = chapter.strip().split('\n')
-    if paragraphs:
+    # Crear un resumen simple utilizando los primeros párrafos
+    if len(paragraphs) >= 2:
+        summary = ' '.join(paragraphs[:2])  # Usa los dos primeros párrafos como resumen
+    elif paragraphs:
         summary = paragraphs[0]
     else:
         summary = chapter
-    prompt = f"Ilustración para niños de 10 años que represente: {summary}"
+    prompt = f"Ilustración a lápiz para adultos que represente: {summary}"
     return prompt
 
 # Función para generar una imagen usando la API de Together
@@ -46,7 +49,7 @@ def generate_image(prompt: str, api_key: str) -> Optional[Image.Image]:
     }
     
     # Preparar el prompt detallado
-    full_prompt = f"Dibujo a lápiz en blanco y negro adecuado para niños de 10 años de edad: {prompt}"
+    full_prompt = f"Dibujo a lápiz en blanco y negro adecuado para adultos: {prompt}"
     
     # Obtener la fecha y hora actual en formato ISO para 'update_at'
     update_at = datetime.utcnow().isoformat() + "Z"
@@ -107,7 +110,7 @@ def create_word_document(chapters: List[str], images: List[Image.Image]) -> Byte
     # Definir estilos para los párrafos
     style = new_doc.styles['Normal']
     font = style.font
-    font.name = 'Arial'  # Puedes cambiar a otra fuente si lo prefieres
+    font.name = 'Alegreya'  # Cambiado a 'Alegreya'
     font.size = Pt(14)
     
     # Configurar interlineado y espacio después
@@ -120,9 +123,12 @@ def create_word_document(chapters: List[str], images: List[Image.Image]) -> Byte
         # Añadir el capítulo como un encabezado (Heading 1)
         new_doc.add_heading(f"Capítulo {idx}", level=1)
         
-        # Añadir el texto del capítulo
-        para = new_doc.add_paragraph(chapter)
-        para.style = 'Normal'
+        # Añadir el texto del capítulo, separando en párrafos
+        paragraphs = chapter.strip().split('\n')
+        for para_text in paragraphs:
+            if para_text.strip():  # Evitar párrafos vacíos
+                para = new_doc.add_paragraph(para_text.strip())
+                para.style = 'Normal'
         
         # Añadir la ilustración
         if image:
@@ -134,8 +140,8 @@ def create_word_document(chapters: List[str], images: List[Image.Image]) -> Byte
             # Añadir la imagen al documento con tamaño 5.5 x 5.5 pulgadas
             new_doc.add_picture(img_buffer, width=Inches(5.5), height=Inches(5.5))
             
-            # Añadir un espacio después de la imagen
-            new_doc.add_paragraph("\n")
+            # Añadir un salto de párrafo después de la imagen
+            new_doc.add_paragraph()
     
     # Guardar el documento en un buffer BytesIO
     doc_buffer = BytesIO()
