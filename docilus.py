@@ -29,7 +29,7 @@ def extract_chapters(docx_file) -> List[str]:
         chapters.append(current_chapter)
     return chapters
 
-# Función para generar un prompt adecuado para adultos
+# Función para generar un prompt adecuado para adultos en el estilo de Gustave Doré
 def generate_prompt(chapter: str) -> str:
     # Separar el capítulo en párrafos
     paragraphs = chapter.strip().split('\n')
@@ -40,7 +40,7 @@ def generate_prompt(chapter: str) -> str:
         summary = paragraphs[0]
     else:
         summary = chapter
-    prompt = f"Ilustración a lápiz para adultos que represente: {summary}"
+    prompt = f"Ilustración en estilo Gustave Doré que represente: {summary}"
     return prompt
 
 # Función para generar una imagen usando la API de Together
@@ -52,7 +52,7 @@ def generate_image(prompt: str, api_key: str) -> Optional[Image.Image]:
     }
     
     # Preparar el prompt detallado
-    full_prompt = f"Dibujo a lápiz en blanco y negro adecuado para adultos: {prompt}"
+    full_prompt = f"Dibujo en estilo Gustave Doré, blanco y negro, detallado: {prompt}"
     
     # Obtener la fecha y hora actual en formato ISO para 'update_at'
     update_at = datetime.utcnow().isoformat() + "Z"
