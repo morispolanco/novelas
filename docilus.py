@@ -24,10 +24,9 @@ def extract_chapters(docx_file) -> List[str]:
         chapters.append(current_chapter)
     return chapters
 
-# Función para resumir el capítulo y generar un prompt adecuado para niños de 10 años
+# Función para generar un prompt adecuado para niños de 10 años
 def generate_prompt(chapter: str) -> str:
-    # Aquí podrías implementar una función de resumen si es necesario.
-    # Por simplicidad, usaremos el primer párrafo como resumen.
+    # Aquí podrías implementar una función de resumen más avanzada si es necesario.
     paragraphs = chapter.strip().split('\n')
     if paragraphs:
         summary = paragraphs[0]
@@ -44,8 +43,7 @@ def generate_image(prompt: str, api_key: str) -> Optional[Image.Image]:
         "Content-Type": "application/json"
     }
     
-    # Añadir detalles al prompt para asegurar el estilo deseado
-    # Adaptamos el prompt para que sea adecuado para niños de 10 años
+    # Preparar el prompt detallado
     full_prompt = f"Dibujo a lápiz en blanco y negro adecuado para niños de 10 años de edad: {prompt}"
     
     # Obtener la fecha y hora actual en formato ISO para 'update_at'
@@ -54,10 +52,10 @@ def generate_image(prompt: str, api_key: str) -> Optional[Image.Image]:
     payload = {
         "model": "black-forest-labs/FLUX.1-pro",
         "prompt": full_prompt,
-        "width": 512, 
-        "height": 512, 
-        "steps": 28,  # Ajustado según el comando curl proporcionado
-        "n": 1,
+        "width": 512,      # Ancho de la imagen en píxeles
+        "height": 512,     # Alto de la imagen en píxeles
+        "steps": 28,       # Número de pasos para la generación
+        "n": 1,            # Número de imágenes a generar
         "response_format": "b64_json",
         "update_at": update_at
     }
@@ -80,6 +78,12 @@ def generate_image(prompt: str, api_key: str) -> Optional[Image.Image]:
         # Decodificar la imagen de base64
         image_bytes = base64.b64decode(image_data)
         image = Image.open(BytesIO(image_bytes))
+        
+        # Verificar dimensiones de la imagen
+        if image.size != (512, 512):
+            st.warning(f"La imagen generada tiene un tamaño de {image.size}, redimensionando a 512x512.")
+            image = image.resize((512, 512))
+        
         return image
     except Exception as e:
         st.error(f"Error al procesar la imagen: {e}")
@@ -117,7 +121,7 @@ def main():
                     image = generate_image(prompt, together_api_key)
                 
                 if image:
-                    st.image(image, use_column_width=True)
+                    st.image(image, caption=f"Ilustración del Capítulo {idx}", use_column_width=True)
                 else:
                     st.error(f"No se pudo generar la imagen para el Capítulo {idx}.")
 
