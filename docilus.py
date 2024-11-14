@@ -2,6 +2,9 @@ import streamlit as st
 from docx import Document
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+from docx.enum.section import WD_SECTION_START
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 import requests
 import json
 import base64
@@ -30,7 +33,7 @@ def extract_chapters(docx_file) -> List[str]:
 def generate_prompt(chapter: str) -> str:
     # Separar el capítulo en párrafos
     paragraphs = chapter.strip().split('\n')
-    # Crear un resumen simple utilizando los primeros párrafos
+    # Crear un resumen simple utilizando los dos primeros párrafos
     if len(paragraphs) >= 2:
         summary = ' '.join(paragraphs[:2])  # Usa los dos primeros párrafos como resumen
     elif paragraphs:
@@ -94,6 +97,24 @@ def generate_image(prompt: str, api_key: str) -> Optional[Image.Image]:
         st.error(f"Error al procesar la imagen: {e}")
         return None
 
+# Función para añadir un salto de sección que inicia en página impar
+def add_section_break(document):
+    # Añadir un salto de página
+    run = document.add_paragraph().add_run()
+    run.add_break()
+    
+    # Crear un nuevo elemento de propiedades de sección
+    sectPr = OxmlElement('w:sectPr')
+    
+    # Establecer el tipo de sección a 'nextOddPage'
+    type_elem = OxmlElement('w:type')
+    type_elem.set(qn('w:val'), 'nextOddPage')
+    sectPr.append(type_elem)
+    
+    # Agregar las propiedades de sección al último párrafo
+    last_paragraph = document.paragraphs[-1]
+    last_paragraph._p.append(sectPr)
+
 # Función para crear un nuevo documento Word con capítulos e ilustraciones
 def create_word_document(chapters: List[str], images: List[Image.Image]) -> BytesIO:
     new_doc = Document()
@@ -120,6 +141,10 @@ def create_word_document(chapters: List[str], images: List[Image.Image]) -> Byte
     paragraph_format.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
     
     for idx, (chapter, image) in enumerate(zip(chapters, images), 1):
+        if idx > 1:
+            # Insertar un salto de sección para iniciar en página impar
+            add_section_break(new_doc)
+        
         # Añadir el capítulo como un encabezado (Heading 1)
         new_doc.add_heading(f"Capítulo {idx}", level=1)
         
