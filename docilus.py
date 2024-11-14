@@ -10,16 +10,19 @@ from io import BytesIO
 from typing import List, Optional
 from datetime import datetime
 
-# Función para extraer texto de un documento Word
+# Función para extraer texto de un documento Word basado en "CHAPTER" (case-sensitive)
 def extract_chapters(docx_file) -> List[str]:
     doc = Document(docx_file)
     chapters = []
     current_chapter = ""
     for para in doc.paragraphs:
-        if para.style.name.startswith('Heading'):
+        text = para.text.strip()
+        # Detectar si el párrafo comienza exactamente con "CHAPTER" en mayúsculas
+        if text.startswith("CHAPTER"):
             if current_chapter:
                 chapters.append(current_chapter)
-            current_chapter = para.text + "\n"
+            current_chapter = ""  # Iniciar un nuevo capítulo
+            continue  # Saltar el párrafo que contiene "CHAPTER X"
         else:
             current_chapter += para.text + "\n"
     if current_chapter:
