@@ -5,10 +5,11 @@ import json
 import base64
 from PIL import Image
 from io import BytesIO
-from typing import List
+from typing import List, Optional
+from datetime import datetime
 
 # Función para extraer texto de un documento Word
-def extract_chapters(docx_file):
+def extract_chapters(docx_file) -> List[str]:
     doc = Document(docx_file)
     chapters = []
     current_chapter = ""
@@ -23,58 +24,20 @@ def extract_chapters(docx_file):
         chapters.append(current_chapter)
     return chapters
 
-# Función para obtener momentos clave de una fábula
-def get_key_moments(fable: str, api_key: str) -> List[str]:
-    url = "https://api.together.xyz/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
-    
-    messages = [
-        {
-            "role": "system",
-            "content": "Extrae los momentos clave de la siguiente fábula. Devuelve una lista enumerada de momentos importantes."
-        },
-        {
-            "role": "user",
-            "content": fable
-        }
-    ]
-    
-    payload = {
-        "model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
-        "messages": messages,
-        "max_tokens": 1500,
-        "temperature": 0.7,
-        "top_p": 0.7,
-        "top_k": 50,
-        "repetition_penalty": 1,
-        "stop": ["<|eot_id|>"],
-        "stream": False
-    }
-    
-    response = requests.post(url, headers=headers, data=json.dumps(payload))
-    
-    if response.status_code != 200:
-        st.error(f"Error al extraer momentos clave: {response.text}")
-        return []
-    
-    data = response.json()
-    key_moments_text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-    
-    # Procesar el texto para obtener una lista de momentos
-    key_moments = []
-    for line in key_moments_text.split('\n'):
-        line = line.strip()
-        if line and (line[0].isdigit() and line[1] == '.'):
-            moment = line.split('.', 1)[1].strip()
-            key_moments.append(moment)
-    
-    return key_moments
+# Función para resumir el capítulo y generar un prompt adecuado para niños de 10 años
+def generate_prompt(chapter: str) -> str:
+    # Aquí podrías implementar una función de resumen si es necesario.
+    # Por simplicidad, usaremos el primer párrafo como resumen.
+    paragraphs = chapter.strip().split('\n')
+    if paragraphs:
+        summary = paragraphs[0]
+    else:
+        summary = chapter
+    prompt = f"Ilustración para niños de 10 años que represente: {summary}"
+    return prompt
 
 # Función para generar una imagen usando la API de Together
-def generate_image(prompt: str, api_key: str) -> Image.Image:
+def generate_image(prompt: str, api_key: str) -> Optional[Image.Image]:
     url = "https://api.together.xyz/v1/images/generations"
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -82,22 +45,28 @@ def generate_image(prompt: str, api_key: str) -> Image.Image:
     }
     
     # Añadir detalles al prompt para asegurar el estilo deseado
-    full_prompt = f"Dibujo a lápiz en blanco y negro de: {prompt}"
+    # Adaptamos el prompt para que sea adecuado para niños de 10 años
+    full_prompt = f"Dibujo a lápiz en blanco y negro adecuado para niños de 10 años de edad: {prompt}"
+    
+    # Obtener la fecha y hora actual en formato ISO para 'update_at'
+    update_at = datetime.utcnow().isoformat() + "Z"
     
     payload = {
-        "model": "black-forest-labs/FLUX.1.1-pro",
+        "model": "black-forest-labs/FLUX.1-pro",
         "prompt": full_prompt,
-        "width": 512,
-        "height": 512,
-        "steps": 50,  # Aumentar pasos para mejor calidad
+        "width": 512, 
+        "height": 512, 
+        "steps": 28,  # Ajustado según el comando curl proporcionado
         "n": 1,
-        "response_format": "b64_json"
+        "response_format": "b64_json",
+        "update_at": update_at
     }
     
-    response = requests.post(url, headers=headers, data=json.dumps(payload))
-    
-    if response.status_code != 200:
-        st.error(f"Error al generar la imagen: {response.text}")
+    try:
+        response = requests.post(url, headers=headers, data=json.dumps(payload))
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error al generar la imagen: {e}")
         return None
     
     data = response.json()
@@ -107,44 +76,50 @@ def generate_image(prompt: str, api_key: str) -> Image.Image:
         st.error("No se recibió imagen en la respuesta.")
         return None
     
-    # Decodificar la imagen de base64
-    image_bytes = base64.b64decode(image_data)
-    image = Image.open(BytesIO(image_bytes))
-    
-    return image
+    try:
+        # Decodificar la imagen de base64
+        image_bytes = base64.b64decode(image_data)
+        image = Image.open(BytesIO(image_bytes))
+        return image
+    except Exception as e:
+        st.error(f"Error al procesar la imagen: {e}")
+        return None
 
 # Interfaz de Streamlit
-st.title("Generador de Ilustraciones a Lápiz para Fábulas")
-uploaded_file = st.file_uploader("Selecciona un archivo Word", type=["docx"])
-
-# Verificar si la clave API está disponible
-if "TOGETHER_API_KEY" not in st.secrets:
-    st.error("Falta la clave API de Together. Por favor, agrega `TOGETHER_API_KEY` en los secretos de Streamlit.")
-else:
+def main():
+    st.set_page_config(page_title="Generador de Ilustraciones para Fábulas", layout="wide")
+    st.title("Generador de Ilustraciones para Fábulas")
+    
+    uploaded_file = st.file_uploader("Selecciona un archivo Word", type=["docx"])
+    
+    # Verificar si la clave API está disponible
+    if "TOGETHER_API_KEY" not in st.secrets:
+        st.error("Falta la clave API de Together. Por favor, agrega `TOGETHER_API_KEY` en los secretos de Streamlit.")
+        st.stop()
+    
     together_api_key = st.secrets["TOGETHER_API_KEY"]
     
     if uploaded_file:
-        if st.button("Enviar"):
-            chapters = extract_chapters(uploaded_file)
-            st.success(f"Se han extraído {len(chapters)} capítulos.")
+        if st.button("Generar Ilustraciones"):
+            with st.spinner("Extrayendo capítulos del documento..."):
+                chapters = extract_chapters(uploaded_file)
             
-            for chapter in chapters:
-                st.markdown("### Capítulo")
+            st.success(f"Se han extraído {len(chapters)} capítulo(s).")
+            
+            for idx, chapter in enumerate(chapters, 1):
+                st.markdown(f"## Capítulo {idx}")
                 st.write(chapter)
                 
-                key_moments = get_key_moments(chapter, together_api_key)
+                prompt = generate_prompt(chapter)
                 
-                if key_moments:
-                    st.success(f"Se han extraído {len(key_moments)} momentos clave.")
-                    
-                    st.markdown("### Ilustraciones Generadas")
-                    
-                    for idx, moment in enumerate(key_moments, 1):
-                        st.markdown(f"**Momento {idx}:** {moment}")
-                        with st.spinner(f"Generando imagen para el momento {idx}..."):
-                            image = generate_image(moment, together_api_key)
-                        
-                        if image:
-                            st.image(image, use_column_width=True)
+                st.markdown(f"### Ilustración del Capítulo {idx}:")
+                with st.spinner(f"Generando imagen para el Capítulo {idx}..."):
+                    image = generate_image(prompt, together_api_key)
+                
+                if image:
+                    st.image(image, use_column_width=True)
                 else:
-                    st.error("No se pudieron extraer momentos clave de la fábula.")
+                    st.error(f"No se pudo generar la imagen para el Capítulo {idx}.")
+
+if __name__ == "__main__":
+    main()
