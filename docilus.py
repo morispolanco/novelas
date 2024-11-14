@@ -91,7 +91,7 @@ def generate_image(prompt: str, api_key: str) -> Optional[Image.Image]:
 
 # Interfaz de Streamlit
 def main():
-    st.set_page_config(page_title="Generador de Ilustraciones para Fábulas", layout="wide")
+    st.set_page_config(page_title="Generador de Ilustraciones para Fábulas")
     st.title("Generador de Ilustraciones para Fábulas")
     
     uploaded_file = st.file_uploader("Selecciona un archivo Word", type=["docx"])
