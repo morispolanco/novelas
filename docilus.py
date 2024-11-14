@@ -89,9 +89,43 @@ def generate_image(prompt: str, api_key: str) -> Optional[Image.Image]:
         st.error(f"Error al procesar la imagen: {e}")
         return None
 
+# Función para crear un nuevo documento Word con capítulos e ilustraciones
+def create_word_document(chapters: List[str], images: List[Image.Image]) -> BytesIO:
+    new_doc = Document()
+    
+    for idx, (chapter, image) in enumerate(zip(chapters, images), 1):
+        # Añadir el capítulo como un encabezado (Heading 1)
+        new_doc.add_heading(f"Capítulo {idx}", level=1)
+        
+        # Añadir el texto del capítulo
+        new_doc.add_paragraph(chapter)
+        
+        # Añadir la ilustración
+        if image:
+            # Guardar la imagen en un buffer BytesIO
+            img_buffer = BytesIO()
+            image.save(img_buffer, format='PNG')
+            img_buffer.seek(0)
+            
+            # Añadir la imagen al documento
+            new_doc.add_picture(img_buffer, width=Inches(4))  # Ajustar el ancho según sea necesario
+            
+            # Añadir un espacio después de la imagen
+            new_doc.add_paragraph("\n")
+    
+    # Guardar el documento en un buffer BytesIO
+    doc_buffer = BytesIO()
+    new_doc.save(doc_buffer)
+    doc_buffer.seek(0)
+    
+    return doc_buffer
+
+# Importar Inches para ajustar el tamaño de las imágenes en el documento
+from docx.shared import Inches
+
 # Interfaz de Streamlit
 def main():
-    st.set_page_config(page_title="Generador de Ilustraciones para Fábulas")
+    st.set_page_config(page_title="Generador de Ilustraciones para Fábulas", layout="wide")
     st.title("Generador de Ilustraciones para Fábulas")
     
     uploaded_file = st.file_uploader("Selecciona un archivo Word", type=["docx"])
@@ -104,26 +138,34 @@ def main():
     together_api_key = st.secrets["TOGETHER_API_KEY"]
     
     if uploaded_file:
-        if st.button("Generar Ilustraciones"):
-            with st.spinner("Extrayendo capítulos del documento..."):
+        if st.button("Generar Documento con Ilustraciones"):
+            with st.spinner("Procesando el documento..."):
+                # Extraer capítulos del documento subido
                 chapters = extract_chapters(uploaded_file)
             
             st.success(f"Se han extraído {len(chapters)} capítulo(s).")
             
+            images = []
             for idx, chapter in enumerate(chapters, 1):
-                st.markdown(f"## Capítulo {idx}")
-                st.write(chapter)
-                
                 prompt = generate_prompt(chapter)
                 
-                st.markdown(f"### Ilustración del Capítulo {idx}:")
                 with st.spinner(f"Generando imagen para el Capítulo {idx}..."):
                     image = generate_image(prompt, together_api_key)
-                
-                if image:
-                    st.image(image, caption=f"Ilustración del Capítulo {idx}", use_column_width=True)
-                else:
-                    st.error(f"No se pudo generar la imagen para el Capítulo {idx}.")
+                    images.append(image)
+            
+            # Crear el nuevo documento Word con capítulos e ilustraciones
+            with st.spinner("Creando el nuevo documento Word..."):
+                doc_buffer = create_word_document(chapters, images)
+            
+            st.success("Documento Word generado exitosamente.")
+            
+            # Ofrecer el documento para descarga
+            st.download_button(
+                label="Descargar Documento con Ilustraciones",
+                data=doc_buffer,
+                file_name="fábula_con_ilustraciones.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
 
 if __name__ == "__main__":
     main()
